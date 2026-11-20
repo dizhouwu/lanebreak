@@ -9,6 +9,9 @@
   const xpGoal = level => 200 + 100 * (level - 1);
   const owns = (object, id) => Object.hasOwn(object, id);
   const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4 };
+  const CREEP_AGGRO_RANGE = 500;
+  const CREEP_AGGRO_TIME = 2.3;
+  const CREEP_AGGRO_COOLDOWN = 3;
   const spellDamage = (hero, spell) => spell.damage ? Math.round((spell.damage + spell.growth * (hero.level - 1)) * hero.stats.power) : 0;
   function randomGenerator(seed) {
     return () => {
@@ -24,19 +27,24 @@
     return { x: clamp(unit.x + (x - unit.x) * factor, ground ? 30 : 20, WIDTH - (ground ? 30 : 20)),
       y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, ground ? 860 : HEIGHT - 20) };
   }
-  function buyPlan(hero, id) {
+  function buyPlan(hero, id, showRecipe = false) {
     if (!owns(ITEMS, id)) return null;
     const consumed = [];
-    function price(key, root) {
+    function price(key, branch, root = false) {
+      const node = branch && { id: key, owned: false, parts: [] };
+      if (node) branch.push(node);
       const slot = hero.inventory.findIndex((item, i) => item.id === key && !consumed.includes(i));
       if (!root && slot >= 0) {
         consumed.push(slot);
+        if (node) node.owned = true;
         return 0;
       }
       const item = ITEMS[key];
-      return item.cost + (item.parts || []).reduce((sum, part) => sum + price(part, false), 0);
+      return item.cost + (item.parts || []).reduce((sum, part) => sum + price(part, node?.parts), 0);
     }
-    return { cost: price(id, true), consumed };
+    const tree = showRecipe ? [] : null;
+    const cost = price(id, tree, true);
+    return tree ? { cost, consumed, recipe: tree[0] } : { cost, consumed };
   }
   function sellValue(item, time) {
     return time - item.at <= 10 ? item.spent : Math.floor(ITEMS[item.id].total / 2);
@@ -52,11 +60,11 @@
     else if (hero.gold + 1e-6 < plan.cost) reason = 'Need ' + Math.ceil(plan.cost - hero.gold) + ' more gold';
     return { ...plan, reason };
   }
-  function pickTarget(snapshot, team, point) {
+  function pickTarget(snapshot, team, point, includeAlliedCreeps = false) {
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
-    return pickUnit(snapshot, point, team);
+    return pickUnit(snapshot, point, team, includeAlliedCreeps);
   }
-  function pickUnit(snapshot, point, attackTeam) {
+  function pickUnit(snapshot, point, attackTeam, includeAlliedCreeps = false) {
     let best = null, nearest = Infinity;
     function consider(id, side, x, y, r, height) {
       const d = Math.min(Math.hypot(x - point.x, y - point.y), Math.hypot(x - point.x, y - height - point.y));
@@ -71,7 +79,9 @@
       if (b.hp > 0 && b.team !== attackTeam && (attackTeam == null || !b.protected)) consider(b.id, b.team, b.x, b.y, b.r, 44);
     }
     for (const [id, side, kind, x, y, hp, , , radius, , flags] of snapshot.creeps) {
-      if (hp > 0 && (side !== attackTeam || flags & CREEP_FLAGS.deniable)) consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
+      if (hp > 0 && (side !== attackTeam || includeAlliedCreeps || flags & CREEP_FLAGS.deniable)) {
+        consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
+      }
     }
     return best;
   }
@@ -292,15 +302,30 @@
       const windup = a.type === 'hero' ? .28 : a.type === 'building' ? .2 : .35;
       a.windup = { target: target.id, time: this.time + windup / this.attackSpeed(a) };
       a.facing = Math.atan2(target.y - a.y, target.x - a.x);
-      if (a.type === 'hero' && target.type === 'hero') this.aggro(a, target);
+      if (a.type === 'hero' && target.type === 'hero') a.recentAggro = this.time;
       return true;
     }
-    aggro(a, b) {
-      a.recentAggro = this.time;
-      for (const creep of this.creeps) if (creep.hp > 0 && creep.team === b.team && distance(a, creep) <= 480) {
-        creep.target = a.id;
-        creep.forcedUntil = this.time + 2.2;
+    focusCreep(creep, target) {
+      creep.target = target.id;
+      creep.forcedUntil = this.time + CREEP_AGGRO_TIME;
+      if (creep.windup?.target !== target.id) creep.windup = null;
+    }
+    drawCreepAggro(hero) {
+      for (const creep of this.nearbyCreeps(hero, 1 - hero.team, CREEP_AGGRO_RANGE)) {
+        if (creep.aggroReady > this.time) continue;
+        this.focusCreep(creep, hero);
+        creep.aggroReady = this.time + CREEP_AGGRO_COOLDOWN;
       }
+    }
+    transferCreepAggro(hero, ally) {
+      let transferred = false;
+      for (const creep of this.nearbyCreeps(ally, 1 - hero.team, CREEP_AGGRO_RANGE)) {
+        if (creep.target !== hero.id && creep.windup?.target !== hero.id) continue;
+        this.focusCreep(creep, ally);
+        transferred = true;
+      }
+      if (transferred && !hero.bot) this.notice(hero.team, 'Creep aggro transferred');
+      return transferred;
     }
     finishAttack(a, spec) {
       if (!a.windup) return false;
@@ -471,10 +496,17 @@
         case 'attack': {
           const target = this.units.get(id);
           if (!target || target.hp <= 0 || this.protected(target) ||
-            (target.team === team && (target.type !== 'creep' || target.hp >= target.maxHp / 2))) return 'Invalid attack target';
-          h.order = { o, id };
+            (target.team === team && target.type !== 'creep')) return 'Invalid attack target';
+          if (target.team === team) {
+            const transferred = this.transferCreepAggro(h, target);
+            h.order = target.hp < target.maxHp / 2 ? { o, id } :
+              transferred ? { o:'stop' } : { o:'move', ...point(h, target.x, target.y) };
+          } else {
+            if (target.type === 'hero') this.drawCreepAggro(h);
+            h.order = { o, id };
+          }
           h.channel = 0;
-          if (h.windup?.target !== id) h.windup = null;
+          if (h.order.o !== 'attack' || h.windup?.target !== id) h.windup = null;
           break;
         }
         case 'stop':
@@ -612,7 +644,8 @@
       if (this.finishAttack(c, c)) return;
       let target = this.units.get(c.target);
       if (target && (target.hp <= 0 || this.protected(target) || distance(c, target) > 720)) target = null;
-      if (!(c.forcedUntil > this.time) && (!target || this.time >= c.scan)) {
+      if (!target || (!(c.forcedUntil > this.time) && this.time >= c.scan)) {
+        c.forcedUntil = 0;
         target = this.nearest(c, 480);
         c.scan = this.time + .4;
       }

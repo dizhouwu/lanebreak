@@ -125,7 +125,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .hudTooltip{position:fixed;z-index:4;width:min(275px,calc(100vw - 16px));padding:10px;font-size:.84rem;white-space:pre-line;line-height:1.35;pointer-events:none}
 .shop{position:absolute;inset:auto 12px 113px auto;width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 178px);display:flex;flex-direction:column;padding:12px;z-index:3}
 .shop header,dialog header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
-.shopContent{display:grid;grid-template-columns:minmax(0,2fr) minmax(150px,1fr);gap:9px;min-height:0;align-items:start}
+.shopContent{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:9px;min-height:0;align-items:start}
 #shopItems{overflow:auto;overscroll-behavior:contain;padding-right:4px}
 .shopContent #shopItems,.shopDetails{max-height:100%}
 .shopDetails{overflow:auto;padding:10px;border:1px solid #53615d75;border-radius:5px;background:#25332c55;line-height:1.4;font-size:.81rem}
@@ -136,15 +136,23 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .shopGroup{margin:3px 0 11px}
 .shopGroup h3{font-size:.78rem;color:var(--gold);margin:3px 0 6px;text-transform:uppercase;letter-spacing:.08em}
 .itemGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
-.itemGrid button{text-align:left;font-size:.82rem;min-height:38px;padding:6px;display:flex;align-items:center;justify-content:space-between;gap:4px}
-.itemGrid button[data-buyable=true]{border-color:#7c694d}
-.itemGrid button[data-buyable=true]:hover{border-color:#ffe0a2;background:#352c20}
-.itemGrid button[aria-disabled=true]{color:#a3ada9}
-.itemGrid button:focus-visible{outline-offset:-2px}
-.itemGrid small{display:block;color:#9cc4ff;font-size:.7rem}
-.itemGrid .itemPrice{text-align:right;white-space:nowrap}
-.itemGrid b{display:inline-block;padding:3px 5px;border-radius:3px;background:#e7bb75;color:#261b0e;font-size:.76rem}
-.itemGrid button[aria-disabled=true] b{background:#232c2b;color:#c6bfad}
+.shopItem{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px;align-items:center;padding:3px;border:1px solid #394748;border-radius:5px;background:#182426}
+.shopSelect{text-align:left;font-size:.8rem;min-height:32px;padding:3px 4px;background:transparent;border-color:transparent;overflow-wrap:anywhere}
+.shopSelect[aria-pressed=true]{border-color:#a68855;background:#30281c}
+.shopSelect small{display:block;color:#9cc4ff;font-size:.67rem}
+.shopSelect small:empty{display:none}
+.shopBuy{white-space:nowrap;min-height:26px;padding:3px 5px;border:1px solid #e7bb75;background:#e7bb75;color:#261b0e;font-weight:750;font-size:.75rem}
+.shopBuy[data-buyable=true]:hover{border-color:#fff0ba;background:#ffe0a2}
+.shopBuy[aria-disabled=true]{border-color:#44524b;background:#232c2b;color:#c6bfad}
+.shopItem button:focus-visible,.recipeRow button:focus-visible{outline-offset:-1px}
+#shopRecipe h4{margin:9px 0 5px;font-size:.8rem;color:var(--gold)}
+.recipeTree,.recipeTree ul{list-style:none;padding:0;margin:0}
+.recipeTree ul{margin-left:6px;padding-left:10px;border-left:1px solid #8a7451}
+.recipeTree li{position:relative;margin-top:4px}
+.recipeTree ul>li::before{content:"";position:absolute;left:-10px;top:13px;width:9px;border-top:1px solid #8a7451}
+.recipeRow{display:flex;justify-content:space-between;align-items:center;gap:4px;min-height:29px;padding:2px 4px;border:1px solid #49554f;border-radius:4px;background:#192524}
+.recipeRow span{min-width:0;overflow-wrap:anywhere}
+.recipeRow small{white-space:nowrap}
 .inspectPanel{position:absolute;z-index:2;top:63px;left:12px;width:min(258px,calc(100vw - 24px));padding:10px;display:grid;gap:5px}
 .inspectPanel header{display:flex;justify-content:space-between;gap:8px;align-items:center}
 .inspectPanel h2{font-size:1rem;margin:0 0 2px;overflow-wrap:anywhere}
@@ -171,7 +179,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
 @media(max-width:1150px){.minimapPanel{bottom:91px}#feed{bottom:135px}}
 @media(max-width:790px){.lobbyControls{grid-template-columns:1fr;gap:13px}.deploy{max-width:390px;width:100%}.titleBlock{padding:34px 0 23px}.heroCard{min-height:140px}.scoreboard{min-width:125px;gap:6px}.matchTools small{display:none}.topActions{gap:2px}}
 @media(max-width:720px){.heroHud{grid-template-columns:minmax(0,1fr) 73px 69px;gap:5px}.heroVitals{grid-column:1/3;grid-row:1}.economy{grid-column:3;grid-row:1/3}.abilities{grid-column:1;grid-row:2}.itemsBlock{grid-column:2;grid-row:2}#heroBadge{width:44px;height:44px}.meter.health{height:13px}.meter.health span{line-height:13px}.minimapPanel{bottom:124px}#feed{bottom:158px}#hint,.shop{bottom:143px}}
-@media(max-width:530px){.matchTop{padding:5px;gap:3px}.matchReadout{font-size:.63rem}.topActions #quality,.topActions #gameHelp{display:none}.topActions .iconButton{font-size:.62rem;padding:2px 3px}.heroCard{padding:7px;min-height:112px}.heroGrid{gap:5px}.brand{font-size:.8rem}.titleBlock h1{font-size:clamp(2.6rem,13vw,4rem)}.shop{right:6px;width:calc(100vw - 12px)}.abilityName{font-size:.55rem;overflow:hidden;text-overflow:ellipsis}.abilities button{height:37px}.shopContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.shopDetails{max-height:100px}.itemGrid button{min-height:32px}}
+@media(max-width:530px){.matchTop{padding:5px;gap:3px}.matchReadout{font-size:.63rem}.topActions #quality,.topActions #gameHelp{display:none}.topActions .iconButton{font-size:.62rem;padding:2px 3px}.heroCard{padding:7px;min-height:112px}.heroGrid{gap:5px}.brand{font-size:.8rem}.titleBlock h1{font-size:clamp(2.6rem,13vw,4rem)}.shop{right:6px;width:calc(100vw - 12px)}.abilityName{font-size:.55rem;overflow:hidden;text-overflow:ellipsis}.abilities button{height:37px}.shopContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.shopDetails{max-height:min(38dvh,240px)}}
 @media(max-width:600px){#shop:not([hidden]) + #inspectPanel{visibility:hidden}.inspectPanel{top:69px}}
 </style>
 </head>
@@ -224,7 +232,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <aside id="shop" class="panel shop" hidden aria-label="Item shop">
       <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
       <div id="shopFeedback" role="status" hidden></div>
-      <div class="shopContent"><div id="shopItems"></div><div id="shopDetails" class="shopDetails"></div></div>
+      <div class="shopContent">
+        <div id="shopItems"></div>
+        <div id="shopDetails" class="shopDetails"><div id="shopDetailsText"></div><section id="shopRecipe" hidden></section></div>
+      </div>
       <div id="sellItems"></div>
     </aside>
     <aside id="inspectPanel" class="panel inspectPanel" hidden aria-label="Selected unit">
@@ -248,10 +259,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
       <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
-      <dt>Right click</dt><dd>Move or attack. Right-click an allied creep below 50% HP to deny it.</dd>
-      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle free camera / follow your hero. Pan with the screen edges in free mode, the left and right arrows, or the minimap.</dd>
+      <dt>Right click</dt><dd>Move or attack. Target an enemy hero to draw nearby creep aggro. Target an allied creep to transfer aggro or deny it below 50% HP.</dd>
+      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle free camera / follow your hero. Pan with any screen edge in free mode, the arrow keys, or the minimap.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
-      <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack-move to the cursor / stop and hold fire.</dd>
+      <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
       <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
       <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>
@@ -357,6 +368,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   const xpGoal = level => 200 + 100 * (level - 1);
   const owns = (object, id) => Object.hasOwn(object, id);
   const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4 };
+  const CREEP_AGGRO_RANGE = 500;
+  const CREEP_AGGRO_TIME = 2.3;
+  const CREEP_AGGRO_COOLDOWN = 3;
   const spellDamage = (hero, spell) => spell.damage ? Math.round((spell.damage + spell.growth * (hero.level - 1)) * hero.stats.power) : 0;
   function randomGenerator(seed) {
     return () => {
@@ -372,19 +386,24 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     return { x: clamp(unit.x + (x - unit.x) * factor, ground ? 30 : 20, WIDTH - (ground ? 30 : 20)),
       y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, ground ? 860 : HEIGHT - 20) };
   }
-  function buyPlan(hero, id) {
+  function buyPlan(hero, id, showRecipe = false) {
     if (!owns(ITEMS, id)) return null;
     const consumed = [];
-    function price(key, root) {
+    function price(key, branch, root = false) {
+      const node = branch && { id: key, owned: false, parts: [] };
+      if (node) branch.push(node);
       const slot = hero.inventory.findIndex((item, i) => item.id === key && !consumed.includes(i));
       if (!root && slot >= 0) {
         consumed.push(slot);
+        if (node) node.owned = true;
         return 0;
       }
       const item = ITEMS[key];
-      return item.cost + (item.parts || []).reduce((sum, part) => sum + price(part, false), 0);
+      return item.cost + (item.parts || []).reduce((sum, part) => sum + price(part, node?.parts), 0);
     }
-    return { cost: price(id, true), consumed };
+    const tree = showRecipe ? [] : null;
+    const cost = price(id, tree, true);
+    return tree ? { cost, consumed, recipe: tree[0] } : { cost, consumed };
   }
   function sellValue(item, time) {
     return time - item.at <= 10 ? item.spent : Math.floor(ITEMS[item.id].total / 2);
@@ -400,11 +419,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     else if (hero.gold + 1e-6 < plan.cost) reason = 'Need ' + Math.ceil(plan.cost - hero.gold) + ' more gold';
     return { ...plan, reason };
   }
-  function pickTarget(snapshot, team, point) {
+  function pickTarget(snapshot, team, point, includeAlliedCreeps = false) {
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
-    return pickUnit(snapshot, point, team);
+    return pickUnit(snapshot, point, team, includeAlliedCreeps);
   }
-  function pickUnit(snapshot, point, attackTeam) {
+  function pickUnit(snapshot, point, attackTeam, includeAlliedCreeps = false) {
     let best = null, nearest = Infinity;
     function consider(id, side, x, y, r, height) {
       const d = Math.min(Math.hypot(x - point.x, y - point.y), Math.hypot(x - point.x, y - height - point.y));
@@ -419,7 +438,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (b.hp > 0 && b.team !== attackTeam && (attackTeam == null || !b.protected)) consider(b.id, b.team, b.x, b.y, b.r, 44);
     }
     for (const [id, side, kind, x, y, hp, , , radius, , flags] of snapshot.creeps) {
-      if (hp > 0 && (side !== attackTeam || flags & CREEP_FLAGS.deniable)) consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
+      if (hp > 0 && (side !== attackTeam || includeAlliedCreeps || flags & CREEP_FLAGS.deniable)) {
+        consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
+      }
     }
     return best;
   }
@@ -640,15 +661,30 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const windup = a.type === 'hero' ? .28 : a.type === 'building' ? .2 : .35;
       a.windup = { target: target.id, time: this.time + windup / this.attackSpeed(a) };
       a.facing = Math.atan2(target.y - a.y, target.x - a.x);
-      if (a.type === 'hero' && target.type === 'hero') this.aggro(a, target);
+      if (a.type === 'hero' && target.type === 'hero') a.recentAggro = this.time;
       return true;
     }
-    aggro(a, b) {
-      a.recentAggro = this.time;
-      for (const creep of this.creeps) if (creep.hp > 0 && creep.team === b.team && distance(a, creep) <= 480) {
-        creep.target = a.id;
-        creep.forcedUntil = this.time + 2.2;
+    focusCreep(creep, target) {
+      creep.target = target.id;
+      creep.forcedUntil = this.time + CREEP_AGGRO_TIME;
+      if (creep.windup?.target !== target.id) creep.windup = null;
+    }
+    drawCreepAggro(hero) {
+      for (const creep of this.nearbyCreeps(hero, 1 - hero.team, CREEP_AGGRO_RANGE)) {
+        if (creep.aggroReady > this.time) continue;
+        this.focusCreep(creep, hero);
+        creep.aggroReady = this.time + CREEP_AGGRO_COOLDOWN;
       }
+    }
+    transferCreepAggro(hero, ally) {
+      let transferred = false;
+      for (const creep of this.nearbyCreeps(ally, 1 - hero.team, CREEP_AGGRO_RANGE)) {
+        if (creep.target !== hero.id && creep.windup?.target !== hero.id) continue;
+        this.focusCreep(creep, ally);
+        transferred = true;
+      }
+      if (transferred && !hero.bot) this.notice(hero.team, 'Creep aggro transferred');
+      return transferred;
     }
     finishAttack(a, spec) {
       if (!a.windup) return false;
@@ -819,10 +855,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         case 'attack': {
           const target = this.units.get(id);
           if (!target || target.hp <= 0 || this.protected(target) ||
-            (target.team === team && (target.type !== 'creep' || target.hp >= target.maxHp / 2))) return 'Invalid attack target';
-          h.order = { o, id };
+            (target.team === team && target.type !== 'creep')) return 'Invalid attack target';
+          if (target.team === team) {
+            const transferred = this.transferCreepAggro(h, target);
+            h.order = target.hp < target.maxHp / 2 ? { o, id } :
+              transferred ? { o:'stop' } : { o:'move', ...point(h, target.x, target.y) };
+          } else {
+            if (target.type === 'hero') this.drawCreepAggro(h);
+            h.order = { o, id };
+          }
           h.channel = 0;
-          if (h.windup?.target !== id) h.windup = null;
+          if (h.order.o !== 'attack' || h.windup?.target !== id) h.windup = null;
           break;
         }
         case 'stop':
@@ -960,7 +1003,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (this.finishAttack(c, c)) return;
       let target = this.units.get(c.target);
       if (target && (target.hp <= 0 || this.protected(target) || distance(c, target) > 720)) target = null;
-      if (!(c.forcedUntil > this.time) && (!target || this.time >= c.scan)) {
+      if (!target || (!(c.forcedUntil > this.time) && this.time >= c.scan)) {
+        c.forcedUntil = 0;
         target = this.nearest(c, 480);
         c.scan = this.time + .4;
       }
@@ -1368,6 +1412,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
 (function () {
   const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const FREE_VIEW_HEIGHT = HEIGHT * .84;
   function seeded(initial) {
     let n = initial;
     return () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296);
@@ -1561,6 +1606,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       this.g = canvas.getContext('2d', { alpha: false });
       this.map = null;
       this.cam = 0;
+      this.camY = 0;
       this.focus = null;
       this.scale = 1;
       this.quality = 'auto';
@@ -1577,7 +1623,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (w !== this.canvas.width || h !== this.canvas.height) {
         this.canvas.width = w; this.canvas.height = h; this.dirty = true;
       }
-      this.scale = h / HEIGHT;
+      this.scale = h / (this.focus ? FREE_VIEW_HEIGHT : HEIGHT);
     }
     title() {
       this.resize();
@@ -1587,15 +1633,18 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     }
     toWorld(x, y) {
       return { x: this.cam + x * this.canvas.width / this.canvas.clientWidth / this.scale,
-        y: y * HEIGHT / this.canvas.clientHeight };
+        y: this.camY + y * this.canvas.height / this.canvas.clientHeight / this.scale };
     }
-    focusAt(x) {
-      const half = Math.min(WIDTH, this.canvas.width / this.scale) / 2;
-      this.focus = clamp(x, half, WIDTH - half);
+    focusAt(x, y) {
+      const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
+      const halfWidth = Math.min(WIDTH, FREE_VIEW_HEIGHT * aspect) / 2;
+      const halfHeight = FREE_VIEW_HEIGHT / 2;
+      this.focus = { x: clamp(x, halfWidth, WIDTH - halfWidth), y: clamp(y, halfHeight, HEIGHT - halfHeight) };
     }
     camera(hero) {
       const view = this.canvas.width / this.scale;
-      return clamp((this.focus ?? (hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18))) - view / 2, 0, Math.max(0, WIDTH - view));
+      const followX = hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18);
+      return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
     frame(s, team, now, mark, dt, pointer, selectedId) {
       this.resize();
@@ -1626,10 +1675,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         }
       }
       this.cam = this.camera(s.heroes[team]);
+      this.camY = this.focus ? clamp(this.focus.y - FREE_VIEW_HEIGHT / 2, 0, HEIGHT - FREE_VIEW_HEIGHT) : 0;
       this.displayed = s;
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
-      g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, 0);
+      g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
       g.drawImage(this.map, 0, 0);
       const visible = u => u.x >= this.cam - 175 && u.x <= this.cam + w / this.scale + 175;
       const player = s.heroes[team];
@@ -1732,7 +1782,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
       g.fillRect(0, 0, w, h);
-      this.minimap(s, team, w / this.scale);
+      this.minimap(s, team, w / this.scale, h / this.scale);
     }
     label(g, text, x, y, size, color) {
       g.font = '700 ' + size + 'px system-ui'; g.textAlign = 'center';
@@ -1846,7 +1896,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17,16,'#fff29a');
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
     }
-    minimap(s, team, view) {
+    minimap(s, team, viewWidth, viewHeight) {
       const g = this.mini.getContext('2d'), w = this.mini.width, h = this.mini.height;
       const x = n => n / WIDTH * w, y = n => n / HEIGHT * h;
       g.fillStyle = '#141c1e'; g.fillRect(0,0,w,h);
@@ -1865,7 +1915,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         g.strokeStyle = COLORS[hero.team]; g.lineWidth = hero.team === team ? 3 : 2; g.strokeRect(px-6,py-6,12,12);
       }
       if (s.orb) ellipse(g,x(s.orb.x),y(s.orb.y),3.5,3.5,ORBS[s.orb.kind]);
-      g.lineWidth=1.7;g.strokeStyle='#e4e4ba9b';g.strokeRect(x(this.cam),1,x(Math.min(view,WIDTH)),h-2);
+      const viewTop = Math.max(1,y(this.camY));
+      const viewBottom = Math.min(h-1,y(this.camY + viewHeight));
+      g.lineWidth=1.7;g.strokeStyle='#e4e4ba9b';
+      g.strokeRect(x(this.cam),viewTop,x(Math.min(viewWidth,WIDTH)),viewBottom-viewTop);
     }
   }
   globalThis.LanebreakPaint = { Renderer, portrait };
@@ -1874,8 +1927,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
 <script>
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH } = LanebreakRules;
-  const { Match, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH, HEIGHT } = LanebreakRules;
+  const { Match, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R'];
   const heroKeys = Object.keys(HEROES);
@@ -1892,7 +1945,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   let muted = prefs.load('muted') === 'true';
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
-  let cursorOnArena = false, shopFocus = null, tooltipTarget = null, inspectedId = null;
+  let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
@@ -1942,6 +1995,21 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     for (const type of ['pointerenter','focus']) button.addEventListener(type, open);
     for (const type of ['pointerleave','blur']) button.addEventListener(type, close);
   }
+  function buyButton(id) {
+    const button = make('button', null, 'shopBuy');
+    button.type = 'button';
+    button.dataset.buy = id;
+    button.addEventListener('click', () => issue({ o: 'buy', id }));
+    return button;
+  }
+  function updateBuyButton(button, h, time) {
+    const id = button.dataset.buy, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
+    button.textContent = (plan.reason ? '' : 'Buy ') + plan.cost + 'g';
+    button.dataset.buyable = !plan.reason;
+    button.setAttribute('aria-disabled', !!plan.reason);
+    button.setAttribute('aria-label', item.name + ' · ' + (plan.reason || 'Buy for ' + plan.cost + ' gold'));
+    button.title = plan.reason || 'Buy ' + item.name + ' for ' + plan.cost + ' gold';
+  }
   function buildUi() {
     for (const [index, id] of heroKeys.entries()) {
       const h = HEROES[id], button = make('button', null, 'heroCard');
@@ -1990,16 +2058,20 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const group = make('section', null, 'shopGroup'), grid = make('div', null, 'itemGrid');
       group.append(make('h3', label), grid);
       for (const id of Object.keys(ITEMS).filter(test)) {
-        const item = ITEMS[id], button = make('button');
-        button.title = item.text + (item.parts ? '\nRecipe: ' + item.parts.map(key => ITEMS[key].name).join(' + ') + ' + ' + item.cost + 'g' : '');
-        button.dataset.item = id;
-        const label = make('span', item.name), tags = make('small'), price = make('span', null, 'itemPrice');
-        label.append(tags);
-        price.append(make('b'),make('small'));
-        button.append(label,price);
-        watchShopTile(button, {id});
-        button.addEventListener('click', () => issue({ o: 'buy', id }));
-        grid.append(button);
+        const item = ITEMS[id], card = make('div', null, 'shopItem');
+        const select = make('button', item.name, 'shopSelect');
+        select.type = 'button';
+        select.title = item.text + (item.parts ? ' · Click to view recipe' : '');
+        select.dataset.item = id;
+        select.setAttribute('aria-pressed', 'false');
+        select.append(make('small'));
+        select.addEventListener('click', () => {
+          shopSelection = id;
+          shopFocus = null;
+          if (snapshot) updateShop(snapshot.heroes[team], snapshot.time);
+        });
+        card.append(select,buyButton(id));
+        grid.append(card);
       }
       $('shopItems').append(group);
     }
@@ -2087,7 +2159,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     $('shopFeedback').hidden = true;
     $('deathNotice').hidden = true;
     $('hudTooltip').hidden = true;
-    shopFocus = tooltipTarget = null;
+    shopFocus = shopSelection = tooltipTarget = null;
     selectUnit(null);
     panKeys.clear();
     followHero();
@@ -2096,6 +2168,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     renderMark = null;
     hovered = null;
     cursorOnArena = false;
+    edgePointer = null;
     lastEffect = 0;
     lastUi = -1;
     wasDead = false;
@@ -2200,24 +2273,34 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     renderer.focus = null;
     cameraLabel(false);
   }
-  function freeCamera(x) {
+  function freeCamera(x, y) {
     if (!snapshot || paused || snapshot.mode !== 'match') return;
     if (renderer.focus == null) cameraLabel(true);
-    renderer.focusAt(x);
+    renderer.focusAt(x,y);
   }
   function toggleCamera() {
     if (renderer.focus != null) followHero();
-    else freeCamera(renderer.toWorld(innerWidth / 2, 0).x);
+    else {
+      const center = renderer.toWorld(innerWidth / 2, innerHeight / 2);
+      freeCamera(center.x,center.y);
+    }
   }
   function panCamera(dt) {
-    if (paused || $('controls').open || !$('matchOverlay').hidden) return;
-    let direction = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
-    if (!direction && !panKeys.size && renderer.focus != null && cursorOnArena) {
-      const edge = Math.min(36, innerWidth * .06);
-      if (hovered.x < edge) direction = hovered.x / edge - 1;
-      else if (hovered.x > innerWidth - edge) direction = (hovered.x - innerWidth + edge) / edge;
+    if (paused || $('controls').open || !$('matchOverlay').hidden || !$('shop').hidden) return;
+    let dx = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
+    let dy = Number(panKeys.has('arrowdown')) - Number(panKeys.has('arrowup'));
+    if (!panKeys.size && renderer.focus && edgePointer) {
+      const edge = (position, size) => {
+        const margin = Math.min(22, size * .05);
+        return position <= margin ? -1 : position >= size - margin ? 1 : 0;
+      };
+      dx = edge(edgePointer.x, innerWidth);
+      dy = edge(edgePointer.y, innerHeight);
     }
-    if (direction) freeCamera(renderer.toWorld(innerWidth / 2, 0).x + direction * 1200 * Math.min(dt,.05));
+    if (!dx && !dy) return;
+    const center = renderer.focus || renderer.toWorld(innerWidth / 2, innerHeight / 2);
+    const step = 1150 * Math.min(dt,.05) / Math.hypot(dx,dy);
+    freeCamera(center.x + dx * step, center.y + dy * step);
   }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
@@ -2236,28 +2319,19 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     panel.hidden = false;
   }
   function updateShopDetails(h, time) {
-    const panel = $('shopDetails');
+    const panel = $('shopDetailsText');
     const slot = shopFocus?.slot, selling = slot != null;
-    const id = selling ? h.inventory[slot]?.id : shopFocus?.id;
+    const id = selling ? h.inventory[slot]?.id : shopSelection;
     const item = ITEMS[id], lines = [];
     const add = (text, style) => lines.push([text,style]);
     if (!item) {
-      add('Choose a Buy button to purchase. Owned components reduce the price.');
+      add('Select an item to see its recipe and buy individual components.');
       add('Click an inventory slot to sell. The refund drops after 10 seconds.');
       add('Press 1–6 to use an active item. ★ marks the suggested build.');
     } else {
       add(item.name, 'heading');
       add(item.text);
       if (item.cd) add('Active cooldown · ' + item.cd + 's');
-      if (item.parts) {
-        const owned = h.inventory.map(i => i.id);
-        for (const part of item.parts) {
-          const index = owned.indexOf(part);
-          if (index >= 0) owned[index] = null;
-          add((index >= 0 ? '✓ ' : '') + ITEMS[part].name + (index >= 0 ? ' · Owned' : ' · ' + ITEMS[part].total + 'g'), index >= 0 ? 'owned' : '');
-        }
-        add('Recipe fee · ' + item.cost + 'g');
-      }
       const upgrades = Object.values(ITEMS).filter(candidate => candidate.parts?.includes(id));
       if (upgrades.length) add('Builds into ' + upgrades.map(i => i.name).join(', '));
       if (selling) {
@@ -2270,20 +2344,46 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
     }
     const content = JSON.stringify(lines);
-    if (panel.dataset.content === content) return;
-    panel.dataset.content = content;
-    panel.replaceChildren(...lines.map(([text, style]) => make(style === 'heading' ? 'h3' : 'p', text, style)));
+    if (panel.dataset.content !== content) {
+      panel.dataset.content = content;
+      panel.replaceChildren(...lines.map(([text, style]) => make(style === 'heading' ? 'h3' : 'p', text, style)));
+    }
+    updateShopRecipe(h, time, !selling && item?.parts ? id : null);
+  }
+  function updateShopRecipe(h, time, id) {
+    const container = $('shopRecipe');
+    container.hidden = !id;
+    if (!id) return;
+    const recipe = buyPlan(h,id,true).recipe;
+    const signature = JSON.stringify(recipe);
+    if (container.dataset.recipe !== signature) {
+      function branch(node) {
+        const item = ITEMS[node.id], li = make('li'), row = make('div', null, 'recipeRow');
+        row.append(make('span', item.name));
+        if (node.owned) row.append(make('small', 'Owned', 'owned'));
+        else row.append(buyButton(node.id));
+        li.append(row);
+        if (node.parts.length) {
+          const children = make('ul');
+          children.append(...node.parts.map(branch));
+          li.append(children);
+        }
+        return li;
+      }
+      const tree = make('ul', null, 'recipeTree');
+      tree.append(branch(recipe));
+      container.dataset.recipe = signature;
+      container.replaceChildren(make('h4','Recipe'),tree);
+    }
+    for (const button of container.querySelectorAll('[data-buy]')) updateBuyButton(button,h,time);
   }
   function updateShop(h, time) {
     $('shopStatus').textContent = h.canShop ? Math.floor(h.gold) + ' gold available' : 'Purchase at your fountain or while dead';
     for (const button of $('shopItems').querySelectorAll('[data-item]')) {
-      const id = button.dataset.item, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
-      button.firstElementChild.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : ''].filter(Boolean).join(' ');
-      button.lastElementChild.firstElementChild.textContent = (plan.reason ? '' : 'Buy ') + plan.cost + 'g';
-      button.lastElementChild.lastElementChild.textContent = plan.cost < item.total ? 'of ' + item.total + 'g' : '';
-      button.dataset.buyable = !plan.reason;
-      button.setAttribute('aria-disabled', !!plan.reason);
-      button.setAttribute('aria-label', item.name + ' · ' + (plan.reason || 'Buy for ' + plan.cost + ' gold'));
+      const id = button.dataset.item, item = ITEMS[id];
+      button.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : '', item.parts ? 'Recipe' : ''].filter(Boolean).join(' · ');
+      button.setAttribute('aria-pressed', id === shopSelection);
+      updateBuyButton(button.nextElementSibling,h,time);
     }
     const sign = h.inventory.map(item => item.id).join(',');
     if ($('sellItems').dataset.content !== sign) {
@@ -2475,9 +2575,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       return;
     }
     if (demo || snapshot.heroes[team].hp <= 0) return;
-    const nearest = pickTarget(visible, team, p);
-    if (issue(nearest ? { o:'attack', id:nearest.id } : { o:'move', ...p })) {
-      renderMark = { ...(nearest || p), at:performance.now(), color:nearest ? (nearest.team === team ? '#c9a0ff' : '#ff6b6b') : '#8dffb0' };
+    battleOrder(p,'move');
+  }
+  function battleOrder(p, fallback) {
+    if (!snapshot) return;
+    const target = pickTarget(renderer.displayed || snapshot, team, p, true);
+    if (issue(target ? { o:'attack', id:target.id } : { o:fallback, ...p })) {
+      const color = target?.team === team ? '#c9a0ff' : target || fallback === 'amove' ? '#ff6b6b' : '#8dffb0';
+      renderMark = { ...(target || p), at:performance.now(), color };
     }
   }
   function safeSeat(value) {
@@ -2610,7 +2715,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   function hotkey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
-    if (!game.hidden && (k === 'arrowleft' || k === 'arrowright')) {
+    if (!game.hidden && k.startsWith('arrow')) {
       event.preventDefault();
       panKeys.add(k);
       return;
@@ -2643,10 +2748,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     else if (k === 'f') issue({o:'potion'});
     else if (k === 't') issue({o:'recall'});
     else if (k === 's') issue({o:'stop'});
-    else if (k === 'a') {
-      const p = aimPoint();
-      if (issue({o:'amove',...p})) renderMark = { ...p, at:performance.now(), color:'#ff6b6b' };
-    } else if (k === 'p' || k === 'escape') {
+    else if (k === 'a') battleOrder(aimPoint(),'amove');
+    else if (k === 'p' || k === 'escape') {
       if (!$('shop').hidden && k === 'escape') toggleShop();
       else if (inspectedId != null && k === 'escape') selectUnit(null);
       else pause();
@@ -2664,7 +2767,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const minimap = $('minimap');
     const mapFocus = event => {
       const rect = minimap.getBoundingClientRect();
-      freeCamera((event.clientX-rect.x) / rect.width * WIDTH);
+      freeCamera((event.clientX-rect.x) / rect.width * WIDTH, (event.clientY-rect.y) / rect.height * HEIGHT);
     };
     minimap.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
@@ -2674,9 +2777,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     minimap.addEventListener('pointermove', event => {
       if (minimap.hasPointerCapture(event.pointerId)) mapFocus(event);
     });
+    document.addEventListener('pointermove', event => {
+      if (event.pointerType === 'mouse') {
+        edgePointer = event.target === minimap ? null : { x:event.clientX, y:event.clientY };
+      }
+    });
+    document.addEventListener('pointerout', event => {
+      if (!event.relatedTarget) edgePointer = null;
+    });
     document.addEventListener('keydown', hotkey);
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
-    window.addEventListener('blur', () => { panKeys.clear(); cursorOnArena = false; });
+    window.addEventListener('blur', () => { panKeys.clear(); cursorOnArena = false; edgePointer = null; });
     $('start').onclick = () => solo();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');

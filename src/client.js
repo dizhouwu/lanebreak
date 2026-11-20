@@ -1,7 +1,7 @@
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH } = LanebreakRules;
-  const { Match, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH, HEIGHT } = LanebreakRules;
+  const { Match, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R'];
   const heroKeys = Object.keys(HEROES);
@@ -18,7 +18,7 @@
   let muted = prefs.load('muted') === 'true';
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
-  let cursorOnArena = false, shopFocus = null, tooltipTarget = null, inspectedId = null;
+  let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
@@ -68,6 +68,21 @@
     for (const type of ['pointerenter','focus']) button.addEventListener(type, open);
     for (const type of ['pointerleave','blur']) button.addEventListener(type, close);
   }
+  function buyButton(id) {
+    const button = make('button', null, 'shopBuy');
+    button.type = 'button';
+    button.dataset.buy = id;
+    button.addEventListener('click', () => issue({ o: 'buy', id }));
+    return button;
+  }
+  function updateBuyButton(button, h, time) {
+    const id = button.dataset.buy, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
+    button.textContent = (plan.reason ? '' : 'Buy ') + plan.cost + 'g';
+    button.dataset.buyable = !plan.reason;
+    button.setAttribute('aria-disabled', !!plan.reason);
+    button.setAttribute('aria-label', item.name + ' · ' + (plan.reason || 'Buy for ' + plan.cost + ' gold'));
+    button.title = plan.reason || 'Buy ' + item.name + ' for ' + plan.cost + ' gold';
+  }
   function buildUi() {
     for (const [index, id] of heroKeys.entries()) {
       const h = HEROES[id], button = make('button', null, 'heroCard');
@@ -116,16 +131,20 @@
       const group = make('section', null, 'shopGroup'), grid = make('div', null, 'itemGrid');
       group.append(make('h3', label), grid);
       for (const id of Object.keys(ITEMS).filter(test)) {
-        const item = ITEMS[id], button = make('button');
-        button.title = item.text + (item.parts ? '\nRecipe: ' + item.parts.map(key => ITEMS[key].name).join(' + ') + ' + ' + item.cost + 'g' : '');
-        button.dataset.item = id;
-        const label = make('span', item.name), tags = make('small'), price = make('span', null, 'itemPrice');
-        label.append(tags);
-        price.append(make('b'),make('small'));
-        button.append(label,price);
-        watchShopTile(button, {id});
-        button.addEventListener('click', () => issue({ o: 'buy', id }));
-        grid.append(button);
+        const item = ITEMS[id], card = make('div', null, 'shopItem');
+        const select = make('button', item.name, 'shopSelect');
+        select.type = 'button';
+        select.title = item.text + (item.parts ? ' · Click to view recipe' : '');
+        select.dataset.item = id;
+        select.setAttribute('aria-pressed', 'false');
+        select.append(make('small'));
+        select.addEventListener('click', () => {
+          shopSelection = id;
+          shopFocus = null;
+          if (snapshot) updateShop(snapshot.heroes[team], snapshot.time);
+        });
+        card.append(select,buyButton(id));
+        grid.append(card);
       }
       $('shopItems').append(group);
     }
@@ -213,7 +232,7 @@
     $('shopFeedback').hidden = true;
     $('deathNotice').hidden = true;
     $('hudTooltip').hidden = true;
-    shopFocus = tooltipTarget = null;
+    shopFocus = shopSelection = tooltipTarget = null;
     selectUnit(null);
     panKeys.clear();
     followHero();
@@ -222,6 +241,7 @@
     renderMark = null;
     hovered = null;
     cursorOnArena = false;
+    edgePointer = null;
     lastEffect = 0;
     lastUi = -1;
     wasDead = false;
@@ -326,24 +346,34 @@
     renderer.focus = null;
     cameraLabel(false);
   }
-  function freeCamera(x) {
+  function freeCamera(x, y) {
     if (!snapshot || paused || snapshot.mode !== 'match') return;
     if (renderer.focus == null) cameraLabel(true);
-    renderer.focusAt(x);
+    renderer.focusAt(x,y);
   }
   function toggleCamera() {
     if (renderer.focus != null) followHero();
-    else freeCamera(renderer.toWorld(innerWidth / 2, 0).x);
+    else {
+      const center = renderer.toWorld(innerWidth / 2, innerHeight / 2);
+      freeCamera(center.x,center.y);
+    }
   }
   function panCamera(dt) {
-    if (paused || $('controls').open || !$('matchOverlay').hidden) return;
-    let direction = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
-    if (!direction && !panKeys.size && renderer.focus != null && cursorOnArena) {
-      const edge = Math.min(36, innerWidth * .06);
-      if (hovered.x < edge) direction = hovered.x / edge - 1;
-      else if (hovered.x > innerWidth - edge) direction = (hovered.x - innerWidth + edge) / edge;
+    if (paused || $('controls').open || !$('matchOverlay').hidden || !$('shop').hidden) return;
+    let dx = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
+    let dy = Number(panKeys.has('arrowdown')) - Number(panKeys.has('arrowup'));
+    if (!panKeys.size && renderer.focus && edgePointer) {
+      const edge = (position, size) => {
+        const margin = Math.min(22, size * .05);
+        return position <= margin ? -1 : position >= size - margin ? 1 : 0;
+      };
+      dx = edge(edgePointer.x, innerWidth);
+      dy = edge(edgePointer.y, innerHeight);
     }
-    if (direction) freeCamera(renderer.toWorld(innerWidth / 2, 0).x + direction * 1200 * Math.min(dt,.05));
+    if (!dx && !dy) return;
+    const center = renderer.focus || renderer.toWorld(innerWidth / 2, innerHeight / 2);
+    const step = 1150 * Math.min(dt,.05) / Math.hypot(dx,dy);
+    freeCamera(center.x + dx * step, center.y + dy * step);
   }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
@@ -362,28 +392,19 @@
     panel.hidden = false;
   }
   function updateShopDetails(h, time) {
-    const panel = $('shopDetails');
+    const panel = $('shopDetailsText');
     const slot = shopFocus?.slot, selling = slot != null;
-    const id = selling ? h.inventory[slot]?.id : shopFocus?.id;
+    const id = selling ? h.inventory[slot]?.id : shopSelection;
     const item = ITEMS[id], lines = [];
     const add = (text, style) => lines.push([text,style]);
     if (!item) {
-      add('Choose a Buy button to purchase. Owned components reduce the price.');
+      add('Select an item to see its recipe and buy individual components.');
       add('Click an inventory slot to sell. The refund drops after 10 seconds.');
       add('Press 1–6 to use an active item. ★ marks the suggested build.');
     } else {
       add(item.name, 'heading');
       add(item.text);
       if (item.cd) add('Active cooldown · ' + item.cd + 's');
-      if (item.parts) {
-        const owned = h.inventory.map(i => i.id);
-        for (const part of item.parts) {
-          const index = owned.indexOf(part);
-          if (index >= 0) owned[index] = null;
-          add((index >= 0 ? '✓ ' : '') + ITEMS[part].name + (index >= 0 ? ' · Owned' : ' · ' + ITEMS[part].total + 'g'), index >= 0 ? 'owned' : '');
-        }
-        add('Recipe fee · ' + item.cost + 'g');
-      }
       const upgrades = Object.values(ITEMS).filter(candidate => candidate.parts?.includes(id));
       if (upgrades.length) add('Builds into ' + upgrades.map(i => i.name).join(', '));
       if (selling) {
@@ -396,20 +417,46 @@
       }
     }
     const content = JSON.stringify(lines);
-    if (panel.dataset.content === content) return;
-    panel.dataset.content = content;
-    panel.replaceChildren(...lines.map(([text, style]) => make(style === 'heading' ? 'h3' : 'p', text, style)));
+    if (panel.dataset.content !== content) {
+      panel.dataset.content = content;
+      panel.replaceChildren(...lines.map(([text, style]) => make(style === 'heading' ? 'h3' : 'p', text, style)));
+    }
+    updateShopRecipe(h, time, !selling && item?.parts ? id : null);
+  }
+  function updateShopRecipe(h, time, id) {
+    const container = $('shopRecipe');
+    container.hidden = !id;
+    if (!id) return;
+    const recipe = buyPlan(h,id,true).recipe;
+    const signature = JSON.stringify(recipe);
+    if (container.dataset.recipe !== signature) {
+      function branch(node) {
+        const item = ITEMS[node.id], li = make('li'), row = make('div', null, 'recipeRow');
+        row.append(make('span', item.name));
+        if (node.owned) row.append(make('small', 'Owned', 'owned'));
+        else row.append(buyButton(node.id));
+        li.append(row);
+        if (node.parts.length) {
+          const children = make('ul');
+          children.append(...node.parts.map(branch));
+          li.append(children);
+        }
+        return li;
+      }
+      const tree = make('ul', null, 'recipeTree');
+      tree.append(branch(recipe));
+      container.dataset.recipe = signature;
+      container.replaceChildren(make('h4','Recipe'),tree);
+    }
+    for (const button of container.querySelectorAll('[data-buy]')) updateBuyButton(button,h,time);
   }
   function updateShop(h, time) {
     $('shopStatus').textContent = h.canShop ? Math.floor(h.gold) + ' gold available' : 'Purchase at your fountain or while dead';
     for (const button of $('shopItems').querySelectorAll('[data-item]')) {
-      const id = button.dataset.item, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
-      button.firstElementChild.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : ''].filter(Boolean).join(' ');
-      button.lastElementChild.firstElementChild.textContent = (plan.reason ? '' : 'Buy ') + plan.cost + 'g';
-      button.lastElementChild.lastElementChild.textContent = plan.cost < item.total ? 'of ' + item.total + 'g' : '';
-      button.dataset.buyable = !plan.reason;
-      button.setAttribute('aria-disabled', !!plan.reason);
-      button.setAttribute('aria-label', item.name + ' · ' + (plan.reason || 'Buy for ' + plan.cost + ' gold'));
+      const id = button.dataset.item, item = ITEMS[id];
+      button.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : '', item.parts ? 'Recipe' : ''].filter(Boolean).join(' · ');
+      button.setAttribute('aria-pressed', id === shopSelection);
+      updateBuyButton(button.nextElementSibling,h,time);
     }
     const sign = h.inventory.map(item => item.id).join(',');
     if ($('sellItems').dataset.content !== sign) {
@@ -601,9 +648,14 @@
       return;
     }
     if (demo || snapshot.heroes[team].hp <= 0) return;
-    const nearest = pickTarget(visible, team, p);
-    if (issue(nearest ? { o:'attack', id:nearest.id } : { o:'move', ...p })) {
-      renderMark = { ...(nearest || p), at:performance.now(), color:nearest ? (nearest.team === team ? '#c9a0ff' : '#ff6b6b') : '#8dffb0' };
+    battleOrder(p,'move');
+  }
+  function battleOrder(p, fallback) {
+    if (!snapshot) return;
+    const target = pickTarget(renderer.displayed || snapshot, team, p, true);
+    if (issue(target ? { o:'attack', id:target.id } : { o:fallback, ...p })) {
+      const color = target?.team === team ? '#c9a0ff' : target || fallback === 'amove' ? '#ff6b6b' : '#8dffb0';
+      renderMark = { ...(target || p), at:performance.now(), color };
     }
   }
   function safeSeat(value) {
@@ -736,7 +788,7 @@
   function hotkey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
-    if (!game.hidden && (k === 'arrowleft' || k === 'arrowright')) {
+    if (!game.hidden && k.startsWith('arrow')) {
       event.preventDefault();
       panKeys.add(k);
       return;
@@ -769,10 +821,8 @@
     else if (k === 'f') issue({o:'potion'});
     else if (k === 't') issue({o:'recall'});
     else if (k === 's') issue({o:'stop'});
-    else if (k === 'a') {
-      const p = aimPoint();
-      if (issue({o:'amove',...p})) renderMark = { ...p, at:performance.now(), color:'#ff6b6b' };
-    } else if (k === 'p' || k === 'escape') {
+    else if (k === 'a') battleOrder(aimPoint(),'amove');
+    else if (k === 'p' || k === 'escape') {
       if (!$('shop').hidden && k === 'escape') toggleShop();
       else if (inspectedId != null && k === 'escape') selectUnit(null);
       else pause();
@@ -790,7 +840,7 @@
     const minimap = $('minimap');
     const mapFocus = event => {
       const rect = minimap.getBoundingClientRect();
-      freeCamera((event.clientX-rect.x) / rect.width * WIDTH);
+      freeCamera((event.clientX-rect.x) / rect.width * WIDTH, (event.clientY-rect.y) / rect.height * HEIGHT);
     };
     minimap.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
@@ -800,9 +850,17 @@
     minimap.addEventListener('pointermove', event => {
       if (minimap.hasPointerCapture(event.pointerId)) mapFocus(event);
     });
+    document.addEventListener('pointermove', event => {
+      if (event.pointerType === 'mouse') {
+        edgePointer = event.target === minimap ? null : { x:event.clientX, y:event.clientY };
+      }
+    });
+    document.addEventListener('pointerout', event => {
+      if (!event.relatedTarget) edgePointer = null;
+    });
     document.addEventListener('keydown', hotkey);
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
-    window.addEventListener('blur', () => { panKeys.clear(); cursorOnArena = false; });
+    window.addEventListener('blur', () => { panKeys.clear(); cursorOnArena = false; edgePointer = null; });
     $('start').onclick = () => solo();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');

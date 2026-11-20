@@ -56,7 +56,10 @@
     <aside id="shop" class="panel shop" hidden aria-label="Item shop">
       <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
       <div id="shopFeedback" role="status" hidden></div>
-      <div class="shopContent"><div id="shopItems"></div><div id="shopDetails" class="shopDetails"></div></div>
+      <div class="shopContent">
+        <div id="shopItems"></div>
+        <div id="shopDetails" class="shopDetails"><div id="shopDetailsText"></div><section id="shopRecipe" hidden></section></div>
+      </div>
       <div id="sellItems"></div>
     </aside>
     <aside id="inspectPanel" class="panel inspectPanel" hidden aria-label="Selected unit">
@@ -80,10 +83,10 @@
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
       <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
-      <dt>Right click</dt><dd>Move or attack. Right-click an allied creep below 50% HP to deny it.</dd>
-      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle free camera / follow your hero. Pan with the screen edges in free mode, the left and right arrows, or the minimap.</dd>
+      <dt>Right click</dt><dd>Move or attack. Target an enemy hero to draw nearby creep aggro. Target an allied creep to transfer aggro or deny it below 50% HP.</dd>
+      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle free camera / follow your hero. Pan with any screen edge in free mode, the arrow keys, or the minimap.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
-      <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack-move to the cursor / stop and hold fire.</dd>
+      <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
       <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
       <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>

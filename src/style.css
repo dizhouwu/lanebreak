@@ -117,7 +117,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .hudTooltip{position:fixed;z-index:4;width:min(275px,calc(100vw - 16px));padding:10px;font-size:.84rem;white-space:pre-line;line-height:1.35;pointer-events:none}
 .shop{position:absolute;inset:auto 12px 113px auto;width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 178px);display:flex;flex-direction:column;padding:12px;z-index:3}
 .shop header,dialog header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
-.shopContent{display:grid;grid-template-columns:minmax(0,2fr) minmax(150px,1fr);gap:9px;min-height:0;align-items:start}
+.shopContent{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:9px;min-height:0;align-items:start}
 #shopItems{overflow:auto;overscroll-behavior:contain;padding-right:4px}
 .shopContent #shopItems,.shopDetails{max-height:100%}
 .shopDetails{overflow:auto;padding:10px;border:1px solid #53615d75;border-radius:5px;background:#25332c55;line-height:1.4;font-size:.81rem}
@@ -128,15 +128,23 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .shopGroup{margin:3px 0 11px}
 .shopGroup h3{font-size:.78rem;color:var(--gold);margin:3px 0 6px;text-transform:uppercase;letter-spacing:.08em}
 .itemGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
-.itemGrid button{text-align:left;font-size:.82rem;min-height:38px;padding:6px;display:flex;align-items:center;justify-content:space-between;gap:4px}
-.itemGrid button[data-buyable=true]{border-color:#7c694d}
-.itemGrid button[data-buyable=true]:hover{border-color:#ffe0a2;background:#352c20}
-.itemGrid button[aria-disabled=true]{color:#a3ada9}
-.itemGrid button:focus-visible{outline-offset:-2px}
-.itemGrid small{display:block;color:#9cc4ff;font-size:.7rem}
-.itemGrid .itemPrice{text-align:right;white-space:nowrap}
-.itemGrid b{display:inline-block;padding:3px 5px;border-radius:3px;background:#e7bb75;color:#261b0e;font-size:.76rem}
-.itemGrid button[aria-disabled=true] b{background:#232c2b;color:#c6bfad}
+.shopItem{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px;align-items:center;padding:3px;border:1px solid #394748;border-radius:5px;background:#182426}
+.shopSelect{text-align:left;font-size:.8rem;min-height:32px;padding:3px 4px;background:transparent;border-color:transparent;overflow-wrap:anywhere}
+.shopSelect[aria-pressed=true]{border-color:#a68855;background:#30281c}
+.shopSelect small{display:block;color:#9cc4ff;font-size:.67rem}
+.shopSelect small:empty{display:none}
+.shopBuy{white-space:nowrap;min-height:26px;padding:3px 5px;border:1px solid #e7bb75;background:#e7bb75;color:#261b0e;font-weight:750;font-size:.75rem}
+.shopBuy[data-buyable=true]:hover{border-color:#fff0ba;background:#ffe0a2}
+.shopBuy[aria-disabled=true]{border-color:#44524b;background:#232c2b;color:#c6bfad}
+.shopItem button:focus-visible,.recipeRow button:focus-visible{outline-offset:-1px}
+#shopRecipe h4{margin:9px 0 5px;font-size:.8rem;color:var(--gold)}
+.recipeTree,.recipeTree ul{list-style:none;padding:0;margin:0}
+.recipeTree ul{margin-left:6px;padding-left:10px;border-left:1px solid #8a7451}
+.recipeTree li{position:relative;margin-top:4px}
+.recipeTree ul>li::before{content:"";position:absolute;left:-10px;top:13px;width:9px;border-top:1px solid #8a7451}
+.recipeRow{display:flex;justify-content:space-between;align-items:center;gap:4px;min-height:29px;padding:2px 4px;border:1px solid #49554f;border-radius:4px;background:#192524}
+.recipeRow span{min-width:0;overflow-wrap:anywhere}
+.recipeRow small{white-space:nowrap}
 .inspectPanel{position:absolute;z-index:2;top:63px;left:12px;width:min(258px,calc(100vw - 24px));padding:10px;display:grid;gap:5px}
 .inspectPanel header{display:flex;justify-content:space-between;gap:8px;align-items:center}
 .inspectPanel h2{font-size:1rem;margin:0 0 2px;overflow-wrap:anywhere}
@@ -163,5 +171,5 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
 @media(max-width:1150px){.minimapPanel{bottom:91px}#feed{bottom:135px}}
 @media(max-width:790px){.lobbyControls{grid-template-columns:1fr;gap:13px}.deploy{max-width:390px;width:100%}.titleBlock{padding:34px 0 23px}.heroCard{min-height:140px}.scoreboard{min-width:125px;gap:6px}.matchTools small{display:none}.topActions{gap:2px}}
 @media(max-width:720px){.heroHud{grid-template-columns:minmax(0,1fr) 73px 69px;gap:5px}.heroVitals{grid-column:1/3;grid-row:1}.economy{grid-column:3;grid-row:1/3}.abilities{grid-column:1;grid-row:2}.itemsBlock{grid-column:2;grid-row:2}#heroBadge{width:44px;height:44px}.meter.health{height:13px}.meter.health span{line-height:13px}.minimapPanel{bottom:124px}#feed{bottom:158px}#hint,.shop{bottom:143px}}
-@media(max-width:530px){.matchTop{padding:5px;gap:3px}.matchReadout{font-size:.63rem}.topActions #quality,.topActions #gameHelp{display:none}.topActions .iconButton{font-size:.62rem;padding:2px 3px}.heroCard{padding:7px;min-height:112px}.heroGrid{gap:5px}.brand{font-size:.8rem}.titleBlock h1{font-size:clamp(2.6rem,13vw,4rem)}.shop{right:6px;width:calc(100vw - 12px)}.abilityName{font-size:.55rem;overflow:hidden;text-overflow:ellipsis}.abilities button{height:37px}.shopContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.shopDetails{max-height:100px}.itemGrid button{min-height:32px}}
+@media(max-width:530px){.matchTop{padding:5px;gap:3px}.matchReadout{font-size:.63rem}.topActions #quality,.topActions #gameHelp{display:none}.topActions .iconButton{font-size:.62rem;padding:2px 3px}.heroCard{padding:7px;min-height:112px}.heroGrid{gap:5px}.brand{font-size:.8rem}.titleBlock h1{font-size:clamp(2.6rem,13vw,4rem)}.shop{right:6px;width:calc(100vw - 12px)}.abilityName{font-size:.55rem;overflow:hidden;text-overflow:ellipsis}.abilities button{height:37px}.shopContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.shopDetails{max-height:min(38dvh,240px)}}
 @media(max-width:600px){#shop:not([hidden]) + #inspectPanel{visibility:hidden}.inspectPanel{top:69px}}

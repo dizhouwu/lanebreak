@@ -25,6 +25,7 @@ test('pointer targeting uses exact deny eligibility and skips protected towers',
     const creep = m.creeps.find(c => c.team === team);
     creep.hp = creep.maxHp / 2;
     assert.equal(pickTarget(m.snapshot(team), team, creep), null);
+    assert.equal(pickTarget(m.snapshot(team), team, creep, true).id, creep.id);
     assert.equal(pickUnit(m.snapshot(team), creep).id, creep.id);
     creep.hp -= .1;
     const view = m.snapshot(team);
@@ -38,6 +39,56 @@ test('pointer targeting uses exact deny eligibility and skips protected towers',
     assert.equal(pickUnit(view, blocked).id, blocked.id);
     assert.equal(pickUnit(view, m.heroes[team]).id, m.heroes[team].id);
   }
+});
+
+test('attack orders draw and transfer lane creep aggro before an attack hits', () => {
+  const m = new Match({ bots:[null,null], seed:4 });
+  m.spawn();
+  const [hero, foe] = m.heroes;
+  const ally = m.creeps.find(c => c.team === 0);
+  const [creep, outside] = m.creeps.filter(c => c.team === 1);
+  Object.assign(hero,{x:2450,y:450});
+  Object.assign(foe,{x:3650,y:450});
+  Object.assign(ally,{x:2300,y:450});
+  Object.assign(creep,{x:2480,y:450,target:ally.id,windup:{target:ally.id,time:1}});
+  Object.assign(outside,{x:3050,y:450});
+  const hitHero = {o:'attack',id:foe.id};
+  const clickAlly = {o:'attack',id:ally.id};
+  assert.equal(m.order(0,hitHero),null);
+  assert.equal(creep.target,hero.id);
+  assert.equal(creep.windup,null);
+  assert.equal(outside.target,undefined);
+  assert.equal(foe.hp,foe.maxHp);
+  assert.equal(creep.forcedUntil,2.3);
+  creep.windup = {target:hero.id,time:1};
+  assert.equal(m.order(0,clickAlly),null);
+  assert.equal(creep.target,ally.id);
+  assert.equal(creep.windup,null);
+  assert.equal(hero.order.o,'stop');
+  assert.equal(ally.hp,ally.maxHp);
+  m.order(0,hitHero);
+  assert.equal(creep.target,ally.id);
+  m.time = 3;
+  m.order(0,hitHero);
+  assert.equal(creep.target,hero.id);
+  ally.hp = ally.maxHp / 2 - 1;
+  m.order(0,clickAlly);
+  assert.equal(creep.target,ally.id);
+  assert.deepEqual(hero.order,clickAlly);
+});
+
+test('recipe view follows the same nested slot allocation as the purchase', () => {
+  const h = new Match().heroes[0];
+  h.inventory = [{id:'stone'}];
+  const partial = buyPlan(h,'executioner',true);
+  assert.deepEqual(partial.consumed,[0]);
+  assert.equal(partial.cost,ITEMS.executioner.total - ITEMS.stone.cost);
+  assert.deepEqual(partial.recipe.parts.map(node=>node.id),['greatblade','gloves']);
+  assert.deepEqual(partial.recipe.parts[0].parts.map(node=>[node.id,node.owned]),[['stone',true],['stone',false]]);
+  h.inventory.push({id:'greatblade'});
+  const assembled = buyPlan(h,'executioner',true);
+  assert.deepEqual(assembled.consumed,[1]);
+  assert.deepEqual(assembled.recipe.parts[0],{id:'greatblade',owned:true,parts:[]});
 });
 
 test('both players can see the tower range and the target during its windup', () => {

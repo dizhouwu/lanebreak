@@ -1,6 +1,7 @@
 (function () {
   const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const FREE_VIEW_HEIGHT = HEIGHT * .84;
   function seeded(initial) {
     let n = initial;
     return () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296);
@@ -194,6 +195,7 @@
       this.g = canvas.getContext('2d', { alpha: false });
       this.map = null;
       this.cam = 0;
+      this.camY = 0;
       this.focus = null;
       this.scale = 1;
       this.quality = 'auto';
@@ -210,7 +212,7 @@
       if (w !== this.canvas.width || h !== this.canvas.height) {
         this.canvas.width = w; this.canvas.height = h; this.dirty = true;
       }
-      this.scale = h / HEIGHT;
+      this.scale = h / (this.focus ? FREE_VIEW_HEIGHT : HEIGHT);
     }
     title() {
       this.resize();
@@ -220,15 +222,18 @@
     }
     toWorld(x, y) {
       return { x: this.cam + x * this.canvas.width / this.canvas.clientWidth / this.scale,
-        y: y * HEIGHT / this.canvas.clientHeight };
+        y: this.camY + y * this.canvas.height / this.canvas.clientHeight / this.scale };
     }
-    focusAt(x) {
-      const half = Math.min(WIDTH, this.canvas.width / this.scale) / 2;
-      this.focus = clamp(x, half, WIDTH - half);
+    focusAt(x, y) {
+      const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
+      const halfWidth = Math.min(WIDTH, FREE_VIEW_HEIGHT * aspect) / 2;
+      const halfHeight = FREE_VIEW_HEIGHT / 2;
+      this.focus = { x: clamp(x, halfWidth, WIDTH - halfWidth), y: clamp(y, halfHeight, HEIGHT - halfHeight) };
     }
     camera(hero) {
       const view = this.canvas.width / this.scale;
-      return clamp((this.focus ?? (hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18))) - view / 2, 0, Math.max(0, WIDTH - view));
+      const followX = hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18);
+      return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
     frame(s, team, now, mark, dt, pointer, selectedId) {
       this.resize();
@@ -259,10 +264,11 @@
         }
       }
       this.cam = this.camera(s.heroes[team]);
+      this.camY = this.focus ? clamp(this.focus.y - FREE_VIEW_HEIGHT / 2, 0, HEIGHT - FREE_VIEW_HEIGHT) : 0;
       this.displayed = s;
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
-      g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, 0);
+      g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
       g.drawImage(this.map, 0, 0);
       const visible = u => u.x >= this.cam - 175 && u.x <= this.cam + w / this.scale + 175;
       const player = s.heroes[team];
@@ -365,7 +371,7 @@
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
       g.fillRect(0, 0, w, h);
-      this.minimap(s, team, w / this.scale);
+      this.minimap(s, team, w / this.scale, h / this.scale);
     }
     label(g, text, x, y, size, color) {
       g.font = '700 ' + size + 'px system-ui'; g.textAlign = 'center';
@@ -479,7 +485,7 @@
       if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17,16,'#fff29a');
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
     }
-    minimap(s, team, view) {
+    minimap(s, team, viewWidth, viewHeight) {
       const g = this.mini.getContext('2d'), w = this.mini.width, h = this.mini.height;
       const x = n => n / WIDTH * w, y = n => n / HEIGHT * h;
       g.fillStyle = '#141c1e'; g.fillRect(0,0,w,h);
@@ -498,7 +504,10 @@
         g.strokeStyle = COLORS[hero.team]; g.lineWidth = hero.team === team ? 3 : 2; g.strokeRect(px-6,py-6,12,12);
       }
       if (s.orb) ellipse(g,x(s.orb.x),y(s.orb.y),3.5,3.5,ORBS[s.orb.kind]);
-      g.lineWidth=1.7;g.strokeStyle='#e4e4ba9b';g.strokeRect(x(this.cam),1,x(Math.min(view,WIDTH)),h-2);
+      const viewTop = Math.max(1,y(this.camY));
+      const viewBottom = Math.min(h-1,y(this.camY + viewHeight));
+      g.lineWidth=1.7;g.strokeStyle='#e4e4ba9b';
+      g.strokeRect(x(this.cam),viewTop,x(Math.min(viewWidth,WIDTH)),viewBottom-viewTop);
     }
   }
   globalThis.LanebreakPaint = { Renderer, portrait };
