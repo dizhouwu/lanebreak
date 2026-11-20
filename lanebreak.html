@@ -64,13 +64,13 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .onlineRow button{font-size:.86rem;min-height:36px}
 #roomStatus{color:#e9be80;font-size:.83rem;margin-top:8px;overflow-wrap:anywhere}
 #game{position:fixed;inset:0;pointer-events:none}
-#game button,#shop,#matchOverlay,#minimap{pointer-events:auto}
+#game button,#shop,#inspectPanel,#matchOverlay,#minimap{pointer-events:auto}
 .matchTop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;padding:7px 12px;gap:8px}
 .matchReadout,.matchTools small{font-size:.75rem;color:#e5e9e5;text-shadow:0 1px 4px #000;line-height:1.4}
 #opponentStatus{color:#ff9393}
 .matchTools{text-align:right}
 .matchTools small{display:block;margin-top:3px;color:#c1ccc4}
-.topActions{display:flex;justify-content:end;gap:4px}
+.topActions{display:flex;justify-content:end;flex-wrap:wrap;gap:4px}
 .topActions .iconButton{min-height:26px;padding:3px 6px;font-size:.72rem}
 .scoreboard{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;min-width:220px;border:1px solid #8ca0a44a;background:#090f13eb;border-radius:5px;padding:5px 9px;font-variant-numeric:tabular-nums}
 .scoreSide{display:flex;align-items:center;gap:7px;font-size:.91rem;color:var(--score-team)}
@@ -83,7 +83,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .panel{background:#10191cee;border:1px solid #53615d;border-radius:6px;box-shadow:0 8px 24px #05090b83;color:var(--white)}
 .hud{position:absolute;bottom:6px;left:6px;right:6px;display:flex;justify-content:center}
 .minimapPanel{position:absolute;left:0;bottom:45px;width:clamp(126px,15vw,242px);background:#0a1115ed;border:1px solid #8ca0a44a;border-radius:4px;padding:3px}
-#minimap{width:100%;display:block;cursor:crosshair}
+#minimap{width:100%;display:block;cursor:crosshair;touch-action:none}
 .heroHud{width:min(724px,100%);display:grid;grid-template-columns:minmax(195px,1fr) minmax(260px,auto) 92px 86px;align-items:center;gap:10px;padding:7px 9px;background:#090f13ed;border-color:#8ca0a45c;box-shadow:0 3px 10px #0007}
 .heroVitals{display:flex;align-items:center;gap:9px;min-width:0}
 #heroBadge{position:relative;width:61px;height:60px;flex:none;border:1px solid currentColor;border-radius:5px;background:#15222a}
@@ -118,7 +118,10 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .economy button{min-height:0;min-width:0;height:15px;border:0;background:none;padding:0;color:#b7c5ca;font-size:.66rem;white-space:nowrap}
 .economy button:hover{color:#fff}
 .economy kbd{min-width:auto;padding:0 3px 0 0;height:auto;border:0;font-size:.64rem;color:#a7c7f6}
-#shopButton[data-open=true]{color:#8debb2}
+#shopButton{height:auto;min-height:23px;padding:3px 6px;border:1px solid #9b8157;background:#352c20;color:#f9d69c;font-weight:750}
+#shopButton[data-open=true]{background:#edbd73;border-color:#ffe1a4;color:#23190d}
+#shopButton:hover,#shopButton[aria-expanded=true]{border-color:#fff0ba}
+#shopButton kbd{color:inherit}
 .hudTooltip{position:fixed;z-index:4;width:min(275px,calc(100vw - 16px));padding:10px;font-size:.84rem;white-space:pre-line;line-height:1.35;pointer-events:none}
 .shop{position:absolute;inset:auto 12px 113px auto;width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 178px);display:flex;flex-direction:column;padding:12px;z-index:3}
 .shop header,dialog header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
@@ -128,15 +131,29 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .shopDetails{overflow:auto;padding:10px;border:1px solid #53615d75;border-radius:5px;background:#25332c55;line-height:1.4;font-size:.81rem}
 .shopDetails h3,.shopDetails p{margin:0 0 7px}.shopDetails p:last-child{margin-bottom:0}
 .shopDetails .cost{color:var(--gold);font-weight:700}.shopDetails .owned{color:#8dffb0}
+#shopFeedback{margin:0 0 8px;padding:6px 8px;border:1px solid #478461;border-radius:4px;background:#123324;color:#aff6c3;font-size:.84rem}
+#shopFeedback[data-error=true]{border-color:#ad6859;background:#39241e;color:#ffb9a4}
 .shopGroup{margin:3px 0 11px}
 .shopGroup h3{font-size:.78rem;color:var(--gold);margin:3px 0 6px;text-transform:uppercase;letter-spacing:.08em}
 .itemGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
 .itemGrid button{text-align:left;font-size:.82rem;min-height:38px;padding:6px;display:flex;align-items:center;justify-content:space-between;gap:4px}
-.itemGrid button.unaffordable{color:#a3ada9}
+.itemGrid button[data-buyable=true]{border-color:#7c694d}
+.itemGrid button[data-buyable=true]:hover{border-color:#ffe0a2;background:#352c20}
+.itemGrid button[aria-disabled=true]{color:#a3ada9}
 .itemGrid button:focus-visible{outline-offset:-2px}
 .itemGrid small{display:block;color:#9cc4ff;font-size:.7rem}
 .itemGrid .itemPrice{text-align:right;white-space:nowrap}
-.itemGrid b{color:var(--gold);font-size:.8rem}
+.itemGrid b{display:inline-block;padding:3px 5px;border-radius:3px;background:#e7bb75;color:#261b0e;font-size:.76rem}
+.itemGrid button[aria-disabled=true] b{background:#232c2b;color:#c6bfad}
+.inspectPanel{position:absolute;z-index:2;top:63px;left:12px;width:min(258px,calc(100vw - 24px));padding:10px;display:grid;gap:5px}
+.inspectPanel header{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.inspectPanel h2{font-size:1rem;margin:0 0 2px;overflow-wrap:anywhere}
+.inspectPanel small{color:var(--muted)}
+#closeInspect{min-height:27px;padding:0 7px;font-size:1.1rem}
+#inspectEquipment h3{margin:4px 0;font-size:.78rem;color:var(--gold)}
+#inspectItems{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+#inspectItems li{padding:4px 5px;font-size:.71rem;border:1px solid #3e4c4b;border-left-color:var(--item-color,#3e4c4b);border-radius:3px;background:#192427}
+#inspectItems .noEquipment{grid-column:1/-1;color:var(--muted)}
 #sellItems{display:flex;flex-wrap:wrap;gap:4px;border-top:1px solid #3b4845;padding-top:6px;margin-top:4px}
 #sellItems button{font-size:.75rem;min-height:26px;padding:3px 6px}
 #deathNotice{position:absolute;top:27%;left:0;right:0;text-align:center;display:grid;gap:6px;text-shadow:0 2px 8px #000;color:#fff0f0}
@@ -155,6 +172,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
 @media(max-width:790px){.lobbyControls{grid-template-columns:1fr;gap:13px}.deploy{max-width:390px;width:100%}.titleBlock{padding:34px 0 23px}.heroCard{min-height:140px}.scoreboard{min-width:125px;gap:6px}.matchTools small{display:none}.topActions{gap:2px}}
 @media(max-width:720px){.heroHud{grid-template-columns:minmax(0,1fr) 73px 69px;gap:5px}.heroVitals{grid-column:1/3;grid-row:1}.economy{grid-column:3;grid-row:1/3}.abilities{grid-column:1;grid-row:2}.itemsBlock{grid-column:2;grid-row:2}#heroBadge{width:44px;height:44px}.meter.health{height:13px}.meter.health span{line-height:13px}.minimapPanel{bottom:124px}#feed{bottom:158px}#hint,.shop{bottom:143px}}
 @media(max-width:530px){.matchTop{padding:5px;gap:3px}.matchReadout{font-size:.63rem}.topActions #quality,.topActions #gameHelp{display:none}.topActions .iconButton{font-size:.62rem;padding:2px 3px}.heroCard{padding:7px;min-height:112px}.heroGrid{gap:5px}.brand{font-size:.8rem}.titleBlock h1{font-size:clamp(2.6rem,13vw,4rem)}.shop{right:6px;width:calc(100vw - 12px)}.abilityName{font-size:.55rem;overflow:hidden;text-overflow:ellipsis}.abilities button{height:37px}.shopContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.shopDetails{max-height:100px}.itemGrid button{min-height:32px}}
+@media(max-width:600px){#shop:not([hidden]) + #inspectPanel{visibility:hidden}.inspectPanel{top:69px}}
 </style>
 </head>
 <body>
@@ -197,7 +215,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <header class="matchTop">
       <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
-      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>B Shop · 1–6 Items · T Recall · F Potion · A Attack-move · S Stop</small></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Follow hero</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
@@ -205,8 +223,15 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <div id="matchOverlay" class="matchOverlay" hidden><div class="panel overlayPanel"><h2 id="overlayTitle"></h2><p id="overlayText"></p><dl id="matchStats" hidden></dl><button id="overlayAction" class="primary"></button></div></div>
     <aside id="shop" class="panel shop" hidden aria-label="Item shop">
       <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
+      <div id="shopFeedback" role="status" hidden></div>
       <div class="shopContent"><div id="shopItems"></div><div id="shopDetails" class="shopDetails"></div></div>
       <div id="sellItems"></div>
+    </aside>
+    <aside id="inspectPanel" class="panel inspectPanel" hidden aria-label="Selected unit">
+      <header><div><h2 id="inspectName"></h2><small id="inspectSide"></small></div><button id="closeInspect" aria-label="Close unit information">×</button></header>
+      <div id="inspectHealth" class="meter health"><i></i><span></span></div>
+      <div id="inspectMana" class="meter mana" hidden><i></i><span></span></div>
+      <div id="inspectEquipment" hidden><h3>Equipment</h3><ul id="inspectItems"></ul></div>
     </aside>
     <footer class="hud">
       <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap"></canvas></div>
@@ -214,7 +239,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
         <div class="abilities" id="abilities"></div>
         <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
-        <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton"><kbd>B</kbd><span>Shop</span></button></div>
+        <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton" aria-controls="shop" aria-expanded="false"><kbd>B</kbd><span>Item shop</span></button></div>
       </div>
       <div id="hudTooltip" class="panel hudTooltip" role="tooltip" hidden></div>
     </footer>
@@ -222,7 +247,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   <dialog id="controls" class="panel">
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
-      <dt>Left or right click</dt><dd>Move or attack. Click an allied creep below 50% HP to deny it.</dd>
+      <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
+      <dt>Right click</dt><dd>Move or attack. Right-click an allied creep below 50% HP to deny it.</dd>
+      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle free camera / follow your hero. Pan with the screen edges in free mode, the left and right arrows, or the minimap.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
@@ -375,6 +402,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   }
   function pickTarget(snapshot, team, point) {
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
+    return pickUnit(snapshot, point, team);
+  }
+  function pickUnit(snapshot, point, attackTeam) {
     let best = null, nearest = Infinity;
     function consider(id, side, x, y, r, height) {
       const d = Math.min(Math.hypot(x - point.x, y - point.y), Math.hypot(x - point.x, y - height - point.y));
@@ -383,13 +413,13 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       best = { id, team: side, x, y, r };
     }
     for (const h of snapshot.heroes) {
-      if (h.team !== team && h.hp > 0) consider(h.id, h.team, h.x, h.y, h.r, 18);
+      if (h.team !== attackTeam && h.hp > 0) consider(h.id, h.team, h.x, h.y, h.r, 18);
     }
     for (const b of snapshot.buildings) {
-      if (b.team !== team && b.hp > 0 && !b.protected) consider(b.id, b.team, b.x, b.y, b.r, 44);
+      if (b.hp > 0 && b.team !== attackTeam && (attackTeam == null || !b.protected)) consider(b.id, b.team, b.x, b.y, b.r, 44);
     }
     for (const [id, side, kind, x, y, hp, , , radius, , flags] of snapshot.creeps) {
-      if (hp > 0 && (side !== team || flags & CREEP_FLAGS.deniable)) consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
+      if (hp > 0 && (side !== attackTeam || flags & CREEP_FLAGS.deniable)) consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
     }
     return best;
   }
@@ -771,7 +801,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (!validOrder(cmd) || this.mode !== 'match') return 'Invalid order';
       const h = this.heroes[team];
       const { o, i, id, x, y } = cmd;
-      if (o === 'buy') return this.buy(h, id);
+      if (o === 'buy') {
+        const cost = h.gold;
+        const error = this.buy(h, id);
+        if (!error) this.effect('purchase', h.x, h.y, { audience: team, item: id, cost: Math.round(cost - h.gold) });
+        return error;
+      }
       if (o === 'sell') return this.sell(h, i);
       if (h.hp <= 0) return 'You are respawning';
       switch (o) {
@@ -1285,7 +1320,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const heroes = this.heroes.map(h => {
         const common = { ...base(h), hero: h.hero, name: h.name, level: h.level, respawn: h.respawn,
           channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
-          facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot };
+          facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot,
+          loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
         return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
           recallReady: h.recallReady, tomeReady: h.tomeReady, pots: h.pots, stats: h.stats, potionUntil: h.potionUntil,
@@ -1323,7 +1359,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       default: return false;
     }
   }
-  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, CREEP_FLAGS, xpGoal, home, distance, physical };
+  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();
@@ -1553,11 +1589,15 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       return { x: this.cam + x * this.canvas.width / this.canvas.clientWidth / this.scale,
         y: y * HEIGHT / this.canvas.clientHeight };
     }
+    focusAt(x) {
+      const half = Math.min(WIDTH, this.canvas.width / this.scale) / 2;
+      this.focus = clamp(x, half, WIDTH - half);
+    }
     camera(hero) {
       const view = this.canvas.width / this.scale;
       return clamp((this.focus ?? (hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18))) - view / 2, 0, Math.max(0, WIDTH - view));
     }
-    frame(s, team, now, mark, dt, pointer) {
+    frame(s, team, now, mark, dt, pointer, selectedId) {
       this.resize();
       const g = this.g, w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
@@ -1638,7 +1678,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         ellipse(g, x, y, rad * progress, rad * progress, null, color + 'b8', ultimate ? 4 : 2);
       }
       const fighters = units.filter(visible).sort((a, b) => a.y - b.y);
-      for (const u of fighters) u.type === 'hero' ? this.hero(g, u, team, now) : this.creep(g, u, team);
+      const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
+        s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
+      if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
+      for (const u of fighters) u.type === 'hero' ? this.hero(g, u, team, now) : this.creep(g, u);
+      for (const u of fighters) if (u.type === 'creep') {
+        const hpColor = u.team !== team ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
+        this.bar(g,u,u.y-u.r-11,34,hpColor,5);
+      }
       for (const [, side, kind, x, y, source, dx, dy, width] of s.projectiles) {
         if (!visible({x})) continue;
         const color = source === 'building' ? '#fff0b0' : HEROES[source]?.color || COLORS[side];
@@ -1777,7 +1824,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       this.label(g,String(u.level),x-47,y-46,14,'#ffe08a');
       this.label(g,u.name,x,y-62,14,'#f1f1dd');
     }
-    creep(g, u, team) {
+    creep(g, u) {
       const {x,y,r} = u, color = COLORS[u.team], flags = Lanebreak.CREEP_FLAGS;
       ellipse(g,x+4,y+6,r+3,r*.63,'#111e2385');
       const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
@@ -1796,12 +1843,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       g.restore();
       if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
-      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-13,16,'#fff29a');
+      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17,16,'#fff29a');
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
-      if (u.hp / u.maxHp < .999) {
-        const hpColor = u.team !== team ? '#ff6464' : u.flags & flags.deniable ? '#c9a0ff' : '#6fd37a';
-        this.bar(g,u,y-r-11,34,hpColor,4);
-      }
     }
     minimap(s, team, view) {
       const g = this.mini.getContext('2d'), w = this.mini.width, h = this.mini.height;
@@ -1832,7 +1875,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
 (function () {
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH } = LanebreakRules;
-  const { Match, shopOffer, sellValue, spellDamage, pickTarget, xpGoal } = Lanebreak;
+  const { Match, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R'];
   const heroKeys = Object.keys(HEROES);
@@ -1849,10 +1892,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   let muted = prefs.load('muted') === 'true';
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
-  let cursorOnArena = false, shopFocus = null, tooltipTarget = null;
+  let cursorOnArena = false, shopFocus = null, tooltipTarget = null, inspectedId = null;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
+  const panKeys = new Set();
   const game = $('game');
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
@@ -2040,10 +2084,13 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     $('hint').hidden = true;
     $('matchOverlay').hidden = true;
     $('shop').hidden = true;
+    $('shopFeedback').hidden = true;
     $('deathNotice').hidden = true;
     $('hudTooltip').hidden = true;
     shopFocus = tooltipTarget = null;
-    renderer.focus = null;
+    selectUnit(null);
+    panKeys.clear();
+    followHero();
     renderer.displayed = null;
     paused = false;
     renderMark = null;
@@ -2083,7 +2130,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     if (watch) hint('Spectating · computer vs computer');
     else {
       beep(650, .10);
-      hint('Click to move · B to shop · Q to cast');
+      hint('Right-click to move · Left-click to inspect · B to shop');
     }
   }
   function overlay(title, text, label, action) {
@@ -2127,8 +2174,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       error = local.order(team, cmd);
       snapshot = local.snapshot(team, demo);
     }
-    if (error) { hint(error); return false; }
-    if (cmd.o === 'buy') beep(1200,.08,'sine',.045,1.2);
+    if (error) {
+      if (cmd.o === 'buy' && !$('shop').hidden) shopFeedback(error, true);
+      else hint(error);
+      return false;
+    }
     if (cmd.o === 'sell') beep(600,.10,'sine',.045,.7);
     return true;
   }
@@ -2141,11 +2191,49 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const hero = snapshot?.heroes[team];
     return hero ? { x: hero.x + (team ? -1 : 1) * 500, y: hero.y } : { x: 2600, y: 450 };
   }
+  function cameraLabel(free) {
+    const button = $('camera');
+    button.setAttribute('aria-pressed', free);
+    button.textContent = free ? 'Camera: Free' : 'Camera: Follow';
+  }
+  function followHero() {
+    renderer.focus = null;
+    cameraLabel(false);
+  }
+  function freeCamera(x) {
+    if (!snapshot || paused || snapshot.mode !== 'match') return;
+    if (renderer.focus == null) cameraLabel(true);
+    renderer.focusAt(x);
+  }
+  function toggleCamera() {
+    if (renderer.focus != null) followHero();
+    else freeCamera(renderer.toWorld(innerWidth / 2, 0).x);
+  }
+  function panCamera(dt) {
+    if (paused || $('controls').open || !$('matchOverlay').hidden) return;
+    let direction = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
+    if (!direction && !panKeys.size && renderer.focus != null && cursorOnArena) {
+      const edge = Math.min(36, innerWidth * .06);
+      if (hovered.x < edge) direction = hovered.x / edge - 1;
+      else if (hovered.x > innerWidth - edge) direction = (hovered.x - innerWidth + edge) / edge;
+    }
+    if (direction) freeCamera(renderer.toWorld(innerWidth / 2, 0).x + direction * 1200 * Math.min(dt,.05));
+  }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
     shopFocus = null;
     $('shop').hidden = !$('shop').hidden;
-    if (!$('shop').hidden) updateShop(snapshot.heroes[team], snapshot.time);
+    $('shopButton').setAttribute('aria-expanded', !$('shop').hidden);
+    if (!$('shop').hidden) {
+      $('shopFeedback').hidden = true;
+      updateShop(snapshot.heroes[team], snapshot.time);
+    }
+  }
+  function shopFeedback(text, error = false) {
+    const panel = $('shopFeedback');
+    panel.dataset.error = error;
+    panel.textContent = text;
+    panel.hidden = false;
   }
   function updateShopDetails(h, time) {
     const panel = $('shopDetails');
@@ -2154,7 +2242,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const item = ITEMS[id], lines = [];
     const add = (text, style) => lines.push([text,style]);
     if (!item) {
-      add('Click to buy. Owned components reduce the upgrade price.');
+      add('Choose a Buy button to purchase. Owned components reduce the price.');
       add('Click an inventory slot to sell. The refund drops after 10 seconds.');
       add('Press 1–6 to use an active item. ★ marks the suggested build.');
     } else {
@@ -2191,9 +2279,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     for (const button of $('shopItems').querySelectorAll('[data-item]')) {
       const id = button.dataset.item, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
       button.firstElementChild.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : ''].filter(Boolean).join(' ');
-      button.lastElementChild.firstElementChild.textContent = plan.cost + 'g';
+      button.lastElementChild.firstElementChild.textContent = (plan.reason ? '' : 'Buy ') + plan.cost + 'g';
       button.lastElementChild.lastElementChild.textContent = plan.cost < item.total ? 'of ' + item.total + 'g' : '';
-      button.classList.toggle('unaffordable', !!plan.reason);
+      button.dataset.buyable = !plan.reason;
+      button.setAttribute('aria-disabled', !!plan.reason);
+      button.setAttribute('aria-label', item.name + ' · ' + (plan.reason || 'Buy for ' + plan.cost + ' gold'));
     }
     const sign = h.inventory.map(item => item.id).join(',');
     if ($('sellItems').dataset.content !== sign) {
@@ -2211,6 +2301,43 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       $('sellItems').children[i].textContent = ITEMS[item.id].name + ' · +' + refund + 'g';
     }
     updateShopDetails(h, time);
+  }
+  function meter(id, value, max, label) {
+    const root = $(id);
+    root.firstElementChild.style.width = Math.min(100, value / max * 100) + '%';
+    if (label) root.lastElementChild.textContent = Math.ceil(value) + ' / ' + Math.round(max);
+  }
+  function selectUnit(id) {
+    inspectedId = id;
+    if (id == null) $('inspectPanel').hidden = true;
+    else updateInspection(snapshot);
+  }
+  function updateInspection(s) {
+    if (inspectedId == null) return;
+    const hero = s.heroes.find(u => u.id === inspectedId);
+    const building = !hero && s.buildings.find(u => u.id === inspectedId);
+    const creep = !hero && !building && s.creeps.find(u => u[0] === inspectedId);
+    if (!hero && !building && !creep) return selectUnit(null);
+    const unit = hero || building || { team: creep[1], kind: creep[2], hp: creep[5], maxHp: creep[6] };
+    const name = hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
+    $('inspectPanel').hidden = false;
+    $('inspectName').textContent = hero && hero.name !== name ? hero.name + ' · ' + name : name;
+    $('inspectSide').textContent = TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
+    meter('inspectHealth', unit.hp, unit.maxHp, true);
+    $('inspectMana').hidden = !hero;
+    $('inspectEquipment').hidden = !hero;
+    if (!hero) return;
+    meter('inspectMana', hero.mana, hero.maxMana, true);
+    const loadout = hero.loadout || hero.inventory?.map(item => item.id) || [];
+    const items = $('inspectItems'), sign = loadout.join(',');
+    if (items.dataset.content === sign) return;
+    items.dataset.content = sign;
+    items.replaceChildren(...(loadout.length ? loadout.map(id => {
+      const item = ITEMS[id], row = make('li', item.name);
+      row.title = item.text;
+      row.style.setProperty('--item-color', item.color);
+      return row;
+    }) : [make('li', 'No items', 'noEquipment')]));
   }
   function updateHud(s) {
     const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
@@ -2242,11 +2369,6 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const actualQuality = renderer.auto === 1 ? 'high' : renderer.auto === .75 ? 'medium' : 'low';
     $('quality').title = (quality === 'auto' ? 'Auto · ' + actualQuality : quality) +
       (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
-    function meter(id, value, max, label) {
-      const root = $(id);
-      root.firstElementChild.style.width = Math.min(100, value / max * 100) + '%';
-      if (label) root.lastElementChild.textContent = Math.ceil(value) + ' / ' + Math.round(max);
-    }
     meter('health', h.hp, h.maxHp, true);
     meter('mana', h.mana, h.maxMana, true);
     meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
@@ -2280,15 +2402,20 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const utility = document.querySelector('[data-utility=potion] span');
     utility.textContent = 'Potion ×' + h.pots;
     $('shopButton').dataset.open = h.canShop;
-    $('shopButton').lastElementChild.textContent = h.canShop ? 'Shop' : 'Shop at base';
+    $('shopButton').title = h.canShop ? 'Buy equipment (B)' : 'Browse equipment · Buy at your fountain (B)';
     document.querySelector('[data-utility=recall] span').textContent = h.channel > time ? (h.channel-time).toFixed(1) + 's' :
       h.recallReady > time ? Math.ceil(h.recallReady - time) + 's' : 'Recall';
-    if (!demo && h.hp <= 0 && !wasDead && s.mode === 'match') $('shop').hidden = false;
+    if (!demo && h.hp <= 0 && !wasDead && s.mode === 'match') {
+      $('shop').hidden = false;
+      $('shopFeedback').hidden = true;
+    }
     wasDead = h.hp <= 0;
     const death = $('deathNotice');
     death.hidden = !wasDead || demo || s.mode !== 'match';
     $('deathTimer').textContent = death.hidden ? '' : 'Respawn in ' + Math.max(0, Math.ceil(h.respawn - time)) + 's · Shop is open';
     if (!$('shop').hidden) updateShop(h, time);
+    $('shopButton').setAttribute('aria-expanded', !$('shop').hidden);
+    updateInspection(s);
     if (tooltipTarget) updateTooltip();
     for (const row of $('feed').children) {
       const opacity = Math.min(1, 9 - (time - Number(row.dataset.time)));
@@ -2298,6 +2425,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     if (s.mode === 'ended' && $('matchOverlay').hidden) {
       if (remote) safeSeat(null);
       $('shop').hidden = true;
+      $('shopButton').setAttribute('aria-expanded', 'false');
       overlay(demo ? TEAM[s.winner] + ' wins' : s.winner === team ? 'Victory' : 'Defeat',
         TEAM[s.winner] + ' destroyed the enemy core.', 'Return to lobby', goMenu);
       const stats = $('matchStats');
@@ -2314,6 +2442,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       lastEffect = e.id;
       if (s.time - e.time > 2) continue;
       if (e.kind === 'notice') hint(e.text);
+      if (e.kind === 'purchase' && e.audience === team) {
+        const message = 'Bought ' + ITEMS[e.item].name + ' · ' + e.cost + 'g';
+        if ($('shop').hidden) hint(message);
+        else shopFeedback(message);
+        beep(1200,.08,'sine',.045,1.2);
+      }
       if (e.kind === 'feed') {
         const row = make('div', e.text); const parent = $('feed');
         row.dataset.time = e.time;
@@ -2330,14 +2464,19 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     }
   }
   function canvasOrder(event) {
-    if (game.hidden || paused || demo || !snapshot || snapshot.heroes[team].hp <= 0 || event.button > 2 || event.button === 1) return;
+    if (game.hidden || paused || !snapshot || snapshot.mode !== 'match' || (event.button !== 0 && event.button !== 2)) return;
     event.preventDefault();
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
     const p = aimPoint();
-    const nearest = pickTarget(renderer.displayed || snapshot, team, p);
+    const visible = renderer.displayed || snapshot;
+    if (event.button === 0 && event.pointerType !== 'touch') {
+      selectUnit(pickUnit(visible, p)?.id ?? null);
+      return;
+    }
+    if (demo || snapshot.heroes[team].hp <= 0) return;
+    const nearest = pickTarget(visible, team, p);
     if (issue(nearest ? { o:'attack', id:nearest.id } : { o:'move', ...p })) {
-      renderer.focus = null;
       renderMark = { ...(nearest || p), at:performance.now(), color:nearest ? (nearest.team === team ? '#c9a0ff' : '#ff6b6b') : '#8dffb0' };
     }
   }
@@ -2469,8 +2608,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     return { ...b, time, heroes: objects(), creeps: rows(a.creeps,b.creeps,3,4), projectiles: rows(a.projectiles,b.projectiles,3,4) };
   }
   function hotkey(event) {
-    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
+    if (event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
+    if (!game.hidden && (k === 'arrowleft' || k === 'arrowright')) {
+      event.preventDefault();
+      panKeys.add(k);
+      return;
+    }
+    if (event.repeat) return;
     if (k === '?') return help();
     if (game.hidden) {
       if (k === 'escape' && (waiting || networkAction || seat)) return disconnect();
@@ -2487,7 +2632,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     }
     if (snapshot?.mode === 'ended' && (k === 'enter' || k === 'escape')) return goMenu();
     if (paused && (k === 'p' || k === 'escape')) return pause();
-    if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
+    if (k === 'c') toggleCamera();
+    else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
+      event.preventDefault();
+      panKeys.clear();
+      followHero();
+    } else if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
     else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
     else if (k === 'b') toggleShop();
     else if (k === 'f') issue({o:'potion'});
@@ -2495,12 +2645,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     else if (k === 's') issue({o:'stop'});
     else if (k === 'a') {
       const p = aimPoint();
-      if (issue({o:'amove',...p})) {
-        renderer.focus = null;
-        renderMark = { ...p, at:performance.now(), color:'#ff6b6b' };
-      }
+      if (issue({o:'amove',...p})) renderMark = { ...p, at:performance.now(), color:'#ff6b6b' };
     } else if (k === 'p' || k === 'escape') {
       if (!$('shop').hidden && k === 'escape') toggleShop();
+      else if (inspectedId != null && k === 'escape') selectUnit(null);
       else pause();
     } else if (k === 'g') changeQuality();
     else if (k === 'm') changeAudio();
@@ -2513,11 +2661,22 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     $('matchOverlay').addEventListener('pointerdown', e => {
       if (e.target === $('matchOverlay') && $('overlayAction').onclick === pause) pause();
     });
-    $('minimap').addEventListener('pointerdown', event => {
-      const rect = $('minimap').getBoundingClientRect();
-      renderer.focus = (event.clientX-rect.x) / rect.width * WIDTH;
+    const minimap = $('minimap');
+    const mapFocus = event => {
+      const rect = minimap.getBoundingClientRect();
+      freeCamera((event.clientX-rect.x) / rect.width * WIDTH);
+    };
+    minimap.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      minimap.setPointerCapture(event.pointerId);
+      mapFocus(event);
+    });
+    minimap.addEventListener('pointermove', event => {
+      if (minimap.hasPointerCapture(event.pointerId)) mapFocus(event);
     });
     document.addEventListener('keydown', hotkey);
+    document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
+    window.addEventListener('blur', () => { panKeys.clear(); cursorOnArena = false; });
     $('start').onclick = () => solo();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
@@ -2533,9 +2692,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       } else goMenu();
     };
     $('audio').onclick = changeAudio;
+    $('camera').onclick = toggleCamera;
     $('quality').onclick = changeQuality;
     $('shopButton').onclick = toggleShop;
     $('closeShop').onclick = toggleShop;
+    $('closeInspect').onclick = () => selectUnit(null);
     $('help').onclick = help;
     $('gameHelp').onclick = help;
     $('closeHelp').onclick = () => $('controls').close();
@@ -2579,7 +2740,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       if (snapshot) {
         const visible = remote ? interpolate(now) : snapshot;
-        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null);
+        panCamera(elapsed);
+        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,inspectedId);
         playEvents(visible);
         if (now - lastUi > 90) {
           updateHud(snapshot);

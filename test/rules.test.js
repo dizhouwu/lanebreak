@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Match, buyPlan, sellValue, spellDamage, physical, pickTarget, CREEP_FLAGS } = require('../src/engine.js');
+const { Match, buyPlan, sellValue, spellDamage, physical, pickTarget, pickUnit, CREEP_FLAGS } = require('../src/engine.js');
 const { HEROES, ITEMS } = require('../src/rules.js');
 
 const advance = (match, elapsed) => {
@@ -25,6 +25,7 @@ test('pointer targeting uses exact deny eligibility and skips protected towers',
     const creep = m.creeps.find(c => c.team === team);
     creep.hp = creep.maxHp / 2;
     assert.equal(pickTarget(m.snapshot(team), team, creep), null);
+    assert.equal(pickUnit(m.snapshot(team), creep).id, creep.id);
     creep.hp -= .1;
     const view = m.snapshot(team);
     const row = view.creeps.find(c => c[0] === creep.id);
@@ -34,6 +35,8 @@ test('pointer targeting uses exact deny eligibility and skips protected towers',
     assert.equal(pickTarget(view, 1-team, creep).id, creep.id);
     const blocked = m.getBuilding(1-team, 'inner');
     assert.equal(pickTarget(view, team, blocked), null);
+    assert.equal(pickUnit(view, blocked).id, blocked.id);
+    assert.equal(pickUnit(view, m.heroes[team]).id, m.heroes[team].id);
   }
 });
 

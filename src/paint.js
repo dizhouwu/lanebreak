@@ -222,11 +222,15 @@
       return { x: this.cam + x * this.canvas.width / this.canvas.clientWidth / this.scale,
         y: y * HEIGHT / this.canvas.clientHeight };
     }
+    focusAt(x) {
+      const half = Math.min(WIDTH, this.canvas.width / this.scale) / 2;
+      this.focus = clamp(x, half, WIDTH - half);
+    }
     camera(hero) {
       const view = this.canvas.width / this.scale;
       return clamp((this.focus ?? (hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18))) - view / 2, 0, Math.max(0, WIDTH - view));
     }
-    frame(s, team, now, mark, dt, pointer) {
+    frame(s, team, now, mark, dt, pointer, selectedId) {
       this.resize();
       const g = this.g, w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
@@ -307,7 +311,14 @@
         ellipse(g, x, y, rad * progress, rad * progress, null, color + 'b8', ultimate ? 4 : 2);
       }
       const fighters = units.filter(visible).sort((a, b) => a.y - b.y);
-      for (const u of fighters) u.type === 'hero' ? this.hero(g, u, team, now) : this.creep(g, u, team);
+      const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
+        s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
+      if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
+      for (const u of fighters) u.type === 'hero' ? this.hero(g, u, team, now) : this.creep(g, u);
+      for (const u of fighters) if (u.type === 'creep') {
+        const hpColor = u.team !== team ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
+        this.bar(g,u,u.y-u.r-11,34,hpColor,5);
+      }
       for (const [, side, kind, x, y, source, dx, dy, width] of s.projectiles) {
         if (!visible({x})) continue;
         const color = source === 'building' ? '#fff0b0' : HEROES[source]?.color || COLORS[side];
@@ -446,7 +457,7 @@
       this.label(g,String(u.level),x-47,y-46,14,'#ffe08a');
       this.label(g,u.name,x,y-62,14,'#f1f1dd');
     }
-    creep(g, u, team) {
+    creep(g, u) {
       const {x,y,r} = u, color = COLORS[u.team], flags = Lanebreak.CREEP_FLAGS;
       ellipse(g,x+4,y+6,r+3,r*.63,'#111e2385');
       const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
@@ -465,12 +476,8 @@
       }
       g.restore();
       if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
-      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-13,16,'#fff29a');
+      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17,16,'#fff29a');
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
-      if (u.hp / u.maxHp < .999) {
-        const hpColor = u.team !== team ? '#ff6464' : u.flags & flags.deniable ? '#c9a0ff' : '#6fd37a';
-        this.bar(g,u,y-r-11,34,hpColor,4);
-      }
     }
     minimap(s, team, view) {
       const g = this.mini.getContext('2d'), w = this.mini.width, h = this.mini.height;

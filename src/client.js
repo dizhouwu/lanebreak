@@ -1,7 +1,7 @@
 (function () {
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH } = LanebreakRules;
-  const { Match, shopOffer, sellValue, spellDamage, pickTarget, xpGoal } = Lanebreak;
+  const { Match, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R'];
   const heroKeys = Object.keys(HEROES);
@@ -18,10 +18,11 @@
   let muted = prefs.load('muted') === 'true';
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
-  let cursorOnArena = false, shopFocus = null, tooltipTarget = null;
+  let cursorOnArena = false, shopFocus = null, tooltipTarget = null, inspectedId = null;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
+  const panKeys = new Set();
   const game = $('game');
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
@@ -209,10 +210,13 @@
     $('hint').hidden = true;
     $('matchOverlay').hidden = true;
     $('shop').hidden = true;
+    $('shopFeedback').hidden = true;
     $('deathNotice').hidden = true;
     $('hudTooltip').hidden = true;
     shopFocus = tooltipTarget = null;
-    renderer.focus = null;
+    selectUnit(null);
+    panKeys.clear();
+    followHero();
     renderer.displayed = null;
     paused = false;
     renderMark = null;
@@ -252,7 +256,7 @@
     if (watch) hint('Spectating · computer vs computer');
     else {
       beep(650, .10);
-      hint('Click to move · B to shop · Q to cast');
+      hint('Right-click to move · Left-click to inspect · B to shop');
     }
   }
   function overlay(title, text, label, action) {
@@ -296,8 +300,11 @@
       error = local.order(team, cmd);
       snapshot = local.snapshot(team, demo);
     }
-    if (error) { hint(error); return false; }
-    if (cmd.o === 'buy') beep(1200,.08,'sine',.045,1.2);
+    if (error) {
+      if (cmd.o === 'buy' && !$('shop').hidden) shopFeedback(error, true);
+      else hint(error);
+      return false;
+    }
     if (cmd.o === 'sell') beep(600,.10,'sine',.045,.7);
     return true;
   }
@@ -310,11 +317,49 @@
     const hero = snapshot?.heroes[team];
     return hero ? { x: hero.x + (team ? -1 : 1) * 500, y: hero.y } : { x: 2600, y: 450 };
   }
+  function cameraLabel(free) {
+    const button = $('camera');
+    button.setAttribute('aria-pressed', free);
+    button.textContent = free ? 'Camera: Free' : 'Camera: Follow';
+  }
+  function followHero() {
+    renderer.focus = null;
+    cameraLabel(false);
+  }
+  function freeCamera(x) {
+    if (!snapshot || paused || snapshot.mode !== 'match') return;
+    if (renderer.focus == null) cameraLabel(true);
+    renderer.focusAt(x);
+  }
+  function toggleCamera() {
+    if (renderer.focus != null) followHero();
+    else freeCamera(renderer.toWorld(innerWidth / 2, 0).x);
+  }
+  function panCamera(dt) {
+    if (paused || $('controls').open || !$('matchOverlay').hidden) return;
+    let direction = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
+    if (!direction && !panKeys.size && renderer.focus != null && cursorOnArena) {
+      const edge = Math.min(36, innerWidth * .06);
+      if (hovered.x < edge) direction = hovered.x / edge - 1;
+      else if (hovered.x > innerWidth - edge) direction = (hovered.x - innerWidth + edge) / edge;
+    }
+    if (direction) freeCamera(renderer.toWorld(innerWidth / 2, 0).x + direction * 1200 * Math.min(dt,.05));
+  }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
     shopFocus = null;
     $('shop').hidden = !$('shop').hidden;
-    if (!$('shop').hidden) updateShop(snapshot.heroes[team], snapshot.time);
+    $('shopButton').setAttribute('aria-expanded', !$('shop').hidden);
+    if (!$('shop').hidden) {
+      $('shopFeedback').hidden = true;
+      updateShop(snapshot.heroes[team], snapshot.time);
+    }
+  }
+  function shopFeedback(text, error = false) {
+    const panel = $('shopFeedback');
+    panel.dataset.error = error;
+    panel.textContent = text;
+    panel.hidden = false;
   }
   function updateShopDetails(h, time) {
     const panel = $('shopDetails');
@@ -323,7 +368,7 @@
     const item = ITEMS[id], lines = [];
     const add = (text, style) => lines.push([text,style]);
     if (!item) {
-      add('Click to buy. Owned components reduce the upgrade price.');
+      add('Choose a Buy button to purchase. Owned components reduce the price.');
       add('Click an inventory slot to sell. The refund drops after 10 seconds.');
       add('Press 1–6 to use an active item. ★ marks the suggested build.');
     } else {
@@ -360,9 +405,11 @@
     for (const button of $('shopItems').querySelectorAll('[data-item]')) {
       const id = button.dataset.item, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
       button.firstElementChild.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : ''].filter(Boolean).join(' ');
-      button.lastElementChild.firstElementChild.textContent = plan.cost + 'g';
+      button.lastElementChild.firstElementChild.textContent = (plan.reason ? '' : 'Buy ') + plan.cost + 'g';
       button.lastElementChild.lastElementChild.textContent = plan.cost < item.total ? 'of ' + item.total + 'g' : '';
-      button.classList.toggle('unaffordable', !!plan.reason);
+      button.dataset.buyable = !plan.reason;
+      button.setAttribute('aria-disabled', !!plan.reason);
+      button.setAttribute('aria-label', item.name + ' · ' + (plan.reason || 'Buy for ' + plan.cost + ' gold'));
     }
     const sign = h.inventory.map(item => item.id).join(',');
     if ($('sellItems').dataset.content !== sign) {
@@ -380,6 +427,43 @@
       $('sellItems').children[i].textContent = ITEMS[item.id].name + ' · +' + refund + 'g';
     }
     updateShopDetails(h, time);
+  }
+  function meter(id, value, max, label) {
+    const root = $(id);
+    root.firstElementChild.style.width = Math.min(100, value / max * 100) + '%';
+    if (label) root.lastElementChild.textContent = Math.ceil(value) + ' / ' + Math.round(max);
+  }
+  function selectUnit(id) {
+    inspectedId = id;
+    if (id == null) $('inspectPanel').hidden = true;
+    else updateInspection(snapshot);
+  }
+  function updateInspection(s) {
+    if (inspectedId == null) return;
+    const hero = s.heroes.find(u => u.id === inspectedId);
+    const building = !hero && s.buildings.find(u => u.id === inspectedId);
+    const creep = !hero && !building && s.creeps.find(u => u[0] === inspectedId);
+    if (!hero && !building && !creep) return selectUnit(null);
+    const unit = hero || building || { team: creep[1], kind: creep[2], hp: creep[5], maxHp: creep[6] };
+    const name = hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
+    $('inspectPanel').hidden = false;
+    $('inspectName').textContent = hero && hero.name !== name ? hero.name + ' · ' + name : name;
+    $('inspectSide').textContent = TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
+    meter('inspectHealth', unit.hp, unit.maxHp, true);
+    $('inspectMana').hidden = !hero;
+    $('inspectEquipment').hidden = !hero;
+    if (!hero) return;
+    meter('inspectMana', hero.mana, hero.maxMana, true);
+    const loadout = hero.loadout || hero.inventory?.map(item => item.id) || [];
+    const items = $('inspectItems'), sign = loadout.join(',');
+    if (items.dataset.content === sign) return;
+    items.dataset.content = sign;
+    items.replaceChildren(...(loadout.length ? loadout.map(id => {
+      const item = ITEMS[id], row = make('li', item.name);
+      row.title = item.text;
+      row.style.setProperty('--item-color', item.color);
+      return row;
+    }) : [make('li', 'No items', 'noEquipment')]));
   }
   function updateHud(s) {
     const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
@@ -411,11 +495,6 @@
     const actualQuality = renderer.auto === 1 ? 'high' : renderer.auto === .75 ? 'medium' : 'low';
     $('quality').title = (quality === 'auto' ? 'Auto · ' + actualQuality : quality) +
       (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
-    function meter(id, value, max, label) {
-      const root = $(id);
-      root.firstElementChild.style.width = Math.min(100, value / max * 100) + '%';
-      if (label) root.lastElementChild.textContent = Math.ceil(value) + ' / ' + Math.round(max);
-    }
     meter('health', h.hp, h.maxHp, true);
     meter('mana', h.mana, h.maxMana, true);
     meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
@@ -449,15 +528,20 @@
     const utility = document.querySelector('[data-utility=potion] span');
     utility.textContent = 'Potion ×' + h.pots;
     $('shopButton').dataset.open = h.canShop;
-    $('shopButton').lastElementChild.textContent = h.canShop ? 'Shop' : 'Shop at base';
+    $('shopButton').title = h.canShop ? 'Buy equipment (B)' : 'Browse equipment · Buy at your fountain (B)';
     document.querySelector('[data-utility=recall] span').textContent = h.channel > time ? (h.channel-time).toFixed(1) + 's' :
       h.recallReady > time ? Math.ceil(h.recallReady - time) + 's' : 'Recall';
-    if (!demo && h.hp <= 0 && !wasDead && s.mode === 'match') $('shop').hidden = false;
+    if (!demo && h.hp <= 0 && !wasDead && s.mode === 'match') {
+      $('shop').hidden = false;
+      $('shopFeedback').hidden = true;
+    }
     wasDead = h.hp <= 0;
     const death = $('deathNotice');
     death.hidden = !wasDead || demo || s.mode !== 'match';
     $('deathTimer').textContent = death.hidden ? '' : 'Respawn in ' + Math.max(0, Math.ceil(h.respawn - time)) + 's · Shop is open';
     if (!$('shop').hidden) updateShop(h, time);
+    $('shopButton').setAttribute('aria-expanded', !$('shop').hidden);
+    updateInspection(s);
     if (tooltipTarget) updateTooltip();
     for (const row of $('feed').children) {
       const opacity = Math.min(1, 9 - (time - Number(row.dataset.time)));
@@ -467,6 +551,7 @@
     if (s.mode === 'ended' && $('matchOverlay').hidden) {
       if (remote) safeSeat(null);
       $('shop').hidden = true;
+      $('shopButton').setAttribute('aria-expanded', 'false');
       overlay(demo ? TEAM[s.winner] + ' wins' : s.winner === team ? 'Victory' : 'Defeat',
         TEAM[s.winner] + ' destroyed the enemy core.', 'Return to lobby', goMenu);
       const stats = $('matchStats');
@@ -483,6 +568,12 @@
       lastEffect = e.id;
       if (s.time - e.time > 2) continue;
       if (e.kind === 'notice') hint(e.text);
+      if (e.kind === 'purchase' && e.audience === team) {
+        const message = 'Bought ' + ITEMS[e.item].name + ' · ' + e.cost + 'g';
+        if ($('shop').hidden) hint(message);
+        else shopFeedback(message);
+        beep(1200,.08,'sine',.045,1.2);
+      }
       if (e.kind === 'feed') {
         const row = make('div', e.text); const parent = $('feed');
         row.dataset.time = e.time;
@@ -499,14 +590,19 @@
     }
   }
   function canvasOrder(event) {
-    if (game.hidden || paused || demo || !snapshot || snapshot.heroes[team].hp <= 0 || event.button > 2 || event.button === 1) return;
+    if (game.hidden || paused || !snapshot || snapshot.mode !== 'match' || (event.button !== 0 && event.button !== 2)) return;
     event.preventDefault();
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
     const p = aimPoint();
-    const nearest = pickTarget(renderer.displayed || snapshot, team, p);
+    const visible = renderer.displayed || snapshot;
+    if (event.button === 0 && event.pointerType !== 'touch') {
+      selectUnit(pickUnit(visible, p)?.id ?? null);
+      return;
+    }
+    if (demo || snapshot.heroes[team].hp <= 0) return;
+    const nearest = pickTarget(visible, team, p);
     if (issue(nearest ? { o:'attack', id:nearest.id } : { o:'move', ...p })) {
-      renderer.focus = null;
       renderMark = { ...(nearest || p), at:performance.now(), color:nearest ? (nearest.team === team ? '#c9a0ff' : '#ff6b6b') : '#8dffb0' };
     }
   }
@@ -638,8 +734,14 @@
     return { ...b, time, heroes: objects(), creeps: rows(a.creeps,b.creeps,3,4), projectiles: rows(a.projectiles,b.projectiles,3,4) };
   }
   function hotkey(event) {
-    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
+    if (event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
+    if (!game.hidden && (k === 'arrowleft' || k === 'arrowright')) {
+      event.preventDefault();
+      panKeys.add(k);
+      return;
+    }
+    if (event.repeat) return;
     if (k === '?') return help();
     if (game.hidden) {
       if (k === 'escape' && (waiting || networkAction || seat)) return disconnect();
@@ -656,7 +758,12 @@
     }
     if (snapshot?.mode === 'ended' && (k === 'enter' || k === 'escape')) return goMenu();
     if (paused && (k === 'p' || k === 'escape')) return pause();
-    if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
+    if (k === 'c') toggleCamera();
+    else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
+      event.preventDefault();
+      panKeys.clear();
+      followHero();
+    } else if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
     else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
     else if (k === 'b') toggleShop();
     else if (k === 'f') issue({o:'potion'});
@@ -664,12 +771,10 @@
     else if (k === 's') issue({o:'stop'});
     else if (k === 'a') {
       const p = aimPoint();
-      if (issue({o:'amove',...p})) {
-        renderer.focus = null;
-        renderMark = { ...p, at:performance.now(), color:'#ff6b6b' };
-      }
+      if (issue({o:'amove',...p})) renderMark = { ...p, at:performance.now(), color:'#ff6b6b' };
     } else if (k === 'p' || k === 'escape') {
       if (!$('shop').hidden && k === 'escape') toggleShop();
+      else if (inspectedId != null && k === 'escape') selectUnit(null);
       else pause();
     } else if (k === 'g') changeQuality();
     else if (k === 'm') changeAudio();
@@ -682,11 +787,22 @@
     $('matchOverlay').addEventListener('pointerdown', e => {
       if (e.target === $('matchOverlay') && $('overlayAction').onclick === pause) pause();
     });
-    $('minimap').addEventListener('pointerdown', event => {
-      const rect = $('minimap').getBoundingClientRect();
-      renderer.focus = (event.clientX-rect.x) / rect.width * WIDTH;
+    const minimap = $('minimap');
+    const mapFocus = event => {
+      const rect = minimap.getBoundingClientRect();
+      freeCamera((event.clientX-rect.x) / rect.width * WIDTH);
+    };
+    minimap.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      minimap.setPointerCapture(event.pointerId);
+      mapFocus(event);
+    });
+    minimap.addEventListener('pointermove', event => {
+      if (minimap.hasPointerCapture(event.pointerId)) mapFocus(event);
     });
     document.addEventListener('keydown', hotkey);
+    document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
+    window.addEventListener('blur', () => { panKeys.clear(); cursorOnArena = false; });
     $('start').onclick = () => solo();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
@@ -702,9 +818,11 @@
       } else goMenu();
     };
     $('audio').onclick = changeAudio;
+    $('camera').onclick = toggleCamera;
     $('quality').onclick = changeQuality;
     $('shopButton').onclick = toggleShop;
     $('closeShop').onclick = toggleShop;
+    $('closeInspect').onclick = () => selectUnit(null);
     $('help').onclick = help;
     $('gameHelp').onclick = help;
     $('closeHelp').onclick = () => $('controls').close();
@@ -748,7 +866,8 @@
       }
       if (snapshot) {
         const visible = remote ? interpolate(now) : snapshot;
-        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null);
+        panCamera(elapsed);
+        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,inspectedId);
         playEvents(visible);
         if (now - lastUi > 90) {
           updateHud(snapshot);

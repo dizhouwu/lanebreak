@@ -47,7 +47,7 @@
     <header class="matchTop">
       <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
-      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>B Shop · 1–6 Items · T Recall · F Potion · A Attack-move · S Stop</small></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Follow hero</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
@@ -55,8 +55,15 @@
     <div id="matchOverlay" class="matchOverlay" hidden><div class="panel overlayPanel"><h2 id="overlayTitle"></h2><p id="overlayText"></p><dl id="matchStats" hidden></dl><button id="overlayAction" class="primary"></button></div></div>
     <aside id="shop" class="panel shop" hidden aria-label="Item shop">
       <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
+      <div id="shopFeedback" role="status" hidden></div>
       <div class="shopContent"><div id="shopItems"></div><div id="shopDetails" class="shopDetails"></div></div>
       <div id="sellItems"></div>
+    </aside>
+    <aside id="inspectPanel" class="panel inspectPanel" hidden aria-label="Selected unit">
+      <header><div><h2 id="inspectName"></h2><small id="inspectSide"></small></div><button id="closeInspect" aria-label="Close unit information">×</button></header>
+      <div id="inspectHealth" class="meter health"><i></i><span></span></div>
+      <div id="inspectMana" class="meter mana" hidden><i></i><span></span></div>
+      <div id="inspectEquipment" hidden><h3>Equipment</h3><ul id="inspectItems"></ul></div>
     </aside>
     <footer class="hud">
       <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap"></canvas></div>
@@ -64,7 +71,7 @@
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
         <div class="abilities" id="abilities"></div>
         <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
-        <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton"><kbd>B</kbd><span>Shop</span></button></div>
+        <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton" aria-controls="shop" aria-expanded="false"><kbd>B</kbd><span>Item shop</span></button></div>
       </div>
       <div id="hudTooltip" class="panel hudTooltip" role="tooltip" hidden></div>
     </footer>
@@ -72,7 +79,9 @@
   <dialog id="controls" class="panel">
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
-      <dt>Left or right click</dt><dd>Move or attack. Click an allied creep below 50% HP to deny it.</dd>
+      <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
+      <dt>Right click</dt><dd>Move or attack. Right-click an allied creep below 50% HP to deny it.</dd>
+      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle free camera / follow your hero. Pan with the screen edges in free mode, the left and right arrows, or the minimap.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>

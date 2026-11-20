@@ -54,6 +54,9 @@
   }
   function pickTarget(snapshot, team, point) {
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
+    return pickUnit(snapshot, point, team);
+  }
+  function pickUnit(snapshot, point, attackTeam) {
     let best = null, nearest = Infinity;
     function consider(id, side, x, y, r, height) {
       const d = Math.min(Math.hypot(x - point.x, y - point.y), Math.hypot(x - point.x, y - height - point.y));
@@ -62,13 +65,13 @@
       best = { id, team: side, x, y, r };
     }
     for (const h of snapshot.heroes) {
-      if (h.team !== team && h.hp > 0) consider(h.id, h.team, h.x, h.y, h.r, 18);
+      if (h.team !== attackTeam && h.hp > 0) consider(h.id, h.team, h.x, h.y, h.r, 18);
     }
     for (const b of snapshot.buildings) {
-      if (b.team !== team && b.hp > 0 && !b.protected) consider(b.id, b.team, b.x, b.y, b.r, 44);
+      if (b.hp > 0 && b.team !== attackTeam && (attackTeam == null || !b.protected)) consider(b.id, b.team, b.x, b.y, b.r, 44);
     }
     for (const [id, side, kind, x, y, hp, , , radius, , flags] of snapshot.creeps) {
-      if (hp > 0 && (side !== team || flags & CREEP_FLAGS.deniable)) consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
+      if (hp > 0 && (side !== attackTeam || flags & CREEP_FLAGS.deniable)) consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
     }
     return best;
   }
@@ -450,7 +453,12 @@
       if (!validOrder(cmd) || this.mode !== 'match') return 'Invalid order';
       const h = this.heroes[team];
       const { o, i, id, x, y } = cmd;
-      if (o === 'buy') return this.buy(h, id);
+      if (o === 'buy') {
+        const cost = h.gold;
+        const error = this.buy(h, id);
+        if (!error) this.effect('purchase', h.x, h.y, { audience: team, item: id, cost: Math.round(cost - h.gold) });
+        return error;
+      }
       if (o === 'sell') return this.sell(h, i);
       if (h.hp <= 0) return 'You are respawning';
       switch (o) {
@@ -964,7 +972,8 @@
       const heroes = this.heroes.map(h => {
         const common = { ...base(h), hero: h.hero, name: h.name, level: h.level, respawn: h.respawn,
           channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
-          facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot };
+          facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot,
+          loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
         return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
           recallReady: h.recallReady, tomeReady: h.tomeReady, pots: h.pots, stats: h.stats, potionUntil: h.potionUntil,
@@ -1002,7 +1011,7 @@
       default: return false;
     }
   }
-  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, CREEP_FLAGS, xpGoal, home, distance, physical };
+  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();
