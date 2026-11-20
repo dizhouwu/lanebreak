@@ -1,0 +1,16 @@
+{
+  "name": "lanebreak",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-lane strategy duels for the browser",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js && node lanebreak_server.js",
+    "start": "node lanebreak_server.js",
+    "test": "node --test test/*.test.js",
+    "balance": "node test/balance.js"
+  }
+}

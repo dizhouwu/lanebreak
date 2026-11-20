@@ -1,0 +1,2599 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1214">
+  <title>Lanebreak — One-lane strategy duels</title>
+  <style>
+:root{color-scheme:dark;--ink:#0a1012;--panel:#101a1e;--border:#2d3c3c;--gold:#f0c581;--muted:#a4aeaa;--white:#f4efdf;--azure:#6bd6fa;--crimson:#fc7a7e;font-family:"Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%;background:var(--ink);color:var(--white)}
+body.matchMode{overflow:hidden}
+#arena{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button,input{font:inherit}
+button{color:var(--white);background:#182426;border:1px solid #394748;border-radius:5px;min-height:36px;padding:7px 12px;cursor:pointer;transition:background .15s,border-color .15s}
+button:hover{background:#253332;border-color:#778176}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+button[aria-pressed=true]{color:var(--gold)}
+button:disabled{opacity:.5;cursor:default}
+kbd{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 4px;border:1px solid #64706b80;border-radius:3px;font:600 11px/1 "SFMono-Regular",Consolas,monospace;color:inherit;vertical-align:middle}
+.primary{width:100%;background:#ebbd76;color:#21180d;border-color:#f5d699;font-weight:800;min-height:43px}
+.primary:hover{background:#ffe0a7;border-color:#ffe0a7}
+.primary kbd{border-color:#59412366}
+.iconButton{background:#111b1dcf;font-size:.83rem;color:#d3d9ce;white-space:nowrap}
+#lobby{position:relative;min-height:100svh;display:flex;flex-direction:column;padding:24px max(5vw,22px) 30px;background:linear-gradient(90deg,#080e11ec 0%,#080e11cf 29%,#080e1160 66%,#080e1125),linear-gradient(0deg,#090e12 0%,#0a1014d9 13%,transparent 60%)}
+.mast{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:11px;font-size:.91rem;font-weight:900;letter-spacing:.22em}
+.mark{display:inline-block;width:20px;height:20px;border:1px solid #f8cc8b;transform:rotate(45deg);position:relative}
+.mark:before,.mark:after{content:"";display:block;position:absolute;background:#f8cc8b}
+.mark:before{width:2px;inset:2px auto 2px 8px}
+.mark:after{height:2px;inset:8px 2px auto}
+.titleBlock{margin:auto 0;padding:46px 0 32px}
+.eyebrow{color:#eed29d;font-size:.8rem;font-weight:750;letter-spacing:.23em;display:flex;align-items:center;gap:9px}
+.eyebrow span{display:inline-block;width:18px;height:1px;background:#edce95}
+h1{font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:clamp(3.1rem,8.5vw,9.1rem);line-height:.99;letter-spacing:-.073em;margin:13px 0 11px;text-shadow:0 4px 24px #000b}
+h1 span{color:var(--gold)}
+.titleBlock p{margin:0;font-size:clamp(1rem,2.1vw,1.4rem);color:#c3cac0}
+.lobbyControls{display:grid;grid-template-columns:minmax(0,1fr) minmax(245px,310px);gap:clamp(18px,3.5vw,45px)}
+.sectionHeader{display:flex;align-items:center;justify-content:space-between;margin:0 0 11px}
+h2{font-size:1rem;margin:0}
+.keyHint{color:var(--muted);white-space:nowrap}
+.heroGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.heroCard{position:relative;overflow:hidden;display:flex;min-height:clamp(150px,19vw,224px);text-align:left;align-items:end;padding:14px;border:1px solid #48534b;background:#142023}
+.heroCard canvas{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.heroCard:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#0b1215 1%,#0b1215ec 18%,#0b12154f 55%,transparent 100%);pointer-events:none}
+.heroCard[aria-pressed=true]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold),0 0 20px #e6aa5724}
+.heroCard:hover canvas{filter:brightness(1.15)}
+.cardText{position:relative;z-index:1;display:grid;gap:2px}
+.cardText strong{font-family:Georgia,serif;font-size:clamp(1rem,2.2vw,1.8rem);color:#f8efe1}
+.cardText small{font-size:clamp(.7rem,1.3vw,.87rem);color:#c3cfc5}
+.heroCard kbd{position:absolute;z-index:1;top:9px;left:9px;background:#081112bb}
+.deploy{align-self:end;background:#10191bf5;border:1px solid #3d4a46;border-radius:7px;padding:13px}
+.tabs{display:flex;gap:6px;margin-bottom:15px;border-bottom:1px solid #33403d}
+.tabs button{flex:1;border:0;border-bottom:2px solid transparent;background:transparent;border-radius:0;color:#b7c2b8;font-weight:700;min-height:36px}
+.tabs button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}
+.fieldLabel{display:block;font-size:.82rem;color:#b5c2b8;margin-bottom:7px}
+.segments{display:flex;gap:5px;margin-bottom:13px}
+.segments button{flex:1;padding:6px;font-size:.86rem}
+.segments button[aria-pressed=true]{background:#3b3020;border-color:#a38253}
+#start{display:flex;justify-content:space-between;align-items:center}
+input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px solid #3b4949;border-radius:5px;padding:7px 9px}
+.onlineRow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}
+.onlineRow button{font-size:.86rem;min-height:36px}
+#roomStatus{color:#e9be80;font-size:.83rem;margin-top:8px;overflow-wrap:anywhere}
+#game{position:fixed;inset:0;pointer-events:none}
+#game button,#shop,#matchOverlay,#minimap{pointer-events:auto}
+.matchTop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;padding:7px 12px;gap:8px}
+.matchReadout,.matchTools small{font-size:.75rem;color:#e5e9e5;text-shadow:0 1px 4px #000;line-height:1.4}
+#opponentStatus{color:#ff9393}
+.matchTools{text-align:right}
+.matchTools small{display:block;margin-top:3px;color:#c1ccc4}
+.topActions{display:flex;justify-content:end;gap:4px}
+.topActions .iconButton{min-height:26px;padding:3px 6px;font-size:.72rem}
+.scoreboard{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;min-width:220px;border:1px solid #8ca0a44a;background:#090f13eb;border-radius:5px;padding:5px 9px;font-variant-numeric:tabular-nums}
+.scoreSide{display:flex;align-items:center;gap:7px;font-size:.91rem;color:var(--score-team)}
+.scoreSide:last-child{flex-direction:row-reverse}
+.scoreSide i{width:12px;height:12px;border-radius:50%;background:var(--score-hero)}
+#matchClock{min-width:4ch;text-align:center;color:#fff;font:750 .97rem/1.15 system-ui}
+#feed{position:absolute;left:15px;bottom:125px;color:#e7ddd0;font-size:.83rem;text-shadow:0 2px 4px #000}
+#feed div{margin:5px 0}
+#hint{position:absolute;left:50%;bottom:125px;transform:translateX(-50%);background:#10191be8;border:1px solid #5a6152;color:#f5d9a9;border-radius:5px;padding:7px 12px;text-align:center;font-size:.87rem;z-index:2}
+.panel{background:#10191cee;border:1px solid #53615d;border-radius:6px;box-shadow:0 8px 24px #05090b83;color:var(--white)}
+.hud{position:absolute;bottom:6px;left:6px;right:6px;display:flex;justify-content:center}
+.minimapPanel{position:absolute;left:0;bottom:45px;width:clamp(126px,15vw,242px);background:#0a1115ed;border:1px solid #8ca0a44a;border-radius:4px;padding:3px}
+#minimap{width:100%;display:block;cursor:crosshair}
+.heroHud{width:min(724px,100%);display:grid;grid-template-columns:minmax(195px,1fr) minmax(260px,auto) 92px 86px;align-items:center;gap:10px;padding:7px 9px;background:#090f13ed;border-color:#8ca0a45c;box-shadow:0 3px 10px #0007}
+.heroVitals{display:flex;align-items:center;gap:9px;min-width:0}
+#heroBadge{position:relative;width:61px;height:60px;flex:none;border:1px solid currentColor;border-radius:5px;background:#15222a}
+#hudPortrait{width:100%;height:100%;object-fit:cover;border-radius:4px;display:block}
+#heroLevel{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;min-width:21px;height:21px;padding:0 3px;border-radius:50%;background:#0c1117;border:1px solid #e7c879;color:#ffe08a;font-size:.72rem}
+.bars{flex:1;min-width:0;display:grid;gap:4px}
+#vitalName{font-size:.77rem;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#heroAttributes{font-size:.68rem;color:#aeb9bc;white-space:nowrap}
+.meter{height:15px;background:#1f2b29;position:relative;overflow:hidden;border-radius:2px}
+.meter i{height:100%;width:100%;display:block}
+.meter span{position:absolute;inset:0;text-align:center;text-shadow:0 1px 2px #000;font:750 .7rem/15px system-ui;white-space:nowrap}
+.meter.health i{background:#35a44e}.meter.mana{height:13px;background:#172537}.meter.mana span{line-height:13px}.meter.mana i{background:#3272ce}.meter.xp{height:4px;background:#312719}.meter.xp i{background:#e8c56a}
+.abilities{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;align-items:end}
+.abilityTile{min-width:0;text-align:center}
+.abilityName,.itemsBlock>small{display:block;font-size:.61rem;color:#c4d0d2;white-space:nowrap;margin-bottom:3px}
+.abilities button,.inventory button{width:100%;min-height:0;padding:0;position:relative;background:#1a2631;border-color:#59697d}
+.abilities button{height:47px;background:color-mix(in srgb,var(--hero) 30%,#181e29)}
+.abilities button kbd{font:850 1.24rem/1 system-ui;background:none;border:0;color:#eef2fe;padding:0}
+.abilities button span,.inventory button span{position:absolute;right:3px;bottom:1px;font-size:.63rem;color:#dbe6ff;white-space:nowrap}
+.abilities button[data-state=locked]{background:#151b22;border-color:#374047;opacity:.72}
+.abilities button[data-state=locked] kbd{color:#939eb0}
+.abilities button[data-state=ready]{border-color:var(--hero)}
+.abilities button[data-state=nomana]{background:#283b60;border-color:#5771a3}
+.abilities button[data-state=cooldown],.inventory button[data-state=cooldown]{background:linear-gradient(to top,#090f14 var(--cooldown),#263143 var(--cooldown))}
+.abilities button[data-state=cooldown] span{color:#fff;font-weight:800}
+.inventory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+.inventory button{height:22px;border-color:#3b4958}
+.inventory kbd{position:absolute;left:2px;top:2px;min-width:0;height:auto;font-size:.62rem;border:0;padding:0}
+.inventory button[data-active=true]{box-shadow:inset 0 0 0 1px #9cc4ff}
+.economy{display:grid;gap:2px;justify-items:end}
+#gold{font-size:1.05rem;font-weight:850;color:#ffd470;white-space:nowrap}
+.economy button{min-height:0;min-width:0;height:15px;border:0;background:none;padding:0;color:#b7c5ca;font-size:.66rem;white-space:nowrap}
+.economy button:hover{color:#fff}
+.economy kbd{min-width:auto;padding:0 3px 0 0;height:auto;border:0;font-size:.64rem;color:#a7c7f6}
+#shopButton[data-open=true]{color:#8debb2}
+.hudTooltip{position:fixed;z-index:4;width:min(275px,calc(100vw - 16px));padding:10px;font-size:.84rem;white-space:pre-line;line-height:1.35;pointer-events:none}
+.shop{position:absolute;inset:auto 12px 113px auto;width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 178px);display:flex;flex-direction:column;padding:12px;z-index:3}
+.shop header,dialog header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
+.shopContent{display:grid;grid-template-columns:minmax(0,2fr) minmax(150px,1fr);gap:9px;min-height:0;align-items:start}
+#shopItems{overflow:auto;overscroll-behavior:contain;padding-right:4px}
+.shopContent #shopItems,.shopDetails{max-height:100%}
+.shopDetails{overflow:auto;padding:10px;border:1px solid #53615d75;border-radius:5px;background:#25332c55;line-height:1.4;font-size:.81rem}
+.shopDetails h3,.shopDetails p{margin:0 0 7px}.shopDetails p:last-child{margin-bottom:0}
+.shopDetails .cost{color:var(--gold);font-weight:700}.shopDetails .owned{color:#8dffb0}
+.shopGroup{margin:3px 0 11px}
+.shopGroup h3{font-size:.78rem;color:var(--gold);margin:3px 0 6px;text-transform:uppercase;letter-spacing:.08em}
+.itemGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.itemGrid button{text-align:left;font-size:.82rem;min-height:38px;padding:6px;display:flex;align-items:center;justify-content:space-between;gap:4px}
+.itemGrid button.unaffordable{color:#a3ada9}
+.itemGrid button:focus-visible{outline-offset:-2px}
+.itemGrid small{display:block;color:#9cc4ff;font-size:.7rem}
+.itemGrid .itemPrice{text-align:right;white-space:nowrap}
+.itemGrid b{color:var(--gold);font-size:.8rem}
+#sellItems{display:flex;flex-wrap:wrap;gap:4px;border-top:1px solid #3b4845;padding-top:6px;margin-top:4px}
+#sellItems button{font-size:.75rem;min-height:26px;padding:3px 6px}
+#deathNotice{position:absolute;top:27%;left:0;right:0;text-align:center;display:grid;gap:6px;text-shadow:0 2px 8px #000;color:#fff0f0}
+#deathNotice strong{font-size:2.2rem} #deathNotice span{font-size:.93rem}
+#shopStatus,.muted{font-size:.85rem;color:var(--muted)}
+.matchOverlay{position:absolute;inset:0;background:#070e14a8;display:grid;place-items:center;z-index:4}
+.overlayPanel{width:min(95vw,350px);text-align:center;padding:24px}
+.overlayPanel h2{font-family:Georgia,serif;font-size:2.35rem;color:var(--gold)}
+.overlayPanel p{color:var(--muted)}
+#matchStats{grid-template-columns:1fr 1fr;text-align:left;margin:18px 0}
+dialog{width:min(550px,calc(100vw - 22px));padding:17px}
+dialog::backdrop{background:#06090cd9}
+dl{display:grid;grid-template-columns:minmax(90px,140px) 1fr;gap:11px;font-size:.88rem}
+dt{font-weight:750}dd{margin:0;color:#c4cec6}
+@media(max-width:1150px){.minimapPanel{bottom:91px}#feed{bottom:135px}}
+@media(max-width:790px){.lobbyControls{grid-template-columns:1fr;gap:13px}.deploy{max-width:390px;width:100%}.titleBlock{padding:34px 0 23px}.heroCard{min-height:140px}.scoreboard{min-width:125px;gap:6px}.matchTools small{display:none}.topActions{gap:2px}}
+@media(max-width:720px){.heroHud{grid-template-columns:minmax(0,1fr) 73px 69px;gap:5px}.heroVitals{grid-column:1/3;grid-row:1}.economy{grid-column:3;grid-row:1/3}.abilities{grid-column:1;grid-row:2}.itemsBlock{grid-column:2;grid-row:2}#heroBadge{width:44px;height:44px}.meter.health{height:13px}.meter.health span{line-height:13px}.minimapPanel{bottom:124px}#feed{bottom:158px}#hint,.shop{bottom:143px}}
+@media(max-width:530px){.matchTop{padding:5px;gap:3px}.matchReadout{font-size:.63rem}.topActions #quality,.topActions #gameHelp{display:none}.topActions .iconButton{font-size:.62rem;padding:2px 3px}.heroCard{padding:7px;min-height:112px}.heroGrid{gap:5px}.brand{font-size:.8rem}.titleBlock h1{font-size:clamp(2.6rem,13vw,4rem)}.shop{right:6px;width:calc(100vw - 12px)}.abilityName{font-size:.55rem;overflow:hidden;text-overflow:ellipsis}.abilities button{height:37px}.shopContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.shopDetails{max-height:100px}.itemGrid button{min-height:32px}}
+</style>
+</head>
+<body>
+  <canvas id="arena" aria-label="Lanebreak battlefield"></canvas>
+  <main id="lobby">
+    <header class="mast">
+      <div class="brand"><span class="mark" aria-hidden="true"></span> LANEBREAK</div>
+      <button class="iconButton" id="help">Controls <kbd>?</kbd></button>
+    </header>
+    <section class="titleBlock">
+      <div class="eyebrow"><span></span> ONE-LANE STRATEGY DUELS</div>
+      <h1>LANE<span>BREAK</span></h1>
+      <p>Win the lane. Break the core.</p>
+    </section>
+    <div class="lobbyControls">
+      <section class="draft">
+        <div class="sectionHeader"><h2>Choose your hero</h2><span class="keyHint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></div>
+        <div id="heroes" class="heroGrid"></div>
+      </section>
+      <section class="deploy">
+        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button></nav>
+        <div id="soloPanel">
+          <div class="fieldLabel" id="difficultyLabel">Bot difficulty</div>
+          <div id="difficulties" class="segments" role="group" aria-labelledby="difficultyLabel">
+            <button data-difficulty="easy">Easy</button><button data-difficulty="normal" aria-pressed="true">Normal</button><button data-difficulty="hard">Hard</button>
+          </div>
+          <button id="start" class="primary">Start match <kbd>Enter</kbd></button>
+        </div>
+        <div id="onlinePanel" hidden>
+          <label class="fieldLabel" for="name">Player name</label><input id="name" maxlength="20" autocomplete="off" placeholder="Your name">
+          <div class="onlineRow"><button id="host" class="primary">Host match</button><button id="find">Find opponent</button></div>
+          <div class="onlineRow"><input id="room" maxlength="4" autocomplete="off" aria-label="Room code" placeholder="Room code"><button id="join">Join room</button></div>
+          <div id="roomStatus" role="status"></div>
+          <div id="waiting" class="onlineRow" hidden><button id="copy" class="primary">Copy invite link</button><button id="cancelWait">Cancel</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <section id="game" hidden aria-label="Match controls">
+    <header class="matchTop">
+      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
+      <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>B Shop · 1–6 Items · T Recall · F Potion · A Attack-move · S Stop</small></div>
+    </header>
+    <div id="feed" aria-live="polite"></div>
+    <div id="hint" role="status" hidden></div>
+    <div id="deathNotice" hidden><strong>You died</strong><span id="deathTimer"></span></div>
+    <div id="matchOverlay" class="matchOverlay" hidden><div class="panel overlayPanel"><h2 id="overlayTitle"></h2><p id="overlayText"></p><dl id="matchStats" hidden></dl><button id="overlayAction" class="primary"></button></div></div>
+    <aside id="shop" class="panel shop" hidden aria-label="Item shop">
+      <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
+      <div class="shopContent"><div id="shopItems"></div><div id="shopDetails" class="shopDetails"></div></div>
+      <div id="sellItems"></div>
+    </aside>
+    <footer class="hud">
+      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap"></canvas></div>
+      <div class="heroHud panel">
+        <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
+        <div class="abilities" id="abilities"></div>
+        <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
+        <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton"><kbd>B</kbd><span>Shop</span></button></div>
+      </div>
+      <div id="hudTooltip" class="panel hudTooltip" role="tooltip" hidden></div>
+    </footer>
+  </section>
+  <dialog id="controls" class="panel">
+    <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
+    <dl>
+      <dt>Left or right click</dt><dd>Move or attack. Click an allied creep below 50% HP to deny it.</dd>
+      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
+      <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack-move to the cursor / stop and hold fire.</dd>
+      <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
+      <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
+      <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>
+      <dt><kbd>G</kbd> / <kbd>M</kbd></dt><dd>Cycle graphics quality / toggle sound.</dd>
+    </dl>
+    <p class="muted">Last-hit enemy creeps for gold. Destroy the outer tower, inner tower, and enemy core in order.</p>
+  </dialog>
+  <script>
+/* Shared tuning tables for the browser and match server. */
+(function () {
+  const HEROES = {
+    vesper: {
+      name: 'Vesper', title: 'Tide Archer', role: 'Ranged attacker', color: '#35c9c0',
+      hp: 540, hpGrowth: 72, mana: 280, manaGrowth: 28, damage: 47, damageGrowth: 3.9,
+      armor: 2, armorGrowth: .4, range: 510, interval: 1.2, speedGrowth: .03, speed: 300, regen: 1.6, manaRegen: .9,
+      abilities: [
+        { name: 'Piercing Shot', kind: 'bolt', mana: 70, cd: 8, range: 900, radius: 30, speed: 1500, piercing: true, damage: 80, growth: 20, text: 'Fire an arrow through every enemy in its path.' },
+        { name: 'Snare Net', kind: 'blast', mana: 80, cd: 13, range: 700, radius: 190, delay: .5, damage: 40, growth: 10, slow: .45, slowTime: 2.5, text: 'Snare enemies in an area, dealing damage and slowing them.' },
+        { name: 'Tailwind', kind: 'buff', mana: 50, cd: 16, duration: 5, stats: { move: .30, haste: .50 }, text: 'Gain movement and attack speed for 5 seconds.' },
+        { name: 'Arrow Storm', kind: 'blast', mana: 160, cd: 70, range: 800, radius: 250, delay: .4, hits: 6, interval: .5, damage: 45, growth: 9, text: 'Rain six volleys of arrows onto the target area.' }
+      ],
+      build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'fang', 'reaver', 'charm', 'heartstone', 'colossus', 'crown']
+    },
+    brakk: {
+      name: 'Brakk', title: 'Iron Ram', role: 'Melee bruiser', color: '#d98a3a',
+      hp: 780, hpGrowth: 105, mana: 220, manaGrowth: 20, damage: 63, damageGrowth: 5,
+      armor: 5, armorGrowth: .7, range: 110, interval: 1.3, speedGrowth: .025, speed: 312, regen: 3.4, manaRegen: .7,
+      abilities: [
+        { name: 'Ram Charge', kind: 'dash', mana: 70, cd: 10, range: 580, radius: 120, speed: 1500, damage: 80, growth: 20, stun: 1.3, text: 'Charge to a point, damaging and stunning enemies on impact.' },
+        { name: 'Ground Slam', kind: 'nova', mana: 75, cd: 9, radius: 250, damage: 80, growth: 20, slow: .40, slowTime: 2, text: 'Strike the ground, damaging and slowing nearby enemies.' },
+        { name: 'Iron Hide', kind: 'buff', mana: 50, cd: 18, duration: 6, stats: { armor: 10, regen: 14 }, text: 'Gain 10 armor and 14 HP regen for 6 seconds.' },
+        { name: 'Last Stand', kind: 'buff', mana: 120, cd: 75, duration: 8, stats: { haste: .60, life: .40, move: .20 }, text: 'Gain attack speed, lifesteal, and movement speed for 8 seconds.' }
+      ],
+      build: ['boots', 'charm', 'vest', 'bulwark', 'fang', 'reaver', 'gloves', 'striders', 'heartstone', 'colossus', 'greatblade', 'crown']
+    },
+    orrin: {
+      name: 'Orrin', title: 'Gravity Sage', role: 'Ranged caster', color: '#9a6bff',
+      hp: 530, hpGrowth: 65, mana: 360, manaGrowth: 40, damage: 46, damageGrowth: 3.2,
+      armor: 1.5, armorGrowth: .3, range: 580, interval: 1.4, speedGrowth: .02, speed: 290, regen: 1.4, manaRegen: 1.3,
+      abilities: [
+        { name: 'Graviton', kind: 'bolt', mana: 60, cd: 6, range: 850, radius: 26, speed: 1300, damage: 90, growth: 20, slow: .30, slowTime: 1.5, text: 'Fire a bolt that damages and slows the first enemy hit.' },
+        { name: 'Collapse', kind: 'blast', mana: 95, cd: 13, range: 750, radius: 170, delay: .9, damage: 100, growth: 22, stun: 1.1, text: 'Collapse gravity at a point, damaging and stunning enemies.' },
+        { name: 'Phase Step', kind: 'blink', mana: 60, cd: 14, range: 600, text: 'Teleport up to 600 units toward the cursor.' },
+        { name: 'Starfall', kind: 'blast', mana: 200, cd: 80, range: 900, radius: 240, delay: 1.4, damage: 250, growth: 38, text: 'Bring down a star after a 1.4-second delay.' }
+      ],
+      build: ['boots', 'prism', 'rune', 'arcane', 'void', 'charm', 'locket', 'heartstone', 'gloves', 'frost', 'bulwark']
+    }
+  };
+  const ITEMS = {
+    potion: { color: '#e2506a', name: 'Mend Potion', cost: 90, text: 'F restores 300 HP over 10s.' },
+    tome: { color: '#cdb46a', name: 'Tome of Insight', cost: 280, text: '+220 XP immediately. Restocks in 150s.' },
+    stone: { color: '#b9c2cc', name: 'Whetstone', cost: 320, stats: { damage: 12 }, text: '+12 damage' },
+    gloves: { color: '#e8d15a', name: 'Swift Gloves', cost: 520, stats: { haste: .25 }, text: '+25% attack speed' },
+    fang: { color: '#c0396b', name: 'Vampire Fang', cost: 600, stats: { life: .10 }, text: '+10% lifesteal' },
+    boots: { color: '#c98f4e', name: "Runner’s Boots", cost: 450, stats: { speed: 50 }, text: '+50 movement speed' },
+    charm: { color: '#e86f6f', name: 'Vital Charm', cost: 420, stats: { hp: 220, regen: 2 }, text: '+220 HP, +2 HP regen' },
+    vest: { color: '#8d98a8', name: 'Plate Vest', cost: 520, stats: { armor: 5 }, text: '+5 armor' },
+    prism: { color: '#5aa2ff', name: 'Mana Prism', cost: 400, stats: { mana: 200, manaRegen: 1.5 }, text: '+200 mana, +1.5 mana regen' },
+    rune: { color: '#b07bff', name: 'Focus Rune', cost: 450, stats: { power: .10 }, text: '+10% ability damage' },
+    greatblade: { color: '#dfe6ee', name: 'Greatblade', parts: ['stone', 'stone'], cost: 500, stats: { damage: 40 }, text: '+40 damage' },
+    reaver: { color: '#d0703a', name: 'Reaver Axe', parts: ['stone', 'fang'], cost: 450, stats: { damage: 18, life: .10, splash: .40 }, text: '+18 damage, +10% lifesteal. Attacks splash nearby enemies.' },
+    horn: { color: '#b8963e', name: 'War Horn', parts: ['stone', 'vest'], cost: 400, cd: 45, stats: { damage: 14, armor: 5 }, text: '+14 damage, +5 armor. Active empowers nearby allied creeps for 8s.' },
+    striders: { color: '#f0a23c', name: 'Storm Striders', parts: ['boots', 'gloves'], cost: 350, cd: 30, stats: { speed: 70, haste: .30 }, text: '+70 movement, +30% attack speed. Active grants +35% movement for 4s.' },
+    frost: { color: '#7fd6f0', name: 'Frost Brand', parts: ['gloves', 'rune'], cost: 450, stats: { haste: .25, power: .10, chill: .20 }, text: '+25% attack speed, +10% ability damage. Attacks slow for 1.5s.' },
+    crown: { color: '#a01f4a', name: 'Blood Crown', parts: ['fang', 'charm'], cost: 500, stats: { life: .20, hp: 260 }, text: '+20% lifesteal, +260 HP' },
+    heartstone: { color: '#ff4d4d', name: 'Heartstone', parts: ['charm', 'charm'], cost: 550, stats: { hp: 560, regen: 8 }, text: '+560 HP, +8 HP regen' },
+    bulwark: { color: '#6f7f95', name: 'Bulwark Plate', parts: ['vest', 'charm'], cost: 450, stats: { armor: 9, hp: 300, reflect: .20 }, text: '+9 armor, +300 HP. Reflects 20% of incoming hero attacks.' },
+    locket: { color: '#58c98a', name: 'Mending Locket', parts: ['charm', 'prism'], cost: 350, cd: 50, stats: { hp: 260, mana: 220, regen: 2, manaRegen: 1.5 }, text: '+260 HP, +220 mana and regen. Active restores 280 HP and 120 mana.' },
+    arcane: { color: '#8f5bff', name: 'Arcane Core', parts: ['prism', 'rune'], cost: 450, stats: { power: .25, mana: 250, manaRegen: 2 }, text: '+25% ability damage, +250 mana, +2 mana regen' },
+    rift: { color: '#3fd0c9', name: 'Rift Stone', cost: 1400, cd: 16, text: 'Active teleports up to 520 units. Locked for 2.5s after hero or tower damage.' },
+    executioner: { color: '#f2f2f2', name: 'Executioner’s Edge', parts: ['greatblade', 'gloves'], cost: 500, stats: { damage: 48, haste: .25, crit: .25 }, master: true, text: '+48 damage, +25% attack speed. 25% chance to deal 1.8× attack damage.' },
+    colossus: { color: '#d43a3a', name: 'Colossus Heart', parts: ['heartstone', 'vest'], cost: 500, stats: { hp: 720, regen: 10, armor: 7, recover: .025 }, master: true, text: '+720 HP, +10 HP regen, +7 armor. Regenerates 2.5% max HP/s out of combat.' },
+    void: { color: '#5b2fd6', name: 'Void Core', parts: ['arcane', 'rune'], cost: 550, stats: { power: .40, mana: 320, manaRegen: 3, cdr: .20 }, master: true, text: '+40% ability damage, +320 mana, +3 mana regen, 20% cooldown reduction.' }
+  };
+  for (const item of Object.values(ITEMS)) item.total = item.cost + (item.parts || []).reduce((sum, id) => sum + ITEMS[id].total, 0);
+  const CREEPS = {
+    melee: { hp: 420, damage: 20, armor: 2, range: 70, interval: 1, speed: 235, r: 15, gold: 36, xp: 45 },
+    ranged: { hp: 280, damage: 30, armor: 0, range: 430, interval: 1.2, speed: 235, r: 13, gold: 44, xp: 60 },
+    siege: { hp: 750, damage: 40, armor: 0, range: 560, interval: 2.2, speed: 210, r: 20, gold: 70, xp: 80 }
+  };
+  const DIFF = {
+    easy: { react: .60, lastHit: .4, deny: false, cast: .25, lead: .2, noise: 130, harass: .10, killJudge: .50 },
+    normal: { react: .38, lastHit: .6, deny: false, cast: .5, lead: .5, noise: 70, harass: .25, killJudge: .70 },
+    hard: { react: .14, lastHit: 1, deny: true, cast: 1, lead: 1, noise: 10, harass: .35, killJudge: .95 }
+  };
+  const RULES = { HEROES, ITEMS, CREEPS, DIFF, WIDTH: 5200, HEIGHT: 1000,
+    TEAM: ['Azure', 'Crimson'], COLORS: ['#61cfff', '#fc7377'],
+    ORBS: { Haste: '#5ae6e2', Might: '#ff7d67', Renewal: '#93e78d', Wealth: '#ffcb6c' },
+    UNLOCKS: [1, 2, 3, 6] };
+  if (typeof module === 'object') module.exports = RULES;
+  else globalThis.LanebreakRules = RULES;
+})();
+</script>
+<script>
+(function () {
+  const rules = typeof module === 'object' ? require('./rules.js') : globalThis.LanebreakRules;
+  const { HEROES, ITEMS, CREEPS, DIFF, WIDTH, HEIGHT, ORBS, UNLOCKS, TEAM } = rules;
+  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+  const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const range = (a, b) => distance(a, b) - b.r;
+  const home = team => ({ x: team ? WIDTH - 110 : 110, y: 450 });
+  const physical = armor => 1 - .06 * armor / (1 + .06 * Math.abs(armor));
+  const xpGoal = level => 200 + 100 * (level - 1);
+  const owns = (object, id) => Object.hasOwn(object, id);
+  const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4 };
+  const spellDamage = (hero, spell) => spell.damage ? Math.round((spell.damage + spell.growth * (hero.level - 1)) * hero.stats.power) : 0;
+  function randomGenerator(seed) {
+    return () => {
+      seed = (seed + 0x6D2B79F5) | 0;
+      let v = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      v = (v + Math.imul(v ^ v >>> 7, 61 | v)) ^ v;
+      return ((v ^ v >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function point(unit, x, y, limit = Infinity, min = 0, ground = true) {
+    const length = Math.hypot(x - unit.x, y - unit.y) || 1;
+    const factor = clamp(length, min, limit) / length;
+    return { x: clamp(unit.x + (x - unit.x) * factor, ground ? 30 : 20, WIDTH - (ground ? 30 : 20)),
+      y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, ground ? 860 : HEIGHT - 20) };
+  }
+  function buyPlan(hero, id) {
+    if (!owns(ITEMS, id)) return null;
+    const consumed = [];
+    function price(key, root) {
+      const slot = hero.inventory.findIndex((item, i) => item.id === key && !consumed.includes(i));
+      if (!root && slot >= 0) {
+        consumed.push(slot);
+        return 0;
+      }
+      const item = ITEMS[key];
+      return item.cost + (item.parts || []).reduce((sum, part) => sum + price(part, false), 0);
+    }
+    return { cost: price(id, true), consumed };
+  }
+  function sellValue(item, time) {
+    return time - item.at <= 10 ? item.spent : Math.floor(ITEMS[item.id].total / 2);
+  }
+  function shopOffer(hero, id, time, canShop) {
+    const plan = buyPlan(hero, id);
+    let reason = null;
+    if (!canShop) reason = 'Return to your fountain to buy items';
+    else if (id === 'potion' && hero.pots >= 5) reason = 'Potion limit reached';
+    else if (id === 'tome' && hero.level >= 15) reason = 'Maximum level reached';
+    else if (id === 'tome' && hero.tomeReady > time) reason = 'Restocks in ' + Math.ceil(hero.tomeReady - time) + 's';
+    else if (id !== 'potion' && id !== 'tome' && hero.inventory.length - plan.consumed.length >= 6) reason = 'Inventory full';
+    else if (hero.gold + 1e-6 < plan.cost) reason = 'Need ' + Math.ceil(plan.cost - hero.gold) + ' more gold';
+    return { ...plan, reason };
+  }
+  function pickTarget(snapshot, team, point) {
+    if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
+    let best = null, nearest = Infinity;
+    function consider(id, side, x, y, r, height) {
+      const d = Math.min(Math.hypot(x - point.x, y - point.y), Math.hypot(x - point.x, y - height - point.y));
+      if (d > r + 12 || d >= nearest) return;
+      nearest = d;
+      best = { id, team: side, x, y, r };
+    }
+    for (const h of snapshot.heroes) {
+      if (h.team !== team && h.hp > 0) consider(h.id, h.team, h.x, h.y, h.r, 18);
+    }
+    for (const b of snapshot.buildings) {
+      if (b.team !== team && b.hp > 0 && !b.protected) consider(b.id, b.team, b.x, b.y, b.r, 44);
+    }
+    for (const [id, side, kind, x, y, hp, , , radius, , flags] of snapshot.creeps) {
+      if (hp > 0 && (side !== team || flags & CREEP_FLAGS.deniable)) consider(id, side, x, y, radius ?? CREEPS[kind].r, 3);
+    }
+    return best;
+  }
+  function refresh(h, now) {
+    const d = HEROES[h.hero], lv = h.level - 1;
+    const s = { hp: d.hp + lv * d.hpGrowth, mana: d.mana + lv * d.manaGrowth, damage: d.damage + lv * d.damageGrowth,
+      armor: d.armor + lv * d.armorGrowth, speed: d.speed, regen: d.regen + lv * .15, manaRegen: d.manaRegen + lv * .08,
+      haste: 1 + lv * d.speedGrowth, life: 0, power: 1, move: 1, multiplier: 1 };
+    const strongest = {};
+    for (const slot of h.inventory) {
+      for (const [key, value] of Object.entries(ITEMS[slot.id].stats || {})) {
+        if (['speed', 'cdr', 'splash', 'crit', 'chill', 'reflect', 'recover'].includes(key)) {
+          strongest[key] = Math.max(strongest[key] || 0, value);
+        } else s[key] += value;
+      }
+    }
+    for (const [key, value] of Object.entries(strongest)) s[key] = (s[key] || 0) + value;
+    for (const buff of h.buffs) {
+      if (buff.until > now) {
+        for (const [key, value] of Object.entries(buff.stats)) s[key] = (s[key] || 0) + value;
+      }
+    }
+    s.speed *= s.move;
+    h.maxHp = s.hp;
+    h.maxMana = s.mana;
+    h.armor = s.armor;
+    h.stats = s;
+  }
+
+  class Match {
+    constructor({ heroes = ['brakk', 'orrin'], names = [], bots = [null, 'normal'], seed = Date.now() } = {}) {
+      this.time = 0;
+      this.mode = 'match';
+      this.winner = null;
+      this.nextId = 1;
+      this.wave = 0;
+      this.nextWave = 2;
+      this.nextOrb = 60;
+      this.orb = null;
+      this.units = new Map();
+      this.creeps = [];
+      this.buildings = [];
+      this.projectiles = [];
+      this.areas = [];
+      this.effects = [];
+      this.nextEffect = 0;
+      this.random = randomGenerator(seed);
+      this.kills = [0, 0];
+      this.heroes = heroes.map((key, team) => {
+        const hero = owns(HEROES, key) ? key : 'brakk';
+        const spec = HEROES[hero];
+        const h = this.unit({ type: 'hero', team, hero, name: names[team] || spec.name, ...home(team), r: 26,
+          level: 1, xp: 0, gold: 600, inventory: [], pots: 0, buffs: [], cd: [0, 0, 0, 0],
+          itemsReady: {}, recallReady: 0, tomeReady: 0, lastThreat: -Infinity, recentAggro: -Infinity,
+          bot: bots[team], think: this.random() * .3, buildIndex: 0, sway: 0, deaths: 0, lastHits: 0, denies: 0 });
+        refresh(h, 0);
+        h.hp = h.maxHp;
+        h.mana = h.maxMana;
+        return h;
+      });
+      for (const team of [0, 1]) {
+        for (const b of [
+          { kind: 'outer', x: 1850, y: 330, r: 44, hp: 1300, armor: 12, damage: 95 },
+          { kind: 'inner', x: 1150, y: 330, r: 44, hp: 1600, armor: 12, damage: 125 },
+          { kind: 'core', x: 520, y: 450, r: 70, hp: 3000, armor: 14, damage: 0 }
+        ]) {
+          this.buildings.push(this.unit({ type: 'building', team, ...b, x: team ? WIDTH - b.x : b.x, maxHp: b.hp, range: 560, interval: 1 }));
+        }
+      }
+    }
+    unit(props) {
+      const unit = { id: this.nextId++, attackReady: 0, stunUntil: 0, slows: [], vx: 0, vy: 0, facing: props.team ? Math.PI : 0, ...props };
+      this.units.set(unit.id, unit);
+      return unit;
+    }
+    effect(kind, x, y, props = {}) {
+      this.effects.push({ id: ++this.nextEffect, time: this.time, kind, x, y, ...props });
+    }
+    notice(team, text) {
+      this.effect('notice', 0, 0, { audience: team, text });
+    }
+    getBuilding(team, kind) {
+      return this.buildings.find(b => b.team === team && b.kind === kind);
+    }
+    protected(unit) {
+      return unit.type === 'building' && unit.kind !== 'outer' &&
+        this.getBuilding(unit.team, unit.kind === 'inner' ? 'outer' : 'inner').hp > 0;
+    }
+    spawn() {
+      const n = this.wave++;
+      const rows = n < 24 ? [-60, 0, 60] : [-75, -25, 25, 75];
+      const siege = n > 0 && n % (n >= 40 ? 1 : n >= 24 ? 2 : 5) === 0;
+      for (const team of [0, 1]) {
+        const boost = this.getBuilding(1 - team, 'inner').hp <= 0 ? 1.5 : 1;
+        const spawn = (kind, back, dy) => {
+          const base = CREEPS[kind];
+          const hp = base.hp * (1 + .035 * n) * boost;
+          const x = 650 - back, laneY = 450 + dy;
+          this.creeps.push(this.unit({ ...base, kind, type: 'creep', team, x: team ? WIDTH - x : x,
+            y: laneY, laneY, hp, maxHp: hp, r: base.r * (boost > 1 ? 1.15 : 1),
+            damage: (base.damage + .6 * n) * boost, gold: base.gold + Math.floor(.7 * n),
+            xp: base.xp + 1.5 * n, roll: [this.random(), this.random()], attackReady: this.time + this.random() * .5, scan: 0 }));
+        };
+        for (const dy of rows) spawn('melee', 0, dy);
+        spawn('ranged', 90, -40);
+        if (siege) spawn('siege', 150, 40);
+      }
+    }
+    gainXp(hero, amount) {
+      if (hero.level >= 15) return;
+      hero.xp += amount;
+      while (hero.level < 15 && hero.xp >= xpGoal(hero.level)) {
+        const hp = hero.maxHp, mana = hero.maxMana;
+        hero.xp -= xpGoal(hero.level);
+        hero.level++;
+        refresh(hero, this.time);
+        if (hero.hp > 0) hero.hp += hero.maxHp - hp;
+        hero.mana += hero.maxMana - mana;
+        this.effect('level', hero.x, hero.y, { team: hero.team, text: 'LEVEL ' + hero.level });
+      }
+      if (hero.level === 15) hero.xp = 0;
+    }
+    hurt(target, amount, source, { ability = false, attack = false } = {}) {
+      if (target.hp <= 0 || amount <= 0 || this.protected(target)) return 0;
+      const raw = amount;
+      if (target.type === 'building') {
+        if (ability) return 0;
+        amount *= source.type === 'creep' ? (source.kind === 'siege' ? 1.5 : .5) : .75;
+      }
+      amount *= ability ? (target.type === 'hero' ? .75 : 1) : physical(target.armor);
+      if (target.type === 'hero' && source.team !== target.team && (source.type === 'hero' || source.type === 'building')) {
+        target.lastThreat = this.time;
+        target.potionUntil = 0;
+        if (source.type === 'hero') source.recentAggro = this.time;
+      }
+      target.hp -= amount;
+      if (target.type === 'hero' || source.type === 'hero') this.effect('hit', target.x, target.y, {
+        team: source.team, audience: source.type === 'hero' ? source.team : target.team, text: Math.round(amount).toString()
+      });
+      const deny = target.type === 'creep' && source.type === 'hero' && target.team === source.team;
+      if (attack && source.type === 'hero' && target.type !== 'building') {
+        const stats = source.stats;
+        if (source.hp > 0 && stats.life) source.hp = Math.min(source.maxHp, source.hp + amount * stats.life);
+        if (!deny) {
+          if (stats.chill) this.slow(target, stats.chill, 1.5, 'frost');
+          if (stats.splash) {
+            const cleave = stats.splash * (HEROES[source.hero].range > 150 ? .5 : 1);
+            for (const unit of this.units.values()) {
+              if (unit !== target && unit.team !== source.team && unit.type !== 'building' && distance(unit, target) < 170) {
+                this.hurt(unit, raw * cleave, source);
+              }
+            }
+          }
+          if (target.stats?.reflect) this.hurt(source, raw * target.stats.reflect, target);
+        }
+      }
+      if (target.hp <= 0) this.kill(target, source, deny);
+      return amount;
+    }
+    kill(unit, source, deny) {
+      unit.hp = 0;
+      const hero = this.heroes[1 - unit.team];
+      if (unit.type === 'creep') {
+        if (source === hero && !deny) {
+          hero.gold += unit.gold;
+          hero.lastHits++;
+          this.effect('gold', unit.x, unit.y, { audience: hero.team, text: '+' + unit.gold });
+        }
+        if (deny) {
+          source.denies++;
+          this.effect('gold', unit.x, unit.y, { audience: source.team, text: 'Denied' });
+        }
+        if (hero.hp > 0 && distance(hero, unit) <= 1200) this.gainXp(hero, unit.xp * (deny ? .4 : 1));
+      } else if (unit.type === 'hero') {
+        unit.deaths++;
+        this.effect('fall', unit.x, unit.y, { unit: 'hero' });
+        unit.respawn = this.time + 5 + 2.2 * unit.level;
+        unit.order = null;
+        unit.windup = null;
+        unit.dash = null;
+        unit.channel = 0;
+        unit.potionUntil = 0;
+        unit.buffs = [];
+        unit.slows = [];
+        unit.stunUntil = 0;
+        const gold = 180 + 12 * unit.level;
+        hero.gold += gold;
+        this.gainXp(hero, 100 + 35 * unit.level);
+        this.kills[hero.team]++;
+        this.effect('feed', unit.x, unit.y, { team: hero.team, text: hero.name + ' killed ' + unit.name + ' (+' + gold + ' gold)' });
+      } else {
+        if (unit.kind === 'core') {
+          this.mode = 'ended';
+          this.winner = 1 - unit.team;
+        } else {
+          hero.gold += 180;
+          this.effect('fall', unit.x, unit.y, { unit: 'tower' });
+          this.effect('feed', unit.x, unit.y, { team: unit.team, text: TEAM[unit.team] + ' ' + unit.kind + ' tower destroyed' });
+        }
+      }
+    }
+    damageAtLaunch(a) {
+      const s = a.stats;
+      const damage = s ? s.damage * s.multiplier : a.damage * (a.hornUntil > this.time ? 1.4 : 1);
+      return s?.crit && this.random() < s.crit ? damage * 1.8 : damage;
+    }
+    attackHit(a, b, damage = this.damageAtLaunch(a)) {
+      if (a.team === b.team && (b.type !== 'creep' || b.hp >= b.maxHp / 2)) return;
+      this.hurt(b, damage, a, { attack: true });
+    }
+    attackSpeed(unit) {
+      return unit.stats?.haste ?? (unit.hornUntil > this.time ? 1.3 : 1);
+    }
+    attack(a, target) {
+      const spec = a.type === 'hero' ? HEROES[a.hero] : a;
+      if (!target || target.hp <= 0 || range(a, target) > spec.range || this.protected(target)) return false;
+      if (a.attackReady > this.time) return true;
+      const windup = a.type === 'hero' ? .28 : a.type === 'building' ? .2 : .35;
+      a.windup = { target: target.id, time: this.time + windup / this.attackSpeed(a) };
+      a.facing = Math.atan2(target.y - a.y, target.x - a.x);
+      if (a.type === 'hero' && target.type === 'hero') this.aggro(a, target);
+      return true;
+    }
+    aggro(a, b) {
+      a.recentAggro = this.time;
+      for (const creep of this.creeps) if (creep.hp > 0 && creep.team === b.team && distance(a, creep) <= 480) {
+        creep.target = a.id;
+        creep.forcedUntil = this.time + 2.2;
+      }
+    }
+    finishAttack(a, spec) {
+      if (!a.windup) return false;
+      const shot = a.windup, b = this.units.get(shot.target);
+      if (!b || b.hp <= 0 || range(a, b) > spec.range + 140 || this.protected(b)) {
+        a.windup = null;
+        return false;
+      }
+      if (this.time >= shot.time) {
+        a.windup = null;
+        a.attackReady = this.time + spec.interval / this.attackSpeed(a);
+        if (spec.range <= 150) this.attackHit(a, b);
+        else this.projectiles.push({ id: this.nextId++, kind: 'attack', x: a.x, y: a.y, from: a, target: b,
+          team: a.team, damage: this.damageAtLaunch(a), speed: a.type === 'hero' ? 1100 : a.type === 'building' ? 1000 : 900 });
+      }
+      return !!a.windup;
+    }
+    slow(target, value, seconds, id = 'slow') {
+      target.slows = target.slows.filter(slow => slow.id !== id);
+      target.slows.push({ id, value, until: this.time + seconds });
+    }
+    magic(target, source, spell, damage) {
+      if (target.team === source.team || target.hp <= 0 || target.type === 'building') return;
+      if (spell.slow) this.slow(target, spell.slow, spell.slowTime);
+      if (spell.stun) {
+        target.stunUntil = Math.max(target.stunUntil, this.time + spell.stun);
+      }
+      this.hurt(target, damage, source, { ability: true });
+    }
+    blast(h, spell, x, y, damage) {
+      this.effect('burst', x, y, { team: h.team, radius: spell.radius, hero: h.hero });
+      for (const unit of this.units.values()) {
+        if (Math.hypot(unit.x - x, unit.y - y) <= spell.radius + unit.r / 2) this.magic(unit, h, spell, damage);
+      }
+    }
+    cast(h, i, x, y) {
+      const spell = HEROES[h.hero].abilities[i];
+      if (h.stunUntil > this.time || h.dash) return 'Unable to act';
+      if (h.level < UNLOCKS[i]) return 'Unlocks at level ' + UNLOCKS[i];
+      if (h.cd[i] > this.time) return 'Ability cooling down';
+      if (h.mana < spell.mana) return 'Not enough mana';
+      h.mana -= spell.mana;
+      h.cd[i] = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+      h.windup = null;
+      h.channel = 0;
+      if (spell.kind !== 'nova' && spell.kind !== 'buff' && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
+      const damage = spellDamage(h, spell);
+      this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate: i === 3 });
+      switch (spell.kind) {
+        case 'bolt': {
+          const length = Math.hypot(x - h.x, y - h.y) || 1;
+          const dx = (x - h.x) / length, dy = (y - h.y) / length;
+          this.projectiles.push({ id: this.nextId++, kind: 'bolt', x: h.x + dx * 20, y: h.y + dy * 20,
+            from: h, team: h.team, speed: spell.speed, dx, dy, left: spell.range, spell, damage, hit: new Set() });
+          break;
+        }
+        case 'blast':
+          this.areas.push({ id: this.nextId++, ...point(h, x, y, spell.range, 0, false), from: h, team: h.team, radius: spell.radius,
+            time: this.time + spell.delay, duration: spell.delay, ultimate: i === 3, hits: spell.hits || 1, spell, damage });
+          break;
+        case 'nova':
+          this.blast(h, spell, h.x, h.y, damage);
+          break;
+        case 'dash':
+          h.dash = { ...point(h, x, y, spell.range, 60), spell, damage };
+          break;
+        case 'blink':
+          this.blink(h, point(h, x, y, spell.range));
+          break;
+        case 'buff':
+          this.buff(h, spell.name, spell.duration, spell.stats);
+          break;
+      }
+      return null;
+    }
+    buff(h, id, duration, stats) {
+      h.buffs = h.buffs.filter(buff => buff.id !== id);
+      h.buffs.push({ id, until: this.time + duration, stats });
+    }
+    blink(h, destination) {
+      this.effect('burst', h.x, h.y, { team: h.team, radius: 65, hero: h.hero });
+      Object.assign(h, destination);
+      h.jump = (h.jump || 0) + 1;
+      if (h.order?.o === 'move') h.order = null;
+      this.effect('burst', h.x, h.y, { team: h.team, radius: 75, hero: h.hero });
+    }
+    canShop(h) {
+      return h.hp <= 0 || distance(h, home(h.team)) <= 430;
+    }
+    buy(h, id) {
+      const plan = shopOffer(h, id, this.time, this.canShop(h));
+      if (plan.reason) return plan.reason;
+      h.gold -= plan.cost;
+      if (id === 'potion') h.pots++;
+      else if (id === 'tome') {
+        h.tomeReady = this.time + 150;
+        this.gainXp(h, 220);
+      } else {
+        const spent = plan.cost + plan.consumed.reduce((sum, i) => sum + sellValue(h.inventory[i], this.time), 0);
+        h.inventory = h.inventory.filter((_, i) => !plan.consumed.includes(i));
+        h.inventory.push({ id, spent, at: this.time });
+        this.recalculateItemStats(h);
+      }
+      return null;
+    }
+    recalculateItemStats(h) {
+      const hp = h.maxHp, mana = h.maxMana;
+      refresh(h, this.time);
+      h.hp = Math.min(h.maxHp, h.hp + (h.hp > 0 ? Math.max(0, h.maxHp - hp) : 0));
+      h.mana = Math.min(h.maxMana, h.mana + Math.max(0, h.maxMana - mana));
+    }
+    sell(h, slot) {
+      if (!this.canShop(h)) return 'Shop at your fountain or while dead';
+      const item = h.inventory[slot];
+      if (!item) return 'Empty slot';
+      h.inventory.splice(slot, 1);
+      h.gold += sellValue(item, this.time);
+      this.recalculateItemStats(h);
+      return null;
+    }
+    useItem(h, i, x, y) {
+      const slot = h.inventory[i], id = slot?.id;
+      if (!slot || !ITEMS[id].cd) return 'No active item in this slot';
+      if (h.stunUntil > this.time || h.dash) return 'Unable to act';
+      if (h.itemsReady[id] > this.time) return 'Item cooling down';
+      if (id === 'rift' && this.time - h.lastThreat < 2.5) return 'Rift Stone is disabled in combat';
+      if (id === 'rift') {
+        this.blink(h, point(h, x, y, 520));
+        h.channel = 0;
+        h.windup = null;
+      }
+      if (id === 'striders') {
+        this.buff(h, 'sprint', 4, { move: .35 });
+        h.channel = 0;
+      }
+      if (id === 'locket') {
+        h.hp = Math.min(h.maxHp, h.hp + 280);
+        h.mana = Math.min(h.maxMana, h.mana + 120);
+      }
+      if (id === 'horn') {
+        const nearby = this.creeps.filter(creep => creep.hp > 0 && creep.team === h.team && distance(h, creep) < 700);
+        if (!nearby.length) return 'War Horn requires nearby allied creeps';
+        for (const creep of nearby) creep.hornUntil = this.time + 8;
+        this.effect('burst', h.x, h.y, { team: h.team, radius: 700, hero: h.hero });
+      }
+      h.itemsReady[id] = this.time + ITEMS[id].cd;
+      return null;
+    }
+    order(team, cmd) {
+      if (!validOrder(cmd) || this.mode !== 'match') return 'Invalid order';
+      const h = this.heroes[team];
+      const { o, i, id, x, y } = cmd;
+      if (o === 'buy') return this.buy(h, id);
+      if (o === 'sell') return this.sell(h, i);
+      if (h.hp <= 0) return 'You are respawning';
+      switch (o) {
+        case 'move':
+        case 'amove':
+          h.order = { o, ...point(h, x, y) };
+          h.channel = 0;
+          if (o === 'move') h.windup = null;
+          break;
+        case 'attack': {
+          const target = this.units.get(id);
+          if (!target || target.hp <= 0 || this.protected(target) ||
+            (target.team === team && (target.type !== 'creep' || target.hp >= target.maxHp / 2))) return 'Invalid attack target';
+          h.order = { o, id };
+          h.channel = 0;
+          if (h.windup?.target !== id) h.windup = null;
+          break;
+        }
+        case 'stop':
+          h.order = { o };
+          h.channel = 0;
+          h.windup = null;
+          break;
+        case 'cast':
+          return this.cast(h, i, x, y);
+        case 'item':
+          return this.useItem(h, i, x, y);
+        case 'potion':
+          if (!h.pots) return 'No potions';
+          if (h.potionUntil > this.time) return 'Potion already active';
+          h.pots--;
+          h.potionUntil = this.time + 10;
+          break;
+        case 'recall':
+          if (h.channel) return 'Recall already active';
+          if (h.stunUntil > this.time || h.dash) return 'Unable to act';
+          if (h.recallReady > this.time) return 'Recall cooling down';
+          h.channel = this.time + 3;
+          h.order = null;
+          h.windup = null;
+          break;
+      }
+      return null;
+    }
+    nearest(unit, radius, filter = () => true) {
+      let best = null, closest = radius;
+      for (const other of this.units.values()) {
+        if (other.hp <= 0 || other.team === unit.team || this.protected(other) || !filter(other)) continue;
+        const d = range(unit, other);
+        if (d <= closest) {
+          closest = d;
+          best = other;
+        }
+      }
+      return best;
+    }
+    walk(u, target, speed, dt) {
+      let p = point(u, target.x, target.y, speed * dt);
+      for (const b of this.buildings) {
+        const clearance = b.r + u.r;
+        if (u.dash || b.hp <= 0 || Math.abs(p.x - b.x) >= clearance || Math.abs(p.y - b.y) >= clearance ||
+          distance(p, b) >= clearance || distance(p, b) >= distance(u, b)) continue;
+        const d = distance(u, b) || 1;
+        const nx = (u.x - b.x) / d, ny = (u.y - b.y) / d;
+        const tangent = (target.x - u.x) * -ny + (target.y - u.y) * nx;
+        const dir = Math.sign(tangent) || (u.team ? 1 : -1);
+        p = point(u, u.x + (.18 * nx - dir * ny) * speed * dt, u.y + (.18 * ny + dir * nx) * speed * dt);
+      }
+      u.vx = (p.x - u.x) / dt;
+      u.vy = (p.y - u.y) / dt;
+      if (Math.abs(u.vx) + Math.abs(u.vy) > .01) u.facing = Math.atan2(u.vy, u.vx);
+      Object.assign(u, p);
+    }
+    movementSpeed(unit, speed) {
+      return speed * (1 - unit.slows.reduce((max, s) => Math.max(max, s.value), 0));
+    }
+    updateHero(h, dt) {
+      h.gold += dt * 1.6;
+      if (h.hp <= 0) {
+        h.cd = h.cd.map(ready => ready > this.time - dt ? ready + dt : ready);
+        if (h.recallReady > this.time - dt) h.recallReady += dt;
+        if (h.bot && this.time >= h.think) this.think(h);
+        if (this.time >= h.respawn) {
+          Object.assign(h, home(h.team));
+          h.jump = (h.jump || 0) + 1;
+          refresh(h, this.time);
+          h.hp = h.maxHp;
+          h.mana = h.maxMana;
+        }
+        return;
+      }
+      h.buffs = h.buffs.filter(b => b.until > this.time);
+      refresh(h, this.time);
+      const regen = h.stats.regen + (h.potionUntil > this.time ? 30 : 0) +
+        (h.stats.recover && this.time - h.lastThreat >= 6 ? h.stats.recover * h.maxHp : 0);
+      const fountain = distance(h, home(h.team)) <= 400 ? .15 : 0;
+      h.hp = Math.min(h.maxHp, h.hp + dt * (regen + h.maxHp * fountain));
+      h.mana = Math.min(h.maxMana, h.mana + dt * (h.stats.manaRegen + h.maxMana * fountain));
+      if (distance(h, home(1 - h.team)) <= 420) {
+        h.hp = Math.max(0, h.hp - 300 * dt);
+        if (!h.hp) this.kill(h, this.getBuilding(1 - h.team, 'core'), false);
+      }
+      if (h.hp <= 0) return;
+      if (h.dash) {
+        this.walk(h, h.dash, h.dash.spell.speed, dt);
+        if (distance(h, h.dash) < 1e-6) {
+          this.blast(h, h.dash.spell, h.x, h.y, h.dash.damage);
+          h.dash = null;
+        }
+        return;
+      }
+      if (h.stunUntil > this.time) {
+        h.windup = null;
+        h.channel = 0;
+        return;
+      }
+      if (h.bot && this.time >= h.think) this.think(h);
+      if (h.dash) return;
+      if (h.channel) {
+        if (h.channel <= this.time) {
+          h.channel = 0;
+          h.recallReady = this.time + 45;
+          this.blink(h, home(h.team));
+        }
+        return;
+      }
+      const spec = HEROES[h.hero];
+      if (this.finishAttack(h, spec)) return;
+      const order = h.order;
+      if (order?.o === 'stop') return;
+      const speed = this.movementSpeed(h, h.stats.speed);
+      if (order?.o === 'move') {
+        this.walk(h, order, speed, dt);
+        if (distance(h, order) < 2) h.order = null;
+        return;
+      }
+      const target = order?.o === 'attack' ? this.units.get(order.id) :
+        (!h.bot || order?.o === 'amove' ? this.nearest(h, spec.range + (order ? 200 : 140)) : null);
+      if (target?.hp > 0 && !this.protected(target) && (target.team !== h.team || target.hp < target.maxHp * .5)) {
+        if (!this.attack(h, target)) this.walk(h, target, speed, dt);
+      } else if (order?.o === 'amove') {
+        this.walk(h, order, speed, dt);
+        if (distance(h, order) < 2) h.order = null;
+      } else if (order?.o === 'attack') h.order = null;
+    }
+    updateCreep(c, dt) {
+      if (c.stunUntil > this.time) {
+        c.windup = null;
+        return;
+      }
+      if (this.finishAttack(c, c)) return;
+      let target = this.units.get(c.target);
+      if (target && (target.hp <= 0 || this.protected(target) || distance(c, target) > 720)) target = null;
+      if (!(c.forcedUntil > this.time) && (!target || this.time >= c.scan)) {
+        target = this.nearest(c, 480);
+        c.scan = this.time + .4;
+      }
+      c.target = target?.id;
+      if (!this.attack(c, target)) {
+        const march = { x: c.team ? 520 : 4680, y: c.y + clamp(c.laneY - c.y, -40, 40) };
+        this.walk(c, target || march, this.movementSpeed(c, c.speed), dt);
+      }
+    }
+    updateBuilding(b, dt) {
+      if (b.kind === 'core') {
+        b.hp = Math.min(b.maxHp, b.hp + 3 * dt);
+        return;
+      }
+      const enemy = this.heroes[1 - b.team];
+      const danger = enemy.hp > 0 && range(b, enemy) <= b.range && this.time - enemy.recentAggro <= 2.5;
+      this.finishAttack(b, b);
+      let target = this.units.get(b.target);
+      if (danger) target = enemy;
+      else if (!target || target.hp <= 0 || range(b, target) > b.range) {
+        target = this.nearest(b, b.range, t => t.type === 'creep') ||
+          this.nearest(b, b.range, t => t.type === 'hero');
+      }
+      b.target = target?.id;
+      if (!b.windup) this.attack(b, target);
+    }
+    collide() {
+      const units = [...this.units.values()].filter(u => u.hp > 0);
+      for (let i = 0; i < units.length; i++) {
+        const a = units[i];
+        for (let j = i + 1; j < units.length; j++) {
+          const b = units[j], required = a.r + b.r;
+          const dx = b.x - a.x, dy = b.y - a.y;
+          if (Math.abs(dx) >= required || Math.abs(dy) >= required) continue;
+          const d = Math.hypot(dx, dy);
+          if (d >= required) continue;
+          const am = a.type === 'building' || a.dash ? 0 : 1;
+          const bm = b.type === 'building' || b.dash ? 0 : 1;
+          if (!am && !bm) continue;
+          const push = (required - d) * (am && bm ? .35 : 1);
+          const px = d > .01 ? dx / d * push : push, py = d > .01 ? dy / d * push : 0;
+          if (am) Object.assign(a, point(a, a.x - px, a.y - py));
+          if (bm) Object.assign(b, point(b, b.x + px, b.y + py));
+        }
+      }
+    }
+    updateProjectiles(dt) {
+      this.projectiles = this.projectiles.filter(p => {
+        if (p.kind === 'attack') {
+          if (p.target.hp <= 0) return false;
+          const d = distance(p, p.target);
+          if (d <= p.speed * dt + p.target.r / 2) {
+            this.attackHit(p.from, p.target, p.damage);
+            return false;
+          }
+          p.x += (p.target.x - p.x) / d * p.speed * dt;
+          p.y += (p.target.y - p.y) / d * p.speed * dt;
+          return true;
+        }
+        const length = Math.min(p.left, p.speed * dt);
+        const targets = [];
+        for (const u of this.units.values()) {
+          if (u.hp <= 0 || u.team === p.team || u.type === 'building' || p.hit.has(u.id)) continue;
+          const t = clamp((u.x - p.x) * p.dx + (u.y - p.y) * p.dy, 0, length);
+          if (Math.hypot(u.x - p.x - p.dx * t, u.y - p.y - p.dy * t) <= p.spell.radius + u.r) targets.push({ u, t });
+        }
+        targets.sort((a, b) => a.t - b.t);
+        for (const { u } of targets) {
+          p.hit.add(u.id);
+          this.magic(u, p.from, p.spell, p.damage);
+          if (!p.spell.piercing) return false;
+        }
+        p.left -= length;
+        p.x += p.dx * length;
+        p.y += p.dy * length;
+        return p.left > 0 && p.x >= 0 && p.x <= WIDTH && p.y >= 0 && p.y <= HEIGHT;
+      });
+    }
+    updateOrb() {
+      if (!this.orb && this.time >= this.nextOrb) {
+        const kinds = Object.keys(ORBS);
+        this.orb = { x: 2600, y: this.random() < .5 ? 170 : 730, kind: kinds[Math.floor(this.random() * kinds.length)] };
+        this.effect('feed', this.orb.x, this.orb.y, { text: this.orb.kind + ' orb appeared at the river' });
+      }
+      if (!this.orb) return;
+      const h = this.heroes.find(h => h.hp > 0 && distance(h, this.orb) <= 50);
+      if (!h) return;
+      const { kind, x, y } = this.orb;
+      if (kind === 'Haste') this.buff(h, kind, 12, { move: .40 });
+      if (kind === 'Might') this.buff(h, kind, 15, { multiplier: .6 });
+      if (kind === 'Renewal') this.buff(h, kind, 8, { regen: h.maxHp * .06, manaRegen: h.maxMana * .06 });
+      if (kind === 'Wealth') h.gold += 120;
+      this.effect('feed', x, y, { team: h.team, text: h.name + ' claimed ' + kind });
+      this.orb = null;
+      this.nextOrb = this.time + 75;
+    }
+    step(dt) {
+      if (this.mode !== 'match') return;
+      this.time += dt;
+      this.effects = this.effects.filter(e => this.time - e.time < 4);
+      if (this.time + 1e-8 >= this.nextWave) {
+        this.spawn();
+        this.nextWave += 30;
+      }
+      for (const u of this.units.values()) {
+        u.vx = u.vy = 0;
+        u.slows = u.slows.filter(s => s.until > this.time);
+      }
+      for (const h of this.heroes) this.updateHero(h, dt);
+      for (const b of this.buildings) if (b.hp > 0) this.updateBuilding(b, dt);
+      for (const c of this.creeps) if (c.hp > 0) this.updateCreep(c, dt);
+      this.collide();
+      this.updateProjectiles(dt);
+      this.areas = this.areas.filter(a => {
+        if (this.time + 1e-8 < a.time) return true;
+        this.blast(a.from, a.spell, a.x, a.y, a.damage);
+        a.time += a.spell.interval || 0;
+        a.duration = a.spell.interval;
+        return --a.hits > 0;
+      });
+      this.updateOrb();
+      this.creeps = this.creeps.filter(c => {
+        if (c.hp > 0) return true;
+        this.units.delete(c.id);
+        return false;
+      });
+    }
+    frontTower(team) {
+      return this.buildings.find(b => b.team === team && b.kind !== 'core' && b.hp > 0);
+    }
+    nearbyCreeps(center, team, radius) {
+      return this.creeps.filter(c => c.hp > 0 && c.team === team && distance(c, center) < radius);
+    }
+    towerTanked(tower, hero) {
+      return tower.target !== hero.id && this.nearbyCreeps(tower, hero.team, tower.range).length >= 2;
+    }
+    clearShot(hero, enemy, width) {
+      const length = distance(hero, enemy) || 1;
+      const dx = (enemy.x - hero.x) / length, dy = (enemy.y - hero.y) / length;
+      return !this.creeps.some(c => {
+        if (c.hp <= 0 || c.team === hero.team) return false;
+        const x = c.x - hero.x, y = c.y - hero.y;
+        const along = x * dx + y * dy;
+        return along >= 0 && along <= length && Math.abs(x * dy - y * dx) < width + c.r;
+      });
+    }
+    creepCluster(hero, reach, radius) {
+      let best = null, count = 2;
+      for (const c of this.nearbyCreeps(hero, 1 - hero.team, reach)) {
+        const cluster = this.nearbyCreeps(c, c.team, radius).length;
+        if (cluster > count) {
+          best = c;
+          count = cluster;
+        }
+      }
+      return best;
+    }
+    abilityReady(hero, i, mana = hero.mana) {
+      return hero.level >= UNLOCKS[i] && hero.cd[i] <= this.time && mana >= HEROES[hero.hero].abilities[i].mana;
+    }
+    aiBurst(hero, enemy) {
+      let mana = hero.mana;
+      let damage = 3 * hero.stats.damage * hero.stats.multiplier * physical(enemy.armor);
+      for (const [i, spell] of HEROES[hero.hero].abilities.entries()) {
+        if (!spell.damage || !this.abilityReady(hero, i, mana)) continue;
+        mana -= spell.mana;
+        damage += .75 * spellDamage(hero, spell) * (spell.hits ? spell.hits * .5 : 1);
+      }
+      return damage;
+    }
+    aiCast(h, enemy, mode, difficulty) {
+      if (this.random() > difficulty.cast) return false;
+      const spec = HEROES[h.hero], enemyAlive = enemy.hp > 0;
+      const reach = enemyAlive ? distance(h, enemy) : Infinity;
+      const health = h.hp / h.maxHp, mana = h.mana / h.maxMana;
+      const enemyHealth = enemyAlive ? enemy.hp / enemy.maxHp : 1;
+      const kill = mode === 'kill', push = mode === 'push';
+      const aim = seconds => ({
+        x: enemy.x + enemy.vx * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise,
+        y: enemy.y + enemy.vy * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise
+      });
+      const cast = (i, pos) => !this.order(h.team, { o: 'cast', i, x: pos.x, y: pos.y });
+      for (const i of [3, 1, 0, 2]) {
+        if (!this.abilityReady(h, i)) continue;
+        const spell = spec.abilities[i], ultimate = i === 3;
+        switch (spell.kind) {
+          case 'bolt': {
+            if (reach < spell.range * .85 && (kill || mana > .35) &&
+              (spell.piercing || this.clearShot(h, enemy, spell.radius))) return cast(i, aim(reach / spell.speed));
+            const cluster = push && spell.piercing && mana > .7 && this.creepCluster(h, spell.range * .7, 150);
+            if (cluster) return cast(i, cluster);
+            break;
+          }
+          case 'blast': {
+            const want = kill || (ultimate ? enemyHealth < .7 && mana > .3 : mana > .4);
+            if (reach < spell.range + spell.radius * .4 && want) return cast(i, aim(spell.delay * .8));
+            const cluster = push && !ultimate && mana > .75 && this.creepCluster(h, spell.range, spell.radius);
+            if (cluster) return cast(i, cluster);
+            break;
+          }
+          case 'nova':
+            if (reach < spell.radius * .8 && (kill || mana > .3)) return cast(i, h);
+            if (push && mana > .7 && this.nearbyCreeps(h, enemy.team, spell.radius * .9).length >= 3) return cast(i, h);
+            break;
+          case 'dash':
+            if (reach < spell.range + 40 && reach > 140 && (kill || (mode === 'trade' && health > enemyHealth && mana > .5))) {
+              return cast(i, enemy);
+            }
+            break;
+          case 'blink':
+            if (kill && reach > spec.range + 80 && reach < spell.range + spec.range * .8) {
+              const fraction = (reach - spec.range * .7) / reach;
+              return cast(i, { x: h.x + (enemy.x - h.x) * fraction, y: h.y + (enemy.y - h.y) * fraction });
+            }
+            break;
+          case 'buff': {
+            const target = h.order?.o === 'attack' ? this.units.get(h.order.id) : null;
+            const siege = target?.type === 'building';
+            const fighting = (target === enemy && reach < spec.range + 220) || siege;
+            const offensive = spell.stats.haste || spell.stats.life;
+            const defensive = spell.stats.armor && health < .65 && reach < 650;
+            if (defensive || (fighting && offensive && (!ultimate || kill || enemyHealth < .6 || siege))) return cast(i, h);
+            break;
+          }
+        }
+      }
+      return false;
+    }
+    think(h) {
+      const d = DIFF[h.bot] || DIFF.normal, data = HEROES[h.hero], t = this.time;
+      h.think = t + d.react * (.7 + this.random() * .6);
+      const enemy = this.heroes[1 - h.team], own = home(h.team), enemyHome = home(enemy.team);
+      const enemyAlive = enemy.hp > 0, enemyDist = enemyAlive ? distance(h, enemy) : Infinity;
+      const hp = h.hp / h.maxHp, mana = h.mana / h.maxMana, enemyHp = enemy.hp / enemy.maxHp;
+      const homeDist = distance(h, own), dir = h.team ? -1 : 1;
+      const order = cmd => this.order(h.team, cmd);
+      const go = ({x,y}) => order({ o: 'move', x, y });
+      const hit = target => order({ o: 'attack', id: target.id });
+      const use = id => {
+        const i = h.inventory.findIndex(slot => slot.id === id);
+        if (i >= 0) order({ o: 'item', i, x: h.x, y: h.y });
+      };
+      if ((!h.hp || homeDist < 400) && !h.windup) {
+        if (h.level < 9 && !h.pots && h.gold >= 90) this.buy(h, 'potion');
+        const id = data.build[h.buildIndex];
+        if (id && !this.buy(h, id)) h.buildIndex++;
+      }
+      if (!h.hp || h.windup || h.dash || h.stunUntil > t) return;
+      if (hp < .60 && enemyDist > 650) order({ o: 'potion' });
+      if (hp < .50) use('locket');
+
+      if (hp < .28 || (hp < .45 && enemyDist < 700 && enemyHp > hp + .25)) h.retreat = true;
+      if (h.retreat) {
+        if (homeDist < 300) {
+          if (hp <= .92 || mana <= .70) return;
+          h.retreat = false;
+        } else {
+          if (h.channel || (homeDist > 1600 && enemyDist > 800 && !order({ o: 'recall' }))) return;
+          if (enemyDist < 800) use('striders');
+          if (enemyDist < 700) {
+            const escape = data.abilities.findIndex((spell, i) => this.abilityReady(h, i) &&
+              (spell.kind === 'dash' || spell.kind === 'blink' || (spell.kind === 'buff' && (spell.stats.move || spell.stats.armor))));
+            if (escape >= 0) order({ o: 'cast', i: escape, x: h.x - dir * 1000, y: h.y });
+          }
+          go(own);
+          return;
+        }
+      }
+
+      const enemyTowers = this.buildings.filter(b => b.team === enemy.team && b.kind !== 'core' && b.hp > 0);
+      const nearTower = enemyTowers.findLast(b => distance(h, b) < b.range + 90);
+      if (nearTower && !this.towerTanked(nearTower, h)) {
+        go({ x: nearTower.x - dir * (nearTower.range + 230), y: clamp(h.y, 330, 570) });
+        return;
+      }
+      if (Math.abs(h.x - enemyHome.x) < 480) {
+        go({ x: h.x - dir * 300, y: h.y });
+        return;
+      }
+
+      const allies = this.nearbyCreeps(h, h.team, 500);
+      const enemies = this.nearbyCreeps(h, enemy.team, 500);
+      if (enemyDist < 1100) {
+        const shelter = enemyTowers.find(b => distance(enemy, b) < b.range + 60);
+        const enemySafe = (shelter && !this.towerTanked(shelter, h)) || Math.abs(enemy.x - enemyHome.x) < 620;
+        if (!enemySafe && hp > .30 && enemy.hp < this.aiBurst(h, enemy) * d.killJudge) {
+          if (enemyDist > data.range + 60) use('striders');
+          hit(enemy);
+          this.aiCast(h, enemy, 'kill', d);
+          return;
+        }
+      }
+
+      let lastHit = null, score = 0, weakest = null;
+      for (const c of this.creeps) {
+        if (c.hp <= 0 || distance(c, h) > data.range + 320) continue;
+        const hitDamage = h.stats.damage * h.stats.multiplier * physical(c.armor);
+        if (c.team !== h.team) {
+          if (c.roll[h.team] >= d.lastHit && c.hp < c.maxHp * .30) continue;
+          if (c.hp <= hitDamage * 1.08 && c.gold > score) {
+            lastHit = c;
+            score = c.gold;
+          }
+          if (!weakest || c.hp < weakest.hp) weakest = c;
+        } else if (d.deny && c.hp < hitDamage && c.hp < c.maxHp / 2 && score < 5) {
+          lastHit = c;
+          score = 5;
+        }
+      }
+      if (lastHit) {
+        hit(lastHit);
+        return;
+      }
+
+      const ownTower = this.frontTower(h.team), enemyTower = enemyTowers[0];
+      const objective = enemyTower || this.getBuilding(enemy.team, 'core');
+      if (enemies.length <= 1 && range(h, objective) <= data.range + 300 && (!enemyTower || this.towerTanked(enemyTower, h))) {
+        use('horn');
+        hit(objective);
+        this.aiCast(h, enemy, 'siege', d);
+        return;
+      }
+
+      const defend = !ownTower || this.nearbyCreeps(ownTower, enemy.team, ownTower.range).length > 0;
+      const push = !enemyAlive || enemyDist > 1500 || h.level >= enemy.level + 2 || t > 420 || defend;
+      const trade = enemyAlive && enemyDist - enemy.r <= data.range + (data.range > 150 ? 60 : 260) &&
+        hp >= enemyHp - .15 && enemies.length <= allies.length + 1 && this.random() < d.harass;
+      if (trade) {
+        hit(enemy);
+        this.aiCast(h, enemy, 'trade', d);
+        return;
+      }
+      if (this.aiCast(h, enemy, push ? 'push' : 'lane', d)) return;
+      if (push && weakest) {
+        hit(weakest);
+        return;
+      }
+
+      if (this.orb && Math.abs(h.x - this.orb.x) < 700 && hp > .5 &&
+        (!enemyAlive || distance(enemy, this.orb) > distance(h, this.orb)) && this.random() < .5) {
+        go(this.orb);
+        return;
+      }
+      const front = this.creeps.reduce((x, c) => c.hp > 0 && c.team === h.team ? Math.max(x, c.x * dir) : x, -Infinity);
+      const base = ownTower ? ownTower.x * dir + 40 : this.getBuilding(h.team, 'core').x * dir + 220;
+      const follow = front === -Infinity ? base : Math.max(front - (data.range > 150 ? 230 : 30), base - 150);
+      const limit = enemyTower && !this.towerTanked(enemyTower, h) ? enemyTower.x * dir - enemyTower.range - 140 :
+        enemyTower ? Infinity : enemyHome.x * dir - 640;
+      if (this.random() < .2) h.sway = (this.random() - .5) * 220;
+      const hold = { x: Math.min(follow, limit) * dir, y: 450 + h.sway };
+      if (distance(h, hold) > 50) go(hold);
+    }
+    snapshot(team, full = false) {
+      const angle = n => Math.round(n * 100) / 100;
+      const base = ({ id, type, kind, team, x, y, r, hp, maxHp, windup, stunUntil }) =>
+        ({ id, type, kind, team, x, y, r, hp, maxHp, attack: !!windup, stunned: stunUntil > this.time });
+      const heroes = this.heroes.map(h => {
+        const common = { ...base(h), hero: h.hero, name: h.name, level: h.level, respawn: h.respawn,
+          channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
+          facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot };
+        if (h.team !== team && !full) return common;
+        return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
+          recallReady: h.recallReady, tomeReady: h.tomeReady, pots: h.pots, stats: h.stats, potionUntil: h.potionUntil,
+          canShop: this.canShop(h) };
+      });
+      const quant = n => Math.round(n * 10) / 10;
+      return { time: this.time, mode: this.mode, winner: this.winner, orb: this.orb, wave: this.wave, kills: this.kills,
+        heroes, buildings: this.buildings.map(u => ({ ...base(u), protected: this.protected(u),
+          ...(u.kind === 'core' ? {} : { range: u.range, target: u.windup?.target || u.target }) })),
+        creeps: this.creeps.map(c => [c.id, c.team, c.kind, quant(c.x), quant(c.y), Math.ceil(c.hp), Math.ceil(c.maxHp), !!c.windup, quant(c.r), angle(c.facing),
+          (c.stunUntil > this.time ? CREEP_FLAGS.stunned : 0) | (c.hornUntil > this.time ? CREEP_FLAGS.rallied : 0) |
+          (c.hp < c.maxHp / 2 ? CREEP_FLAGS.deniable : 0)]),
+        projectiles: this.projectiles.map(p => p.kind === 'bolt' ?
+          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero, angle(p.dx), angle(p.dy), p.spell.radius] :
+          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero || p.from.type]),
+        areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate]),
+        effects: this.effects.filter(e => e.audience == null || team === e.audience || full) };
+    }
+  }
+  function validOrder(cmd) {
+    if (!cmd || typeof cmd !== 'object') return false;
+    const pos = Number.isFinite(cmd.x) && Number.isFinite(cmd.y) && Math.abs(cmd.x) <= 10000 && Math.abs(cmd.y) <= 10000;
+    const slot = (limit) => Number.isInteger(cmd.i) && cmd.i >= 0 && cmd.i < limit;
+    switch (cmd.o) {
+      case 'move':
+      case 'amove': return pos;
+      case 'attack': return Number.isSafeInteger(cmd.id) && cmd.id > 0;
+      case 'cast': return slot(4) && pos;
+      case 'item': return slot(6) && pos;
+      case 'sell': return slot(6);
+      case 'buy': return typeof cmd.id === 'string' && owns(ITEMS, cmd.id);
+      case 'stop':
+      case 'potion':
+      case 'recall': return true;
+      default: return false;
+    }
+  }
+  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, CREEP_FLAGS, xpGoal, home, distance, physical };
+  if (typeof module === 'object') module.exports = api;
+  else globalThis.Lanebreak = api;
+})();
+</script>
+<script>
+(function () {
+  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT } = LanebreakRules;
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  function seeded(initial) {
+    let n = initial;
+    return () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296);
+  }
+  function poly(ctx, points, fill, stroke, width = 1) {
+    ctx.beginPath();
+    points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.lineWidth = width; ctx.strokeStyle = stroke; ctx.stroke(); }
+  }
+  function ellipse(ctx, x, y, rx, ry, fill, stroke, width = 1) {
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.lineWidth = width; ctx.strokeStyle = stroke; ctx.stroke(); }
+  }
+  function line(ctx, points, stroke, width) {
+    ctx.beginPath();
+    points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.strokeStyle = stroke; ctx.lineWidth = width; ctx.stroke();
+  }
+  function gradient(ctx, x1, y1, x2, y2, stops) {
+    const g = ctx.createLinearGradient(x1, y1, x2, y2);
+    for (const [at, color] of stops) g.addColorStop(at, color);
+    return g;
+  }
+  function glow(ctx, x, y, radius, color) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    g.addColorStop(0, color); g.addColorStop(1, '#0000');
+    ellipse(ctx, x, y, radius, radius, g);
+  }
+  function portrait(canvas, key) {
+    const g = canvas.getContext('2d'), color = HEROES[key].color;
+    g.fillStyle = gradient(g, 0, 0, 350, 220, [[0, '#0d1d22'], [.56, '#19282a'], [1, color + '8a']]);
+    g.fillRect(0, 0, 360, 236);
+    glow(g, 244, 88, 125, color + '77');
+    const rand = seeded(key.charCodeAt(0));
+    for (let i = 0; i < 92; i++) {
+      const x = rand() * 360, y = rand() * 230, r = rand();
+      const a = Math.floor(rand() * 100 + 35).toString(16).padStart(2, '0');
+      ellipse(g, x, y, r * 2 + .3, r + .3, color + a);
+    }
+    for (const r of [52, 67, 90]) ellipse(g, 221, 90, r, r, null, color + '39');
+    if (key === 'vesper') {
+      poly(g, [[82,237],[127,161],[177,135],[219,133],[251,154],[289,236]], '#123438', '#2f746d', 3);
+      poly(g, [[111,225],[150,160],[189,148],[229,154],[256,237]], '#1f5556', color + 'a0', 2);
+      poly(g, [[150,153],[153,91],[181,56],[215,43],[240,76],[238,120],[216,157],[194,175]], '#16343c', '#60b5a6', 3);
+      poly(g, [[170,116],[188,72],[213,61],[237,93],[226,138],[208,153],[185,142]], '#aab39a');
+      poly(g, [[176,115],[198,90],[228,86],[239,111],[227,120],[207,114],[188,121]], '#12353b');
+      line(g, [[196,112],[207,108],[218,109],[227,104]], '#8bf8dc', 2);
+      poly(g, [[146,149],[178,139],[196,171],[238,140],[256,161],[222,196],[191,202]], '#365e58', '#87ad8d', 2);
+      g.beginPath(); g.moveTo(318,37); g.bezierCurveTo(268,50,304,122,254,146); g.bezierCurveTo(265,164,255,213,303,228);
+      g.strokeStyle = '#8ccbb0'; g.lineWidth = 5; g.stroke();
+      line(g, [[318,37],[303,228]], '#bce2ceae', 1);
+      line(g, [[286,138],[333,143]], '#e2e7ba', 2);
+    } else if (key === 'brakk') {
+      poly(g, [[62,236],[84,160],[132,136],[172,146],[186,131],[246,133],[268,148],[306,156],[331,236]], '#2d2728', '#b58053', 3);
+      poly(g, [[68,174],[112,141],[165,158],[172,188],[133,218],[83,203]], '#795640', '#d4955e', 3);
+      poly(g, [[235,164],[277,140],[317,163],[319,199],[281,221],[243,198]], '#81593f', '#d99b67', 3);
+      poly(g, [[166,148],[156,113],[161,75],[196,51],[229,53],[253,78],[255,109],[240,147],[219,168],[192,168]], '#67534b', '#d99e70', 3);
+      poly(g, [[159,101],[138,76],[123,56],[125,31],[153,62],[177,72],[184,88]], '#cbc0a2', '#775d4b', 2);
+      poly(g, [[230,74],[257,64],[280,34],[279,58],[262,82],[252,102],[232,93]], '#c8b595', '#775d4b', 2);
+      poly(g, [[162,105],[189,96],[202,104],[223,97],[253,100],[246,135],[221,156],[195,156],[175,141]], '#2b292c');
+      line(g, [[174,112],[189,116],[198,114]], '#ffd682', 4);
+      line(g, [[218,113],[229,115],[242,108]], '#ffd682', 4);
+      poly(g, [[191,124],[207,112],[221,123],[221,145],[208,152],[194,144]], '#927059', '#dbab7c', 2);
+      poly(g, [[105,233],[167,186],[207,206],[248,188],[296,231]], '#534437', '#b88c5e', 2);
+      for (let i = 0; i < 5; i++) line(g, [[180 + i * 11,222],[174 + i * 15,235]], '#b88c5e', 1.5);
+    } else {
+      poly(g, [[95,237],[139,165],[170,148],[207,137],[254,151],[289,237]], '#272646', '#957ac7', 3);
+      poly(g, [[158,152],[160,99],[180,71],[212,43],[245,65],[258,107],[247,150],[219,180],[180,172]], '#3a335a', '#bf99fe', 3);
+      poly(g, [[174,127],[188,84],[214,65],[240,92],[244,120],[229,151],[210,164],[189,151]], '#171a2c');
+      const light = gradient(g, 189, 120, 236, 120, [[0,'#957bff'],[.5,'#fff0ff'],[1,'#957bff']]);
+      line(g, [[184,122],[197,119],[209,122],[218,122],[230,116],[239,119]], light, 4);
+      poly(g, [[143,168],[184,158],[213,179],[248,152],[274,169],[235,205],[193,205]], '#544572', '#a791d1', 2);
+      line(g, [[277,231],[282,174],[292,112],[307,67]], '#a28cbb', 5);
+      glow(g, 307, 61, 37, '#b78effaa');
+      poly(g, [[307,30],[327,59],[307,83],[289,59]], '#bd9beb', '#efe7ff', 2);
+      poly(g, [[307,30],[307,83],[289,59]], '#6c52aa', '#eee1ffa0', 1);
+      ellipse(g, 307, 59, 27, 27, null, '#d7b6ff6c', 2);
+    }
+  }
+  function titleScene(g, width, height) {
+    g.save();
+    g.scale(width / 1440, height / 900);
+    g.fillStyle = gradient(g, 0, 0, 0, 900, [[0, '#121d27'], [.36, '#2b494a'], [.59, '#62674c'], [1, '#0a151a']]);
+    g.fillRect(0, 0, 1440, 900);
+    glow(g, 1050, 317, 381, '#eed29388');
+    glow(g, 1115, 347, 180, '#eec07a70');
+    const rand = seeded(82);
+    for (let layer = 0; layer < 8; layer++) {
+      const points = [[0, 900], [0, 382 + layer * 46]];
+      for (let x = 0; x <= 1500; x += 35) {
+        const y = 248 + layer * 49 + 74 * Math.sin(x * .003 + layer) +
+          Math.abs(x - (1030 + layer * 29)) * .032 - rand() * 57;
+        points.push([x, y]);
+      }
+      points.push([1500, 900]);
+      const greens = ['#33494b', '#30444a', '#2c3d45', '#24393e', '#213137', '#1c2d33', '#17272c', '#122225'];
+      poly(g, points, greens[layer]);
+    }
+    const path = [[1017,325],[1101,347],[1176,399],[1152,434],[997,472],[959,505],[1010,542],[1219,575],[1336,652],[1227,724],[997,773],[701,881]];
+    for (const [stroke, width] of [['#315052', 32], ['#92a18a95', 13], ['#efcb838f', 5]]) line(g, path, stroke, width);
+    for (let i = 0; i < 400; i++) {
+      const x = rand() * 1440, y = 385 + rand() * 510, size = rand() * (y - 360) / 27;
+      if (x < 610 || Math.abs(x - 1080) > 320 || y > 615) {
+        poly(g, [[x - size * .5,y],[x,y - size],[x + size * .4,y]], i % 2 ? '#101f22' : '#16252a');
+      }
+    }
+    function citadel(x, y, s, tint) {
+      g.save(); g.translate(x,y); g.scale(s,s);
+      poly(g, [[-127,65],[-50,34],[52,39],[115,70],[54,105],[-68,100]], '#142126', '#73837e', 2);
+      for (const [dx, dy, size] of [[-60,42,.8],[46,47,.75],[4,34,1.18]]) {
+        const w = 19 * size, h = 90 * size;
+        poly(g, [[dx-w,dy],[dx-w,dy-h],[dx,dy-h-14],[dx+w,dy-h],[dx+w,dy],[dx,dy+8]], '#182529', '#749087', 1.4);
+        poly(g, [[dx,dy+8],[dx,dy-h-14],[dx+w,dy-h],[dx+w,dy]], '#314245');
+        poly(g, [[dx-w-5,dy-h],[dx,dy-h-35],[dx+w+5,dy-h],[dx,dy-h+9]], '#37484a', '#93a79a', 1.4);
+        glow(g, dx + 3, dy - h * .62, 32 * size, tint + 'a0');
+        g.fillStyle = tint; g.fillRect(dx + 1, dy - h * .71, 3, 11 * size);
+      }
+      g.restore();
+    }
+    citadel(1100, 374, .74, '#eac78d');
+    citadel(1192, 587, 1.14, '#e68862');
+    citadel(765, 710, 1.36, '#91d7ca');
+    for (let i = 0; i < 95; i++) {
+      const x = rand() * 1440, y = 210 + rand() * 640;
+      ellipse(g, x, y, rand() * 2 + .35, rand() * 1.1 + .3, i % 3 === 0 ? '#e6c99b8f' : '#9db9a94d');
+    }
+    g.restore();
+  }
+  function terrain() {
+    const c = document.createElement('canvas');
+    c.width = WIDTH; c.height = HEIGHT;
+    const g = c.getContext('2d'), rand = seeded(743);
+    g.fillStyle = gradient(g, 0, 0, 0, HEIGHT, [[0, '#102326'], [.27, '#263735'], [.52, '#35423a'], [.77, '#1b2c2b'], [1, '#111f23']]);
+    g.fillRect(0, 0, WIDTH, HEIGHT);
+    for (let i = 0; i < 3500; i++) {
+      const x = rand() * WIDTH, y = rand() * HEIGHT;
+      ellipse(g, x, y, rand() * 16 + 1, rand() * 7 + 1, i % 2 ? '#92a28415' : '#0c181c37');
+    }
+    for (let i = 0; i < 850; i++) {
+      const x = rand() * WIDTH, y = rand() < .5 ? rand() * 250 : 655 + rand() * 345;
+      const r = 9 + rand() * (y > 900 ? 28 : 17);
+      ellipse(g, x + 5, y + 9, r * 1.22, r * .62, '#0c191b94');
+      for (let j = 0; j < 3; j++) {
+        const ax = x + (j - 1) * r * .52, ay = y - j * 9;
+        poly(g, [[ax-r*.8,ay+6],[ax-r*.4,ay-r*.69],[ax+3,ay-r],[ax+r*.69,ay-r*.36],[ax+r*.53,ay+r*.27],[ax-r*.43,ay+r*.53]], ['#263e38','#314940','#354b3e'][j], '#4260546b');
+      }
+    }
+    const river = [[2537,-20],[2499,95],[2573,218],[2527,331],[2530,500],[2498,602],[2560,735],[2509,1000],
+      [2702,1000],[2732,784],[2693,618],[2705,510],[2681,375],[2747,225],[2672,91],[2705,-20]];
+    poly(g, river, gradient(g, 2470, 0, 2720, 0, [[0,'#344a44'],[.17,'#24454a'],[.57,'#2f5960'],[1,'#354d4a']]), '#648075', 3);
+    for (let i = 0; i < 270; i++) {
+      const x = 2577 + rand() * 67, y = rand() * 1000;
+      line(g, [[x, y],[x - 10 - rand() * 15,y + 1]], '#81aeb038', 1.4);
+    }
+    for (const y of [170, 730]) {
+      ellipse(g, 2600, y, 58, 30, '#1c3238', '#758d82', 2);
+      ellipse(g, 2600, y, 48, 23, null, '#709b8e82', 1);
+    }
+    const lane = [[0,410],[405,374],[835,390],[1350,367],[1770,389],[2200,373],[2550,389],[2840,378],
+      [3310,392],[3800,365],[4520,383],[5200,405],[5200,495],[4490,529],[3800,509],[3270,525],[2850,510],
+      [2540,519],[2130,512],[1750,533],[1350,515],[841,529],[490,512],[0,489]];
+    poly(g, lane, '#4c5142', '#71715a', 4);
+    for (let x = 0; x < WIDTH; x += 69) {
+      for (const y of [405, 443, 483]) {
+        const sx = x + rand() * 25, sy = y + (rand() - .5) * 17, w = 33 + rand() * 34;
+        poly(g, [[sx,sy],[sx+w-10,sy-4],[sx+w,sy+15],[sx+w-12,sy+32],[sx-5,sy+26]], rand() < .5 ? '#54594b' : '#565a4b', '#78816b55', 1.1);
+      }
+    }
+    for (const team of [0, 1]) {
+      const col = COLORS[team];
+      for (const [x, y, r] of [[110, 450, 105], [520,450,115],[1150,330,77],[1850,330,77]]) {
+        const cx = team ? WIDTH - x : x;
+        ellipse(g, cx, y + 13, r + 8, r * .59, '#18282ca8', '#5c6b5e', 4);
+        ellipse(g, cx, y + 13, r, r * .51, '#303e3e', col + '48', 2);
+        ellipse(g, cx, y + 13, r * .79, r * .39, null, '#a4ab8433', 2);
+        for (let j = 0; j < 10; j++) {
+          const angle = j / 10 * Math.PI * 2;
+          ellipse(g, cx + r * .9 * Math.cos(angle), y + 13 + r * .45 * Math.sin(angle), 5, 4, col + '66');
+        }
+      }
+    }
+    return c;
+  }
+  class Renderer {
+    constructor(canvas, minimap) {
+      this.canvas = canvas;
+      this.mini = minimap;
+      this.g = canvas.getContext('2d', { alpha: false });
+      this.map = null;
+      this.cam = 0;
+      this.focus = null;
+      this.scale = 1;
+      this.quality = 'auto';
+      this.auto = 1;
+      this.measure = null;
+      this.dirty = true;
+    }
+    resize() {
+      const factor = { auto: this.auto, high: 1, medium: .75, low: .5 }[this.quality];
+      const { clientWidth, clientHeight } = this.canvas;
+      const cap = Math.sqrt(3840 * 2160 / Math.max(1, clientWidth * clientHeight));
+      const dpr = Math.min(devicePixelRatio || 1, 2, cap) * factor;
+      const w = Math.round(clientWidth * dpr), h = Math.round(clientHeight * dpr);
+      if (w !== this.canvas.width || h !== this.canvas.height) {
+        this.canvas.width = w; this.canvas.height = h; this.dirty = true;
+      }
+      this.scale = h / HEIGHT;
+    }
+    title() {
+      this.resize();
+      if (!this.dirty) return;
+      titleScene(this.g, this.canvas.width, this.canvas.height);
+      this.dirty = false;
+    }
+    toWorld(x, y) {
+      return { x: this.cam + x * this.canvas.width / this.canvas.clientWidth / this.scale,
+        y: y * HEIGHT / this.canvas.clientHeight };
+    }
+    camera(hero) {
+      const view = this.canvas.width / this.scale;
+      return clamp((this.focus ?? (hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18))) - view / 2, 0, Math.max(0, WIDTH - view));
+    }
+    frame(s, team, now, mark, dt, pointer) {
+      this.resize();
+      const g = this.g, w = this.canvas.width, h = this.canvas.height;
+      if (!w || !h) return;
+      if (!this.map) this.map = terrain();
+      if (dt > 0 && dt <= .25) {
+        this.measure ||= { frames: 0, time: 0, fps: 0, settle: 0 };
+        const m = this.measure;
+        m.frames++; m.time += dt;
+        if (m.time >= 1) {
+          m.fps = m.frames / m.time;
+          m.frames = 0; m.time = 0;
+          if (this.quality === 'auto' && !m.locked) {
+            if (m.settle) m.settle--;
+            else if (m.probe) {
+              if (m.fps < m.probe.fps * 1.20) {
+                this.auto = m.probe.level;
+                m.locked = true;
+              }
+              m.probe = null;
+            } else if (m.fps < 45 && this.auto > .5) {
+              m.probe = { fps: m.fps, level: this.auto };
+              this.auto -= .25;
+              m.settle = 1;
+            }
+          }
+        }
+      }
+      this.cam = this.camera(s.heroes[team]);
+      this.displayed = s;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
+      g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, 0);
+      g.drawImage(this.map, 0, 0);
+      const visible = u => u.x >= this.cam - 175 && u.x <= this.cam + w / this.scale + 175;
+      const player = s.heroes[team];
+      const troops = s.creeps.map(([id, team, kind, x, y, hp, maxHp, attack, r, facing, flags]) =>
+        ({ id, type: 'creep', team, kind, x, y, hp, maxHp, attack, r: r ?? CREEPS[kind].r, facing, flags }));
+      const units = [...troops, ...s.heroes].filter(u => u.hp > 0);
+      for (const b of s.buildings) {
+        if (b.hp <= 0 || !b.range) continue;
+        if (b.team !== team && !b.protected && b.x + b.range > this.cam && b.x - b.range < this.cam + w / this.scale) {
+          g.setLineDash([11, 9]);
+          ellipse(g, b.x, b.y, b.range, b.range, null, '#ff636eaa', 2);
+          g.setLineDash([]);
+        }
+        const target = b.target && units.find(u => u.id === b.target);
+        if (target && (visible(b) || visible(target))) {
+          const hitsPlayer = target.id === player.id;
+          line(g, [[b.x, b.y-79], [target.x, target.y]], hitsPlayer ? '#ff939ac4' : COLORS[b.team] + '5a', hitsPlayer ? 2.4 : 1.4);
+        }
+      }
+      if (player.hp > 0) {
+        const reach = HEROES[player.hero].range + 26;
+        ellipse(g, player.x, player.y, reach, reach, null, '#ffffff12', 2);
+      }
+      for (const b of s.buildings) if (visible(b)) this.building(g, b, team);
+      for (const t of [0, 1]) {
+        const x = t ? 5090 : 110;
+        if (!visible({x})) continue;
+        const color = COLORS[t];
+        ellipse(g, x, 450, 72, 41, '#152b31', color + '9e', 3);
+        ellipse(g, x, 450, 58, 30, '#2c5158', color + '77', 2);
+        const pulse = 14 + (now * 100 % 30);
+        ellipse(g, x, 447, pulse, pulse * .59, null, color + '90', 2);
+        this.crystal(g, x, 438, 31, color);
+      }
+      if (s.orb && visible(s.orb)) {
+        const { x, y, kind } = s.orb, color = ORBS[kind], u = y - 11 + Math.sin(now * 4) * 6;
+        glow(g, x, u, 53, color + '92');
+        this.crystal(g, x, u, 21, color);
+        this.label(g, kind.toUpperCase(), x, y + 43, 13, color);
+      }
+      for (const [, side, rad, x, y, strike, duration, hero, ultimate] of s.areas) {
+        if (!visible({x})) continue;
+        const color = HEROES[hero]?.color || COLORS[side];
+        const progress = clamp(1 - (strike - now) / (duration || 1), 0, 1);
+        ellipse(g, x, y, rad, rad, color + '22', color + '9d', 3);
+        ellipse(g, x, y, rad * progress, rad * progress, null, color + 'b8', ultimate ? 4 : 2);
+      }
+      const fighters = units.filter(visible).sort((a, b) => a.y - b.y);
+      for (const u of fighters) u.type === 'hero' ? this.hero(g, u, team, now) : this.creep(g, u, team);
+      for (const [, side, kind, x, y, source, dx, dy, width] of s.projectiles) {
+        if (!visible({x})) continue;
+        const color = source === 'building' ? '#fff0b0' : HEROES[source]?.color || COLORS[side];
+        if (kind === 'bolt') {
+          g.lineCap = 'round';
+          line(g, [[x - dx * 70, y - dy * 70], [x, y]], color + '78', width * .5);
+          line(g, [[x - dx * 30, y - dy * 30], [x, y]], '#f5f1ee', 4);
+          g.lineCap = 'butt';
+        } else {
+          const r = source === 'creep' ? 4 : 6;
+          ellipse(g, x, y, r, r, color);
+        }
+      }
+      const markAge = mark && performance.now() - mark.at;
+      if (mark && markAge < 550 && visible(mark)) {
+        const r = 12 + markAge * .045;
+        g.globalAlpha = 1 - markAge / 550;
+        ellipse(g, mark.x, mark.y, r, r * .65, null, mark.color, 2.4);
+        g.globalAlpha = 1;
+      }
+      for (const e of s.effects) {
+        const age = now - e.time;
+        if (age < -.06 || age > 1.08 || !visible(e)) continue;
+        g.globalAlpha = clamp((1 - age) * 1.3, 0, 1);
+        if (e.kind === 'burst' || e.kind === 'cast') {
+          const color = HEROES[e.hero]?.color || COLORS[e.team];
+          const r = (e.radius || 45) * clamp(.25 + age * 3, .25, 1);
+          ellipse(g, e.x, e.y, r, r, color + '24', color + 'cc', 4);
+          if (e.kind === 'burst') {
+            for (let i = 0; i < 9; i++) {
+              const a = i * Math.PI * 2 / 9 + e.id;
+              const x = e.x + Math.cos(a) * r, y = e.y + Math.sin(a) * r;
+              ellipse(g, x, y, 5, 2, color);
+            }
+          }
+        } else if (['gold','hit','level'].includes(e.kind)) {
+          this.label(g, e.text, e.x + (e.id % 3 - 1) * 13, e.y - 31 - age * 30,
+            e.kind === 'hit' ? 15 : 19, e.text === 'Denied' ? '#c9a0ff' : e.kind === 'hit' ? '#f1ded0' : '#ffd48b');
+        }
+        g.globalAlpha = 1;
+      }
+      const target = pointer && Lanebreak.pickTarget(s, team, this.toWorld(pointer.x, pointer.y));
+      if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
+      g.fillRect(0, 0, w, h);
+      this.minimap(s, team, w / this.scale);
+    }
+    label(g, text, x, y, size, color) {
+      g.font = '700 ' + size + 'px system-ui'; g.textAlign = 'center';
+      g.lineWidth = 3; g.strokeStyle = '#10191be0'; g.strokeText(text, x, y);
+      g.fillStyle = color; g.fillText(text, x, y);
+    }
+    bar(g, u, y, width, color, height = 5, fraction = u.hp / u.maxHp) {
+      g.fillStyle = '#0a1416'; g.fillRect(u.x - width / 2 - 1, y - 1, width + 2, height + 2);
+      g.fillStyle = '#283332'; g.fillRect(u.x - width / 2, y, width, height);
+      g.fillStyle = color; g.fillRect(u.x - width / 2, y, width * clamp(fraction,0,1), height);
+    }
+    crystal(g, x, y, r, color) {
+      poly(g, [[x,y-r],[x+r*.59,y-r*.15],[x+r*.40,y+r*.55],[x,y+r*.78],[x-r*.45,y+r*.52],[x-r*.58,y-r*.16]], color, '#f1e7cbe0', 1.3);
+      poly(g, [[x,y-r],[x,y+r*.78],[x-r*.45,y+r*.52],[x-r*.58,y-r*.16]], '#101e2860');
+      line(g, [[x,y-r],[x,y+r*.78]], '#f7f0d4aa', 2);
+    }
+    building(g, b, team) {
+      const {x,y,r} = b, color = COLORS[b.team], core = b.kind === 'core';
+      if (b.hp <= 0) {
+        poly(g, [[x-r,y+13],[x-r*.6,y-20],[x-5,y-12],[x+r*.3,y-25],[x+r,y+9],[x+r*.65,y+24],[x-r*.6,y+22]], '#444a42', '#1a2828', 4);
+        return;
+      }
+      ellipse(g, x + 14, y + 14, r * 1.25, r * .71, '#122127aa');
+      for (const offset of [17, 8, 0]) {
+        poly(g, [[x-r,y+offset],[x-r*.54,y-r*.48+offset],[x+r*.54,y-r*.48+offset],[x+r,y+offset],[x+r*.50,y+r*.39+offset],[x-r*.50,y+r*.39+offset]],
+          offset ? '#29383a' : '#4e5b54', '#18282a', 3);
+      }
+      if (core) {
+        ellipse(g,x,y-5,r*.75,r*.43,'#24363a',color+'94',3);
+        glow(g,x,y-43,75,color+'77');
+        this.crystal(g,x,y-42,50,color);
+      } else {
+        const col = b.attack ? color : color + 'c5';
+        poly(g, [[x-r*.53,y],[x-r*.4,y-62],[x+r*.4,y-62],[x+r*.53,y],[x+r*.25,y+12],[x-r*.25,y+12]], '#404d4a', '#18272a', 3);
+        poly(g, [[x,y+12],[x,y-64],[x+r*.4,y-62],[x+r*.53,y],[x+r*.25,y+12]], '#2a3b3d');
+        poly(g, [[x-r*.65,y-59],[x-r*.50,y-83],[x+r*.50,y-83],[x+r*.65,y-58],[x+r*.29,y-49],[x-r*.3,y-49]], '#63716a', '#27393a', 3);
+        this.crystal(g,x,y-80,17,col);
+        line(g, [[x-8,y-37],[x,y-28],[x+8,y-37]], col, 3);
+      }
+      if (b.protected) {
+        g.setLineDash([5, 5]);
+        ellipse(g,x,y+3,r+10,r+10,null,'#e9e5cd9c',2);
+        g.setLineDash([]);
+      }
+      this.bar(g,b,y - (core ? 102 : 109),core ? 130 : 86,b.team === team ? '#58d86a' : '#ff5a5a',8);
+    }
+    hero(g, u, team, now) {
+      const {x,y} = u, color = COLORS[u.team], armor = HEROES[u.hero].color;
+      ellipse(g,x+7,y+10,30,16,'#102125a5');
+      ellipse(g,x,y+4,u.r+9,u.r+5,null,color,4);
+      for (const id of u.potionActive ? [...(u.buffs || []), 'potion'] : u.buffs || []) {
+        const buffColor = ORBS[id] || (id === 'potion' ? '#e2506a' : id === 'sprint' ? '#f0a23c' : armor);
+        g.globalAlpha = .5 + .3 * Math.sin(now * 8);
+        ellipse(g,x,y,u.r+15,u.r+15,null,buffColor,3);
+        g.globalAlpha = 1;
+      }
+      if (u.channel > now) {
+        const start = -Math.PI / 2, progress = clamp(1 - (u.channel - now) / 3, 0, 1);
+        g.beginPath(); g.arc(x,y,u.r+24,start,start+2*Math.PI*progress); g.strokeStyle=color; g.lineWidth=5; g.stroke();
+      }
+      const facing = u.facing ?? (u.team ? Math.PI : 0);
+      const lunge = u.attack && u.hero === 'brakk' ? 8 : 0;
+      g.save();
+      g.translate(x + Math.cos(facing)*lunge,y + Math.sin(facing)*lunge);
+      g.scale(Math.cos(facing) < 0 ? -1 : 1,1);
+      g.translate(-x,-y);
+      poly(g, [[x-25,y+10],[x-18,y-23],[x-5,y-31],[x+12,y-27],[x+23,y-17],[x+25,y+10],[x+7,y+22],[x-12,y+20]], '#1d333b', armor, 2.7);
+      poly(g, [[x-22,y],[x-15,y-19],[x+6,y-20],[x+18,y-7],[x+14,y+13],[x-5,y+18]], armor + '95');
+      ellipse(g,x,y-27,13,13,'#18232b',armor,2.7);
+      if (u.hero === 'brakk') {
+        poly(g,[[x-11,y-31],[x-25,y-49],[x-23,y-35],[x-16,y-25]],'#e0cba6');
+        poly(g,[[x+11,y-31],[x+25,y-49],[x+23,y-35],[x+16,y-25]],'#e0cba6');
+        poly(g,[[x+18,y-11],[x+30,y-4],[x+39,y+13],[x+27,y+18],[x+19,y+8]],'#c78756','#eed4a5',1);
+      } else if (u.hero === 'vesper') {
+        g.beginPath();g.arc(x+18,y-9,18,-1.17,1.17);g.lineWidth=3;g.strokeStyle='#b6e2c4';g.stroke();
+        line(g,[[x+25,y-25],[x+25,y+8]],'#a4dec8',1);
+        poly(g,[[x-14,y-24],[x-5,y-44],[x+11,y-36],[x+16,y-23],[x+2,y-28]],'#488c87',armor,1.3);
+      } else {
+        line(g,[[x+24,y+16],[x+27,y-35]],'#9b83c4',3);
+        this.crystal(g,x+27,y-38,11,'#b494f7');
+      }
+      g.restore();
+      if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
+      if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
+      this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
+      this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);
+      g.fillStyle = '#0008';
+      for (let k = 250; k < u.maxHp; k += 250) g.fillRect(x-37+74*k/u.maxHp,y-55,1,8);
+      this.label(g,String(u.level),x-47,y-46,14,'#ffe08a');
+      this.label(g,u.name,x,y-62,14,'#f1f1dd');
+    }
+    creep(g, u, team) {
+      const {x,y,r} = u, color = COLORS[u.team], flags = Lanebreak.CREEP_FLAGS;
+      ellipse(g,x+4,y+6,r+3,r*.63,'#111e2385');
+      const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
+      const direction = Math.cos(facing) < 0 ? -1 : 1;
+      g.save(); g.translate(Math.cos(facing)*lunge,Math.sin(facing)*lunge);
+      if (u.kind === 'siege') {
+        poly(g,[[x-r,y-9],[x-r*.4,y-15],[x+r,y-10],[x+r,y+10],[x-r,y+10]],'#374d4c',color,2);
+        ellipse(g,x-r*.64,y+7,7,7,'#18282b',color+'a9',1.4);
+        ellipse(g,x+r*.61,y+7,7,7,'#18282b',color+'a9',1.4);
+        line(g,[[x,y-13],[x+direction*24,y-16]],color,4);
+      } else {
+        poly(g,[[x-r,y+6],[x-r*.7,y-r*.52],[x+r*.61,y-r*.57],[x+r,y+4],[x+3,y+12]],'#243539',color,2);
+        if (u.kind === 'ranged') this.crystal(g,x,y-8,9,color);
+        else ellipse(g,x,y-8,8,8,color+'8e','#203236',1.5);
+        line(g,[[x+direction*11,y-3],[x+direction*21,y+4]],'#e2d9b4',2.1);
+      }
+      g.restore();
+      if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
+      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-13,16,'#fff29a');
+      if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
+      if (u.hp / u.maxHp < .999) {
+        const hpColor = u.team !== team ? '#ff6464' : u.flags & flags.deniable ? '#c9a0ff' : '#6fd37a';
+        this.bar(g,u,y-r-11,34,hpColor,4);
+      }
+    }
+    minimap(s, team, view) {
+      const g = this.mini.getContext('2d'), w = this.mini.width, h = this.mini.height;
+      const x = n => n / WIDTH * w, y = n => n / HEIGHT * h;
+      g.fillStyle = '#141c1e'; g.fillRect(0,0,w,h);
+      g.fillStyle='#444331';g.fillRect(0,y(320),w,y(260));
+      g.fillStyle='#315363'; g.fillRect(x(2510),0,x(180),h);
+      for (const b of s.buildings) if (b.hp > 0) {
+        g.fillStyle = COLORS[b.team]; const r = b.kind === 'core' ? 7 : 4;
+        g.fillRect(x(b.x)-r,y(b.y)-r,r*2,r*2);
+      }
+      for (const c of s.creeps) {
+        g.fillStyle = COLORS[c[1]]+'b0'; g.fillRect(x(c[3])-2,y(c[4])-2,4,4);
+      }
+      for (const hero of s.heroes) if (hero.hp > 0) {
+        const px = x(hero.x), py = y(hero.y);
+        g.fillStyle = HEROES[hero.hero].color; g.fillRect(px-5,py-5,10,10);
+        g.strokeStyle = COLORS[hero.team]; g.lineWidth = hero.team === team ? 3 : 2; g.strokeRect(px-6,py-6,12,12);
+      }
+      if (s.orb) ellipse(g,x(s.orb.x),y(s.orb.y),3.5,3.5,ORBS[s.orb.kind]);
+      g.lineWidth=1.7;g.strokeStyle='#e4e4ba9b';g.strokeRect(x(this.cam),1,x(Math.min(view,WIDTH)),h-2);
+    }
+  }
+  globalThis.LanebreakPaint = { Renderer, portrait };
+})();
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH } = LanebreakRules;
+  const { Match, shopOffer, sellValue, spellDamage, pickTarget, xpGoal } = Lanebreak;
+  const { Renderer, portrait } = LanebreakPaint;
+  const keys = ['Q', 'W', 'E', 'R'];
+  const heroKeys = Object.keys(HEROES);
+  const difficulties = Object.keys(DIFF);
+  const renderer = new Renderer($('arena'), $('minimap'));
+  const hosted = /^(http|https):$/.test(location.protocol);
+  const prefs = {
+    load(key) { try { return localStorage.getItem('lanebreak:' + key); } catch { return null; } },
+    save(key, value) { try { localStorage.setItem('lanebreak:' + key, value); } catch {} }
+  };
+  let selected = heroKeys.includes(prefs.load('hero')) ? prefs.load('hero') : 'vesper';
+  let difficulty = difficulties.includes(prefs.load('difficulty')) ? prefs.load('difficulty') : 'normal';
+  let quality = ['auto','high','medium','low'].includes(prefs.load('quality')) ? prefs.load('quality') : 'auto';
+  let muted = prefs.load('muted') === 'true';
+  let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
+  let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
+  let cursorOnArena = false, shopFocus = null, tooltipTarget = null;
+  let socket, seat, room, waiting = false, retry = 0, networkAction = null;
+  let clockOffset = null, renderedTime = 0, wasDead = false;
+  const history = [];
+  const game = $('game');
+  const castSounds = {
+    bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
+    blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5]
+  };
+
+  function make(tag, text, className) {
+    const el = document.createElement(tag);
+    if (text != null) el.textContent = text;
+    if (className) el.className = className;
+    return el;
+  }
+  function bindTooltip(button) {
+    for (const type of ['pointerenter','focus']) button.addEventListener(type, () => {
+      tooltipTarget = button;
+      updateTooltip();
+    });
+    for (const type of ['pointerleave','blur']) button.addEventListener(type, () => {
+      if (tooltipTarget === button) tooltipTarget = null;
+      updateTooltip();
+    });
+  }
+  function updateTooltip() {
+    const panel = $('hudTooltip');
+    const text = tooltipTarget?.dataset.tip;
+    panel.hidden = !text || !$('matchOverlay').hidden;
+    if (panel.hidden) return;
+    if (panel.textContent !== text) panel.textContent = text;
+    const rect = tooltipTarget.getBoundingClientRect();
+    panel.style.left = Math.max(8, Math.min(rect.left - 12, innerWidth - panel.offsetWidth - 8)) + 'px';
+    panel.style.bottom = (innerHeight - rect.top + 8) + 'px';
+  }
+  function watchShopTile(button, target) {
+    const open = () => {
+      shopFocus = target;
+      if (snapshot) updateShopDetails(snapshot.heroes[team], snapshot.time);
+    };
+    const close = () => {
+      if (shopFocus !== target) return;
+      shopFocus = null;
+      if (snapshot) updateShopDetails(snapshot.heroes[team], snapshot.time);
+    };
+    for (const type of ['pointerenter','focus']) button.addEventListener(type, open);
+    for (const type of ['pointerleave','blur']) button.addEventListener(type, close);
+  }
+  function buildUi() {
+    for (const [index, id] of heroKeys.entries()) {
+      const h = HEROES[id], button = make('button', null, 'heroCard');
+      button.dataset.hero = id;
+      button.title = h.role;
+      const pic = make('canvas');
+      pic.width = 360; pic.height = 236;
+      pic.setAttribute('aria-hidden', 'true');
+      portrait(pic, id);
+      const cardText = make('span', null, 'cardText');
+      cardText.append(make('strong', h.name), make('small', h.title));
+      button.append(pic, make('kbd', index + 1), cardText);
+      button.addEventListener('click', () => pick(id));
+      $('heroes').append(button);
+    }
+    for (const button of $('difficulties').children) button.addEventListener('click', () => setDifficulty(button.dataset.difficulty));
+    for (const [i, key] of keys.entries()) {
+      const tile = make('div', null, 'abilityTile');
+      const button = make('button');
+      button.append(make('kbd', key), make('span'));
+      button.addEventListener('click', () => aim('cast', i));
+      bindTooltip(button);
+      tile.append(make('small', null, 'abilityName'), button);
+      $('abilities').append(tile);
+    }
+    for (let i = 0; i < 6; i++) {
+      const button = make('button');
+      button.append(make('kbd', i + 1), make('span', '–'));
+      button.addEventListener('click', () => {
+        if ($('shop').hidden) aim('item', i);
+        else issue({ o:'sell', i });
+      });
+      bindTooltip(button);
+      $('inventory').append(button);
+    }
+    for (const button of document.querySelectorAll('[data-utility]')) {
+      button.addEventListener('click', () => issue({ o: button.dataset.utility }));
+    }
+    const groups = [
+      ['Consumables', id => ['potion','tome'].includes(id)],
+      ['Basics', id => ITEMS[id].stats && !ITEMS[id].parts],
+      ['Upgrades', id => id === 'rift' || (ITEMS[id].parts && !ITEMS[id].master)],
+      ['Masterworks', id => ITEMS[id].master]
+    ];
+    for (const [label, test] of groups) {
+      const group = make('section', null, 'shopGroup'), grid = make('div', null, 'itemGrid');
+      group.append(make('h3', label), grid);
+      for (const id of Object.keys(ITEMS).filter(test)) {
+        const item = ITEMS[id], button = make('button');
+        button.title = item.text + (item.parts ? '\nRecipe: ' + item.parts.map(key => ITEMS[key].name).join(' + ') + ' + ' + item.cost + 'g' : '');
+        button.dataset.item = id;
+        const label = make('span', item.name), tags = make('small'), price = make('span', null, 'itemPrice');
+        label.append(tags);
+        price.append(make('b'),make('small'));
+        button.append(label,price);
+        watchShopTile(button, {id});
+        button.addEventListener('click', () => issue({ o: 'buy', id }));
+        grid.append(button);
+      }
+      $('shopItems').append(group);
+    }
+    $('name').value = prefs.load('name') || '';
+    $('name').addEventListener('input', () => prefs.save('name', $('name').value));
+    pick(selected);
+    setDifficulty(difficulty);
+    updateSettings();
+  }
+  function pick(id) {
+    selected = id;
+    prefs.save('hero', id);
+    for (const el of $('heroes').children) el.setAttribute('aria-pressed', el.dataset.hero === id);
+  }
+  function setDifficulty(value) {
+    difficulty = value;
+    prefs.save('difficulty', value);
+    for (const el of $('difficulties').children) el.setAttribute('aria-pressed', el.dataset.difficulty === value);
+  }
+  function tab(next) {
+    view = next;
+    $('soloPanel').hidden = next !== 'solo';
+    $('onlinePanel').hidden = next !== 'online';
+    $('soloTab').setAttribute('aria-pressed', next === 'solo');
+    $('onlineTab').setAttribute('aria-pressed', next === 'online');
+    if (next === 'online' && !hosted) status('Online play requires the Lanebreak server. Solo is available in this file.');
+  }
+  function updateSettings() {
+    $('audio').textContent = muted ? 'Sound off' : 'Sound on';
+    $('audio').setAttribute('aria-pressed', !muted);
+    $('quality').textContent = 'Graphics ' + quality;
+    renderer.quality = quality;
+    renderer.auto = 1;
+    renderer.measure = null;
+  }
+  function changeAudio() {
+    muted = !muted;
+    prefs.save('muted', muted);
+    updateSettings();
+    if (!muted) beep(540, .08);
+  }
+  function changeQuality() {
+    const modes = ['auto','high','medium','low'];
+    quality = modes[(modes.indexOf(quality) + 1) % modes.length];
+    prefs.save('quality', quality);
+    updateSettings();
+    hint('Graphics: ' + quality);
+  }
+  function initAudio() {
+    try {
+      audio ||= new AudioContext();
+      if (audio.state === 'suspended') audio.resume().catch(() => {});
+    } catch {}
+  }
+  function beep(freq, duration = .075, type = 'sine', volume = .06, slide = .58) {
+    if (muted) return;
+    initAudio();
+    if (!audio) return;
+    try {
+      const osc = audio.createOscillator(), gain = audio.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audio.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(30,freq * slide), audio.currentTime + duration);
+      gain.gain.setValueAtTime(volume, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + duration);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(); osc.stop(audio.currentTime + duration);
+    } catch {}
+  }
+  function status(text) { $('roomStatus').textContent = text; }
+  function hint(text) {
+    $('hint').textContent = text;
+    $('hint').hidden = false;
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => { $('hint').hidden = true; }, 2450);
+  }
+  function enter() {
+    $('lobby').hidden = true;
+    game.hidden = false;
+    document.body.classList.add('matchMode');
+    $('feed').replaceChildren();
+    $('hint').hidden = true;
+    $('matchOverlay').hidden = true;
+    $('shop').hidden = true;
+    $('deathNotice').hidden = true;
+    $('hudTooltip').hidden = true;
+    shopFocus = tooltipTarget = null;
+    renderer.focus = null;
+    renderer.displayed = null;
+    paused = false;
+    renderMark = null;
+    hovered = null;
+    cursorOnArena = false;
+    lastEffect = 0;
+    lastUi = -1;
+    wasDead = false;
+  }
+  function goMenu() {
+    if (seat) safeSeat(null);
+    disconnect();
+    local = null;
+    remote = false;
+    snapshot = null;
+    history.length = 0;
+    $('lobby').hidden = false;
+    game.hidden = true;
+    document.body.classList.remove('matchMode');
+    renderer.dirty = true;
+    if (/^#(?:play|demo)=/.test(location.hash)) clearHash();
+  }
+  function clearHash() {
+    try { historyApi.replaceState(null, '', location.href.split('#')[0]); } catch { location.hash = ''; }
+  }
+  const historyApi = window.history;
+  function solo(hero = selected, diff = difficulty, watch = false, seconds = 0) {
+    disconnect();
+    safeSeat(null);
+    remote = false; demo = watch; team = 0;
+    const opponents = heroKeys.filter(key => key !== hero);
+    local = new Match({ heroes: [hero, opponents[Math.floor(Math.random() * opponents.length)]],
+      names: [$('name').value.trim().slice(0, 20)], bots: [watch ? diff : null, diff] });
+    for (let i = 0; i < seconds * 60 && local.mode === 'match'; i++) local.step(1 / 60);
+    snapshot = local.snapshot(0, watch);
+    enter();
+    if (watch) hint('Spectating · computer vs computer');
+    else {
+      beep(650, .10);
+      hint('Click to move · B to shop · Q to cast');
+    }
+  }
+  function overlay(title, text, label, action) {
+    $('overlayTitle').textContent = title;
+    $('overlayText').textContent = text;
+    $('overlayAction').textContent = label;
+    $('overlayAction').onclick = action;
+    $('matchStats').hidden = true;
+    $('hudTooltip').hidden = true;
+    $('matchOverlay').hidden = false;
+  }
+  function pause() {
+    if (remote || !snapshot || snapshot.mode === 'ended') return;
+    paused = !paused;
+    if (paused) overlay('Paused', 'P, Esc, or click to continue.', 'Resume match', pause);
+    else $('matchOverlay').hidden = true;
+  }
+  function help() {
+    if (!game.hidden && !remote && !paused && snapshot?.mode !== 'ended') {
+      wasPaused = true; paused = true;
+    }
+    if (!$('controls').open) $('controls').showModal();
+  }
+  function issue(cmd) {
+    if (!snapshot || paused || demo || snapshot.mode !== 'match') return false;
+    let error;
+    if (remote) {
+      if (socket?.readyState !== WebSocket.OPEN) { hint('Reconnecting…'); return false; }
+      const h = snapshot.heroes[team];
+      if (h.hp <= 0 && cmd.o !== 'buy' && cmd.o !== 'sell') return false;
+      if (cmd.o === 'cast') {
+        const spell = HEROES[h.hero].abilities[cmd.i];
+        if (h.level < UNLOCKS[cmd.i]) error = 'Unlocks at level ' + UNLOCKS[cmd.i];
+        else if (h.cd[cmd.i] > snapshot.time) error = 'Ability cooling down';
+        else if (h.mana < spell.mana) error = 'Not enough mana';
+      }
+      if (cmd.o === 'buy') error = shopOffer(h, cmd.id, snapshot.time, h.canShop).reason;
+      if (cmd.o === 'sell' && !h.canShop) error = 'Return to your fountain to sell items';
+      if (!error) socket.send(JSON.stringify({ t: 'o', ...cmd }));
+    } else {
+      error = local.order(team, cmd);
+      snapshot = local.snapshot(team, demo);
+    }
+    if (error) { hint(error); return false; }
+    if (cmd.o === 'buy') beep(1200,.08,'sine',.045,1.2);
+    if (cmd.o === 'sell') beep(600,.10,'sine',.045,.7);
+    return true;
+  }
+  function aim(o, i) {
+    const { x, y } = aimPoint();
+    issue({ o, i, x, y });
+  }
+  function aimPoint() {
+    if (hovered) return renderer.toWorld(hovered.x, hovered.y);
+    const hero = snapshot?.heroes[team];
+    return hero ? { x: hero.x + (team ? -1 : 1) * 500, y: hero.y } : { x: 2600, y: 450 };
+  }
+  function toggleShop() {
+    if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
+    shopFocus = null;
+    $('shop').hidden = !$('shop').hidden;
+    if (!$('shop').hidden) updateShop(snapshot.heroes[team], snapshot.time);
+  }
+  function updateShopDetails(h, time) {
+    const panel = $('shopDetails');
+    const slot = shopFocus?.slot, selling = slot != null;
+    const id = selling ? h.inventory[slot]?.id : shopFocus?.id;
+    const item = ITEMS[id], lines = [];
+    const add = (text, style) => lines.push([text,style]);
+    if (!item) {
+      add('Click to buy. Owned components reduce the upgrade price.');
+      add('Click an inventory slot to sell. The refund drops after 10 seconds.');
+      add('Press 1–6 to use an active item. ★ marks the suggested build.');
+    } else {
+      add(item.name, 'heading');
+      add(item.text);
+      if (item.cd) add('Active cooldown · ' + item.cd + 's');
+      if (item.parts) {
+        const owned = h.inventory.map(i => i.id);
+        for (const part of item.parts) {
+          const index = owned.indexOf(part);
+          if (index >= 0) owned[index] = null;
+          add((index >= 0 ? '✓ ' : '') + ITEMS[part].name + (index >= 0 ? ' · Owned' : ' · ' + ITEMS[part].total + 'g'), index >= 0 ? 'owned' : '');
+        }
+        add('Recipe fee · ' + item.cost + 'g');
+      }
+      const upgrades = Object.values(ITEMS).filter(candidate => candidate.parts?.includes(id));
+      if (upgrades.length) add('Builds into ' + upgrades.map(i => i.name).join(', '));
+      if (selling) {
+        add('Sells for ' + sellValue(h.inventory[slot], time) + 'g', 'cost');
+        if (!h.canShop) add('Return to your fountain to sell items');
+      } else {
+        const offer = shopOffer(h, id, time, h.canShop);
+        add('Price now · ' + offer.cost + 'g', 'cost');
+        if (offer.reason) add(offer.reason);
+      }
+    }
+    const content = JSON.stringify(lines);
+    if (panel.dataset.content === content) return;
+    panel.dataset.content = content;
+    panel.replaceChildren(...lines.map(([text, style]) => make(style === 'heading' ? 'h3' : 'p', text, style)));
+  }
+  function updateShop(h, time) {
+    $('shopStatus').textContent = h.canShop ? Math.floor(h.gold) + ' gold available' : 'Purchase at your fountain or while dead';
+    for (const button of $('shopItems').querySelectorAll('[data-item]')) {
+      const id = button.dataset.item, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
+      button.firstElementChild.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : ''].filter(Boolean).join(' ');
+      button.lastElementChild.firstElementChild.textContent = plan.cost + 'g';
+      button.lastElementChild.lastElementChild.textContent = plan.cost < item.total ? 'of ' + item.total + 'g' : '';
+      button.classList.toggle('unaffordable', !!plan.reason);
+    }
+    const sign = h.inventory.map(item => item.id).join(',');
+    if ($('sellItems').dataset.content !== sign) {
+      $('sellItems').dataset.content = sign;
+      $('sellItems').replaceChildren(...h.inventory.map((item, i) => {
+        const button = make('button', 'Sell ' + ITEMS[item.id].name);
+        button.addEventListener('click', () => issue({ o: 'sell', i }));
+        watchShopTile(button, {slot:i});
+        return button;
+      }));
+    }
+    for (const [i, item] of h.inventory.entries()) {
+      const refund = sellValue(item, time);
+      $('sellItems').children[i].title = 'Sell for ' + refund + ' gold';
+      $('sellItems').children[i].textContent = ITEMS[item.id].name + ' · +' + refund + 'g';
+    }
+    updateShopDetails(h, time);
+  }
+  function updateHud(s) {
+    const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
+    const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
+    const corePct = side => Math.ceil(s.buildings.find(b => b.team === side && b.kind === 'core').hp / 30);
+    for (const [id, combatant] of [['playerScore', h], ['opponentScore', foe]]) {
+      const side = $(id);
+      side.style.setProperty('--score-team',COLORS[combatant.team]);
+      side.style.setProperty('--score-hero',HEROES[combatant.hero].color);
+      side.lastElementChild.textContent = s.kills[combatant.team];
+      side.title = TEAM[combatant.team] + ' · Core ' + corePct(combatant.team) + '%';
+    }
+    $('matchClock').textContent = clock;
+    $('scoreboard').setAttribute('aria-label', TEAM[team] + ' ' + s.kills[team] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
+    $('heroBadge').style.color = hero.color;
+    const portraitCanvas = $('hudPortrait');
+    if (portraitCanvas.dataset.hero !== h.hero) {
+      portrait(portraitCanvas,h.hero);
+      portraitCanvas.dataset.hero = h.hero;
+    }
+    portraitCanvas.style.opacity = h.hp > 0 ? '1' : '.4';
+    $('heroLevel').textContent = h.level;
+    $('vitalName').textContent = h.hp > 0 ? hero.name + ' · ' + hero.title : 'Respawn ' + Math.ceil(Math.max(0,h.respawn-time)) + 's';
+    $('heroAttributes').textContent = 'DMG ' + Math.round(h.stats.damage * h.stats.multiplier) + ' · Armor ' + h.stats.armor.toFixed(1) + ' · MS ' + Math.round(h.stats.speed);
+    $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
+    const enemyHero = HEROES[foe.hero].name;
+    $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
+      (foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') + (remote && foe.computer ? ' · Bot' : '');
+    const actualQuality = renderer.auto === 1 ? 'high' : renderer.auto === .75 ? 'medium' : 'low';
+    $('quality').title = (quality === 'auto' ? 'Auto · ' + actualQuality : quality) +
+      (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
+    function meter(id, value, max, label) {
+      const root = $(id);
+      root.firstElementChild.style.width = Math.min(100, value / max * 100) + '%';
+      if (label) root.lastElementChild.textContent = Math.ceil(value) + ' / ' + Math.round(max);
+    }
+    meter('health', h.hp, h.maxHp, true);
+    meter('mana', h.mana, h.maxMana, true);
+    meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
+    $('gold').textContent = Math.floor(h.gold) + ' g';
+    $('abilities').style.setProperty('--hero',hero.color);
+    for (const [i, tile] of [...$('abilities').children].entries()) {
+      const button = tile.lastElementChild;
+      const spell = hero.abilities[i], cd = Math.max(0, h.cd[i] - time), locked = h.level < UNLOCKS[i];
+      tile.firstElementChild.textContent = spell.name;
+      button.dataset.state = locked ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
+      button.style.setProperty('--cooldown', Math.min(100, cd / spell.cd * 100) + '%');
+      button.lastElementChild.textContent = locked ? 'Lv ' + UNLOCKS[i] : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' : spell.mana;
+      const cooldown = +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
+      const damage = spellDamage(h, spell);
+      button.dataset.tip = spell.name + ' · ' + spell.mana + ' mana · ' + cooldown + 's' + (locked ? ' · Lv ' + UNLOCKS[i] : '') + '\n' + spell.text +
+        (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '');
+      button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
+    }
+    for (const [i, button] of [...$('inventory').children].entries()) {
+      const slot = h.inventory[i], item = slot && ITEMS[slot.id];
+      const cd = slot ? Math.max(0,(h.itemsReady[slot.id] || 0)-time) : 0;
+      button.lastElementChild.textContent = cd ? Math.ceil(cd) + 's' : item ? item.name.split(/[\s’]/).map(s => s[0]).slice(0,2).join('') : '–';
+      const action = !item ? '' : !$('shop').hidden ? '\nClick to sell for ' + sellValue(slot, time) + 'g' : item.cd ? '\nPress ' + (i+1) + ' to use' : '';
+      button.dataset.tip = item ? item.name + '\n' + item.text + action : '';
+      button.setAttribute('aria-label', (i+1) + ' · ' + (item?.name || 'Empty slot') + action.replace('\n',' · '));
+      button.dataset.active = !!item?.cd && !cd;
+      button.dataset.state = cd ? 'cooldown' : '';
+      button.style.setProperty('--cooldown', (cd ? Math.min(100,cd/item.cd*100) : 0) + '%');
+      button.style.borderColor = item?.color || '';
+    }
+    const utility = document.querySelector('[data-utility=potion] span');
+    utility.textContent = 'Potion ×' + h.pots;
+    $('shopButton').dataset.open = h.canShop;
+    $('shopButton').lastElementChild.textContent = h.canShop ? 'Shop' : 'Shop at base';
+    document.querySelector('[data-utility=recall] span').textContent = h.channel > time ? (h.channel-time).toFixed(1) + 's' :
+      h.recallReady > time ? Math.ceil(h.recallReady - time) + 's' : 'Recall';
+    if (!demo && h.hp <= 0 && !wasDead && s.mode === 'match') $('shop').hidden = false;
+    wasDead = h.hp <= 0;
+    const death = $('deathNotice');
+    death.hidden = !wasDead || demo || s.mode !== 'match';
+    $('deathTimer').textContent = death.hidden ? '' : 'Respawn in ' + Math.max(0, Math.ceil(h.respawn - time)) + 's · Shop is open';
+    if (!$('shop').hidden) updateShop(h, time);
+    if (tooltipTarget) updateTooltip();
+    for (const row of $('feed').children) {
+      const opacity = Math.min(1, 9 - (time - Number(row.dataset.time)));
+      if (opacity <= 0) row.remove();
+      else row.style.opacity = opacity;
+    }
+    if (s.mode === 'ended' && $('matchOverlay').hidden) {
+      if (remote) safeSeat(null);
+      $('shop').hidden = true;
+      overlay(demo ? TEAM[s.winner] + ' wins' : s.winner === team ? 'Victory' : 'Defeat',
+        TEAM[s.winner] + ' destroyed the enemy core.', 'Return to lobby', goMenu);
+      const stats = $('matchStats');
+      const rows = [['Match time', clock], ['Level', h.level + ' vs ' + foe.level],
+        ['Kills / deaths', s.kills[team] + ' / ' + h.deaths], ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
+      stats.replaceChildren(...rows.flatMap(([name,value]) => [make('dt',name),make('dd',value)]));
+      stats.hidden = false;
+      beep(s.winner === team ? 523 : 196,.9,'triangle',.055,s.winner === team ? 2 : .5);
+    }
+  }
+  function playEvents(s) {
+    for (const e of s.effects) {
+      if (e.id <= lastEffect) continue;
+      lastEffect = e.id;
+      if (s.time - e.time > 2) continue;
+      if (e.kind === 'notice') hint(e.text);
+      if (e.kind === 'feed') {
+        const row = make('div', e.text); const parent = $('feed');
+        row.dataset.time = e.time;
+        parent.prepend(row);
+        if (parent.children.length > 6) parent.lastElementChild.remove();
+      }
+      if (e.kind === 'level' && e.team === team) beep(660,.25,'triangle',.07,1.5);
+      if (e.kind === 'cast') {
+        const sound = e.spell === 'blast' ? [e.ultimate ? 240 : 420,.25,'sine',.05,.7] : castSounds[e.spell];
+        if (sound) beep(...sound);
+      }
+      if (e.kind === 'gold' && e.text !== 'Denied') beep(990,.09,'sine',.05,1.4);
+      if (e.kind === 'fall') beep(e.unit === 'hero' ? 160 : 110,.5,'sawtooth',.05,.4);
+    }
+  }
+  function canvasOrder(event) {
+    if (game.hidden || paused || demo || !snapshot || snapshot.heroes[team].hp <= 0 || event.button > 2 || event.button === 1) return;
+    event.preventDefault();
+    hovered = { x: event.clientX, y: event.clientY };
+    cursorOnArena = true;
+    const p = aimPoint();
+    const nearest = pickTarget(renderer.displayed || snapshot, team, p);
+    if (issue(nearest ? { o:'attack', id:nearest.id } : { o:'move', ...p })) {
+      renderer.focus = null;
+      renderMark = { ...(nearest || p), at:performance.now(), color:nearest ? (nearest.team === team ? '#c9a0ff' : '#ff6b6b') : '#8dffb0' };
+    }
+  }
+  function safeSeat(value) {
+    seat = value;
+    try {
+      if (value) sessionStorage.setItem('lanebreak:seat', JSON.stringify(value));
+      else sessionStorage.removeItem('lanebreak:seat');
+    } catch {}
+  }
+  function disconnect() {
+    retry++;
+    networkAction = null;
+    if (socket) {
+      const closing = socket; socket = null;
+      if (closing.readyState < WebSocket.CLOSING) closing.close();
+    }
+    waiting = false; room = null;
+    $('waiting').hidden = true;
+    status('');
+  }
+  function openSocket(message) {
+    if (!hosted) return status('Open Lanebreak through its game server to play online.');
+    if (socket && socket.readyState < WebSocket.CLOSING) return;
+    const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+    socket = ws;
+    ws.onopen = () => ws.send(JSON.stringify(message));
+    ws.onmessage = event => {
+      if (socket !== ws) return;
+      let data;
+      try { data = JSON.parse(event.data); } catch { return; }
+      if (data.t === 'wait') {
+        room = data.code; waiting = true;
+        $('waiting').hidden = false;
+        status((data.pub ? 'Finding an opponent · ' : 'Waiting for opponent · Room ') + room);
+      } else if (data.t === 'start') {
+        const rejoin = !game.hidden && remote;
+        team = data.team; room = data.code; remote = true; demo = false; local = null;
+        retry = 0; history.length = 0; snapshot = null; clockOffset = null; renderedTime = 0;
+        safeSeat({ code: data.code, token: data.token });
+        waiting = false;
+        if (!rejoin) enter();
+        if (rejoin) hint('Reconnected');
+      } else if (data.t === 's') {
+        snapshot = data.s;
+        const sample = snapshot.time - performance.now() / 1000;
+        clockOffset = clockOffset === null || Math.abs(sample - clockOffset) > .5 ? sample : clockOffset + .1 * (sample - clockOffset);
+        history.push(snapshot);
+        if (history.length > 5) history.shift();
+      } else if (data.t === 'err') {
+        if (remote && !game.hidden) hint(data.msg);
+        else status(data.msg);
+        if (message.t === 'rejoin' && !data.recoverable && !snapshot) {
+          safeSeat(null);
+          if (!game.hidden) overlay('Connection lost', data.msg, 'Return to lobby', goMenu);
+        }
+      }
+    };
+    ws.onclose = () => {
+      if (socket !== ws) return;
+      socket = null;
+      if (seat && retry < 6) {
+        const attempt = ++retry;
+        if (remote) hint('Connection lost · reconnecting');
+        else status('Reconnecting to your match…');
+        setTimeout(() => {
+          if (retry === attempt && seat && !socket) openSocket({ t:'rejoin', ...seat });
+        }, 550 * attempt);
+      } else if (seat && remote && !game.hidden) {
+        overlay('Connection lost','Check your network and reopen the match URL to try again.','Return to lobby',goMenu);
+      } else {
+        $('waiting').hidden = true;
+        waiting = false;
+        status('Online server unavailable. You can still play solo.');
+      }
+    };
+  }
+  function network(t) {
+    if (waiting) return status('Cancel the current room first.');
+    if (networkAction && socket?.readyState === WebSocket.CONNECTING) return;
+    disconnect();
+    retry = 0;
+    safeSeat(null);
+    const code = $('room').value.trim().toUpperCase();
+    if (t === 'join' && !/^[A-Z]{4}$/.test(code)) return status('Enter a four-letter room code.');
+    networkAction = t;
+    if (!muted) initAudio();
+    status('Connecting…');
+    openSocket({ t, code, hero: selected, name: $('name').value.trim().slice(0,20) });
+  }
+  async function copyInvite() {
+    if (!room) return;
+    const url = new URL(location.href);
+    url.hash = 'room=' + room;
+    try {
+      await navigator.clipboard.writeText(url.href);
+      status('Copied invite link · Room ' + room);
+    } catch {
+      status(url.href);
+    }
+  }
+  function interpolate(realNow) {
+    if (history.length < 2 || snapshot.mode === 'ended') return snapshot;
+    const time = Math.min(snapshot.time, Math.max(renderedTime, realNow / 1000 + clockOffset - .05));
+    renderedTime = time;
+    const index = history.findIndex(frame => frame.time >= time);
+    if (index <= 0) return index === 0 ? history[0] : snapshot;
+    const a = history[index-1], b = history[index];
+    const f = (time - a.time) / ((b.time - a.time) || 1);
+    const mix = (x, y, bx, by) => Math.hypot(x-bx,y-by) > 250 ? [bx,by] : [x+(bx-x)*f,y+(by-y)*f];
+    function objects() {
+      return b.heroes.map((h, i) => {
+        const current = snapshot.heroes[i];
+        if (h.jump !== current.jump || h.jump !== a.heroes[i].jump || h.hp <= 0 || a.heroes[i].hp <= 0) return current;
+        const [x,y] = mix(a.heroes[i].x,a.heroes[i].y,h.x,h.y);
+        return { ...h,x,y };
+      });
+    }
+    function rows(prev, next, xi, yi) {
+      const old = new Map(prev.map(row => [row[0],row]));
+      return next.map(row => {
+        const before = old.get(row[0]);
+        if (!before) return row;
+        const nextRow = [...row];
+        [nextRow[xi],nextRow[yi]] = mix(before[xi],before[yi],row[xi],row[yi]);
+        return nextRow;
+      });
+    }
+    return { ...b, time, heroes: objects(), creeps: rows(a.creeps,b.creeps,3,4), projectiles: rows(a.projectiles,b.projectiles,3,4) };
+  }
+  function hotkey(event) {
+    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
+    const k = event.key.toLowerCase();
+    if (k === '?') return help();
+    if (game.hidden) {
+      if (k === 'escape' && (waiting || networkAction || seat)) return disconnect();
+      if (/^[1-3]$/.test(k)) pick(heroKeys[+k - 1]);
+      if (k.startsWith('arrow')) {
+        event.preventDefault();
+        const step = k === 'arrowright' || k === 'arrowdown' ? 1 : -1;
+        if (k === 'arrowup' || k === 'arrowdown') setDifficulty(difficulties[(difficulties.indexOf(difficulty) + step + 3) % 3]);
+        else pick(heroKeys[(heroKeys.indexOf(selected) + step + 3) % 3]);
+      }
+      if (k === 'enter' && event.target.tagName !== 'BUTTON' && view === 'solo') solo();
+      if (k === 'n') { tab('online'); $('name').focus(); }
+      return;
+    }
+    if (snapshot?.mode === 'ended' && (k === 'enter' || k === 'escape')) return goMenu();
+    if (paused && (k === 'p' || k === 'escape')) return pause();
+    if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
+    else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
+    else if (k === 'b') toggleShop();
+    else if (k === 'f') issue({o:'potion'});
+    else if (k === 't') issue({o:'recall'});
+    else if (k === 's') issue({o:'stop'});
+    else if (k === 'a') {
+      const p = aimPoint();
+      if (issue({o:'amove',...p})) {
+        renderer.focus = null;
+        renderMark = { ...p, at:performance.now(), color:'#ff6b6b' };
+      }
+    } else if (k === 'p' || k === 'escape') {
+      if (!$('shop').hidden && k === 'escape') toggleShop();
+      else pause();
+    } else if (k === 'g') changeQuality();
+    else if (k === 'm') changeAudio();
+  }
+  function wire() {
+    $('arena').addEventListener('contextmenu', event => { if (!game.hidden) event.preventDefault(); });
+    $('arena').addEventListener('pointerdown', canvasOrder);
+    $('arena').addEventListener('pointermove', e => { hovered = {x:e.clientX,y:e.clientY}; cursorOnArena = true; });
+    $('arena').addEventListener('pointerleave', () => { cursorOnArena = false; });
+    $('matchOverlay').addEventListener('pointerdown', e => {
+      if (e.target === $('matchOverlay') && $('overlayAction').onclick === pause) pause();
+    });
+    $('minimap').addEventListener('pointerdown', event => {
+      const rect = $('minimap').getBoundingClientRect();
+      renderer.focus = (event.clientX-rect.x) / rect.width * WIDTH;
+    });
+    document.addEventListener('keydown', hotkey);
+    $('start').onclick = () => solo();
+    $('soloTab').onclick = () => tab('solo');
+    $('onlineTab').onclick = () => tab('online');
+    $('host').onclick = () => network('host');
+    $('find').onclick = () => network('find');
+    $('join').onclick = () => network('join');
+    $('copy').onclick = copyInvite;
+    $('cancelWait').onclick = disconnect;
+    $('back').onclick = () => {
+      if (snapshot?.mode !== 'ended' && !remote && !demo && !paused) {
+        paused = true;
+        overlay('Leave match?', 'Your current solo match will end.', 'Return to lobby', goMenu);
+      } else goMenu();
+    };
+    $('audio').onclick = changeAudio;
+    $('quality').onclick = changeQuality;
+    $('shopButton').onclick = toggleShop;
+    $('closeShop').onclick = toggleShop;
+    $('help').onclick = help;
+    $('gameHelp').onclick = help;
+    $('closeHelp').onclick = () => $('controls').close();
+    $('controls').addEventListener('close', () => {
+      if (wasPaused) { paused = false; wasPaused = false; }
+    });
+  }
+  function openHash() {
+    const options = new URLSearchParams(location.hash.slice(1));
+    const code = options.get('room')?.toUpperCase();
+    const play = options.get('play'), spectate = options.get('demo');
+    if (play || spectate) {
+      const [hero, diff, t] = (play || spectate).split(',');
+      solo(heroKeys.includes(hero) ? hero : selected, difficulties.includes(diff) ? diff : difficulty, !!spectate,
+        Math.max(0, Math.min(2400, Number(t) || 0)));
+      return;
+    }
+    if (code && /^[A-Z]{4}$/.test(code)) {
+      tab('online');
+      $('room').value = code;
+      if (hosted) status('Invited to room ' + code + '. Choose a hero, then join.');
+    }
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('lanebreak:seat'));
+      if (hosted && saved && (!code || saved.code === code)) {
+        safeSeat(saved); tab('online'); status('Reconnecting to your match…');
+        openSocket({t:'rejoin',...saved});
+      }
+    } catch {}
+  }
+  let lastFrame = 0;
+  function frame(now) {
+    const elapsed = lastFrame ? Math.max(0,(now - lastFrame) / 1000) : 0;
+    lastFrame = now;
+    if (game.hidden) renderer.title();
+    else {
+      if (local && !paused && local.mode === 'match' && !$('controls').open) {
+        const frameTime = Math.min(elapsed,.1), steps = Math.max(1, Math.ceil(frameTime * 60 - .05));
+        if (frameTime > 0) for (let i = 0; i < steps; i++) local.step(frameTime / steps);
+        snapshot = local.snapshot(team,demo);
+      }
+      if (snapshot) {
+        const visible = remote ? interpolate(now) : snapshot;
+        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null);
+        playEvents(visible);
+        if (now - lastUi > 90) {
+          updateHud(snapshot);
+          lastUi = now;
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  buildUi();
+  wire();
+  openHash();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1214">
+  <title>Lanebreak — One-lane strategy duels</title>
+  <!-- STYLE -->
+</head>
+<body>
+  <canvas id="arena" aria-label="Lanebreak battlefield"></canvas>
+  <main id="lobby">
+    <header class="mast">
+      <div class="brand"><span class="mark" aria-hidden="true"></span> LANEBREAK</div>
+      <button class="iconButton" id="help">Controls <kbd>?</kbd></button>
+    </header>
+    <section class="titleBlock">
+      <div class="eyebrow"><span></span> ONE-LANE STRATEGY DUELS</div>
+      <h1>LANE<span>BREAK</span></h1>
+      <p>Win the lane. Break the core.</p>
+    </section>
+    <div class="lobbyControls">
+      <section class="draft">
+        <div class="sectionHeader"><h2>Choose your hero</h2><span class="keyHint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></div>
+        <div id="heroes" class="heroGrid"></div>
+      </section>
+      <section class="deploy">
+        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button></nav>
+        <div id="soloPanel">
+          <div class="fieldLabel" id="difficultyLabel">Bot difficulty</div>
+          <div id="difficulties" class="segments" role="group" aria-labelledby="difficultyLabel">
+            <button data-difficulty="easy">Easy</button><button data-difficulty="normal" aria-pressed="true">Normal</button><button data-difficulty="hard">Hard</button>
+          </div>
+          <button id="start" class="primary">Start match <kbd>Enter</kbd></button>
+        </div>
+        <div id="onlinePanel" hidden>
+          <label class="fieldLabel" for="name">Player name</label><input id="name" maxlength="20" autocomplete="off" placeholder="Your name">
+          <div class="onlineRow"><button id="host" class="primary">Host match</button><button id="find">Find opponent</button></div>
+          <div class="onlineRow"><input id="room" maxlength="4" autocomplete="off" aria-label="Room code" placeholder="Room code"><button id="join">Join room</button></div>
+          <div id="roomStatus" role="status"></div>
+          <div id="waiting" class="onlineRow" hidden><button id="copy" class="primary">Copy invite link</button><button id="cancelWait">Cancel</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <section id="game" hidden aria-label="Match controls">
+    <header class="matchTop">
+      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
+      <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>B Shop · 1–6 Items · T Recall · F Potion · A Attack-move · S Stop</small></div>
+    </header>
+    <div id="feed" aria-live="polite"></div>
+    <div id="hint" role="status" hidden></div>
+    <div id="deathNotice" hidden><strong>You died</strong><span id="deathTimer"></span></div>
+    <div id="matchOverlay" class="matchOverlay" hidden><div class="panel overlayPanel"><h2 id="overlayTitle"></h2><p id="overlayText"></p><dl id="matchStats" hidden></dl><button id="overlayAction" class="primary"></button></div></div>
+    <aside id="shop" class="panel shop" hidden aria-label="Item shop">
+      <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
+      <div class="shopContent"><div id="shopItems"></div><div id="shopDetails" class="shopDetails"></div></div>
+      <div id="sellItems"></div>
+    </aside>
+    <footer class="hud">
+      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap"></canvas></div>
+      <div class="heroHud panel">
+        <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
+        <div class="abilities" id="abilities"></div>
+        <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
+        <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton"><kbd>B</kbd><span>Shop</span></button></div>
+      </div>
+      <div id="hudTooltip" class="panel hudTooltip" role="tooltip" hidden></div>
+    </footer>
+  </section>
+  <dialog id="controls" class="panel">
+    <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
+    <dl>
+      <dt>Left or right click</dt><dd>Move or attack. Click an allied creep below 50% HP to deny it.</dd>
+      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
+      <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack-move to the cursor / stop and hold fire.</dd>
+      <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
+      <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
+      <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>
+      <dt><kbd>G</kbd> / <kbd>M</kbd></dt><dd>Cycle graphics quality / toggle sound.</dd>
+    </dl>
+    <p class="muted">Last-hit enemy creeps for gold. Destroy the outer tower, inner tower, and enemy core in order.</p>
+  </dialog>
+  <!-- SCRIPTS -->
+</body>
+</html>
