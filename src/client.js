@@ -19,6 +19,7 @@
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
+  let placeCameraOnHero = false;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
@@ -235,7 +236,9 @@
     shopFocus = shopSelection = tooltipTarget = null;
     selectUnit(null);
     panKeys.clear();
-    followHero();
+    renderer.focus = null;
+    placeCameraOnHero = true;
+    cameraLabel(true);
     renderer.displayed = null;
     paused = false;
     renderMark = null;
@@ -343,16 +346,18 @@
     button.textContent = free ? 'Camera: Free' : 'Camera: Follow';
   }
   function followHero() {
+    placeCameraOnHero = false;
     renderer.focus = null;
     cameraLabel(false);
   }
   function freeCamera(x, y) {
     if (!snapshot || paused || snapshot.mode !== 'match') return;
+    placeCameraOnHero = false;
     if (renderer.focus == null) cameraLabel(true);
     renderer.focusAt(x,y);
   }
   function toggleCamera() {
-    if (renderer.focus != null) followHero();
+    if (placeCameraOnHero || renderer.focus != null) followHero();
     else {
       const center = renderer.toWorld(innerWidth / 2, innerHeight / 2);
       freeCamera(center.x,center.y);
@@ -844,6 +849,8 @@
     };
     minimap.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
+      event.preventDefault();
+      edgePointer = null;
       minimap.setPointerCapture(event.pointerId);
       mapFocus(event);
     });
@@ -924,6 +931,11 @@
       }
       if (snapshot) {
         const visible = remote ? interpolate(now) : snapshot;
+        if (placeCameraOnHero) {
+          const { x, y } = visible.heroes[team];
+          renderer.focusAt(x,y);
+          placeCameraOnHero = false;
+        }
         panCamera(elapsed);
         renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,inspectedId);
         playEvents(visible);

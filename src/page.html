@@ -47,7 +47,7 @@
     <header class="matchTop">
       <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
-      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Follow hero</small></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="true" title="Toggle free camera (C)">Camera: Free</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Follow hero</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
@@ -69,7 +69,7 @@
       <div id="inspectEquipment" hidden><h3>Equipment</h3><ul id="inspectItems"></ul></div>
     </aside>
     <footer class="hud">
-      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap"></canvas></div>
+      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to move the camera"></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
         <div class="abilities" id="abilities"></div>

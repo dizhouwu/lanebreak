@@ -223,7 +223,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <header class="matchTop">
       <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
-      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Follow hero</small></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="true" title="Toggle free camera (C)">Camera: Free</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Follow hero</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
@@ -245,7 +245,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       <div id="inspectEquipment" hidden><h3>Equipment</h3><ul id="inspectItems"></ul></div>
     </aside>
     <footer class="hud">
-      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap"></canvas></div>
+      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to move the camera"></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
         <div class="abilities" id="abilities"></div>
@@ -1946,6 +1946,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
+  let placeCameraOnHero = false;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
@@ -2162,7 +2163,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     shopFocus = shopSelection = tooltipTarget = null;
     selectUnit(null);
     panKeys.clear();
-    followHero();
+    renderer.focus = null;
+    placeCameraOnHero = true;
+    cameraLabel(true);
     renderer.displayed = null;
     paused = false;
     renderMark = null;
@@ -2270,16 +2273,18 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     button.textContent = free ? 'Camera: Free' : 'Camera: Follow';
   }
   function followHero() {
+    placeCameraOnHero = false;
     renderer.focus = null;
     cameraLabel(false);
   }
   function freeCamera(x, y) {
     if (!snapshot || paused || snapshot.mode !== 'match') return;
+    placeCameraOnHero = false;
     if (renderer.focus == null) cameraLabel(true);
     renderer.focusAt(x,y);
   }
   function toggleCamera() {
-    if (renderer.focus != null) followHero();
+    if (placeCameraOnHero || renderer.focus != null) followHero();
     else {
       const center = renderer.toWorld(innerWidth / 2, innerHeight / 2);
       freeCamera(center.x,center.y);
@@ -2771,6 +2776,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     };
     minimap.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
+      event.preventDefault();
+      edgePointer = null;
       minimap.setPointerCapture(event.pointerId);
       mapFocus(event);
     });
@@ -2851,6 +2858,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       if (snapshot) {
         const visible = remote ? interpolate(now) : snapshot;
+        if (placeCameraOnHero) {
+          const { x, y } = visible.heroes[team];
+          renderer.focusAt(x,y);
+          placeCameraOnHero = false;
+        }
         panCamera(elapsed);
         renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,inspectedId);
         playEvents(visible);
