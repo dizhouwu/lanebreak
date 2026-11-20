@@ -223,7 +223,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <header class="matchTop">
       <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
-      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="true" title="Toggle free camera (C)">Camera: Free</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Follow hero</small></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">Menu</button><button id="camera" class="iconButton" aria-pressed="true" title="Toggle free camera (C)">Camera: Free</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · Space Center on hero</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
@@ -260,7 +260,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <dl>
       <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
       <dt>Right click</dt><dd>Move or attack. Target an enemy hero to draw nearby creep aggro. Target an allied creep to transfer aggro or deny it below 50% HP.</dd>
-      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle free camera / follow your hero. Pan with any screen edge in free mode, the arrow keys, or the minimap.</dd>
+      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Toggle camera follow / center on your hero and resume free camera. Pan with any screen edge in free mode, the arrow keys, or the minimap.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
@@ -2746,7 +2746,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
       panKeys.clear();
-      followHero();
+      edgePointer = null;
+      const { x, y } = (renderer.displayed || snapshot).heroes[team];
+      freeCamera(x,y);
     } else if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
     else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
     else if (k === 'b') toggleShop();

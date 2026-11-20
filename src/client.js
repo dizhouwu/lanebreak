@@ -819,7 +819,9 @@
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
       panKeys.clear();
-      followHero();
+      edgePointer = null;
+      const { x, y } = (renderer.displayed || snapshot).heroes[team];
+      freeCamera(x,y);
     } else if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
     else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
     else if (k === 'b') toggleShop();
