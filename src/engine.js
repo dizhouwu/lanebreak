@@ -13,6 +13,23 @@
   const CREEP_AGGRO_TIME = 2.3;
   const CREEP_AGGRO_COOLDOWN = 3;
   const spellDamage = (hero, spell) => spell.damage ? Math.round((spell.damage + spell.growth * (hero.level - 1)) * hero.stats.power) : 0;
+  const abilityLevel = (hero, i) => (HEROES[hero.hero].unlocks || UNLOCKS)[i];
+  function abilitySpell(hero, i) {
+    const kit = HEROES[hero.hero];
+    if (i === 3 && kit.weaves && hero.marks?.length === 2) {
+      const recipe = [...hero.marks].sort().map(mark => 'QWE'[mark]).join('');
+      return kit.weaves[recipe] || kit.abilities[i];
+    }
+    return kit.abilities[i];
+  }
+  function abilityError(hero, i, time, spell = abilitySpell(hero, i)) {
+    const level = abilityLevel(hero, i);
+    if (hero.level < level) return 'Unlocks at level ' + level;
+    if (hero.cd[i] > time) return 'Ability cooling down';
+    if (spell.kind === 'weave') return 'Queue two marks with Q, W, or E';
+    if (hero.mana < spell.mana) return 'Not enough mana';
+    return null;
+  }
   function randomGenerator(seed) {
     return () => {
       seed = (seed + 0x6D2B79F5) | 0;
@@ -136,6 +153,7 @@
         const spec = HEROES[hero];
         const h = this.unit({ type: 'hero', team, hero, name: names[team] || spec.name, ...home(team), r: 26,
           level: 1, xp: 0, gold: 600, inventory: [], pots: 0, buffs: [], cd: [0, 0, 0, 0],
+          ...(spec.weaves && { marks: [] }),
           itemsReady: {}, recallReady: 0, tomeReady: 0, lastThreat: -Infinity, recentAggro: -Infinity,
           bot: bots[team], think: this.random() * .3, buildIndex: 0, sway: 0, deaths: 0, lastHits: 0, denies: 0 });
         refresh(h, 0);
@@ -368,18 +386,23 @@
       }
     }
     cast(h, i, x, y) {
-      const spell = HEROES[h.hero].abilities[i];
       if (h.stunUntil > this.time || h.dash) return 'Unable to act';
-      if (h.level < UNLOCKS[i]) return 'Unlocks at level ' + UNLOCKS[i];
-      if (h.cd[i] > this.time) return 'Ability cooling down';
-      if (h.mana < spell.mana) return 'Not enough mana';
+      const spec = HEROES[h.hero], spell = abilitySpell(h, i);
+      const error = abilityError(h, i, this.time, spell);
+      if (error) return error;
+      if (spell.kind === 'mark') {
+        h.marks = [...h.marks.slice(-1), i];
+        return null;
+      }
+      if (spec.weaves) h.marks = [];
+      const ultimate = i === 3 && !spec.weaves;
       h.mana -= spell.mana;
-      h.cd[i] = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+      h.cd[i] = this.time + spec.abilities[i].cd * (1 - (h.stats.cdr || 0));
       h.windup = null;
       h.channel = 0;
       if (spell.kind !== 'nova' && spell.kind !== 'buff' && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
       const damage = spellDamage(h, spell);
-      this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate: i === 3 });
+      this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate });
       switch (spell.kind) {
         case 'bolt': {
           const length = Math.hypot(x - h.x, y - h.y) || 1;
@@ -390,7 +413,7 @@
         }
         case 'blast':
           this.areas.push({ id: this.nextId++, ...point(h, x, y, spell.range, 0, false), from: h, team: h.team, radius: spell.radius,
-            time: this.time + spell.delay, duration: spell.delay, ultimate: i === 3, hits: spell.hits || 1, spell, damage });
+            time: this.time + spell.delay, duration: spell.delay, ultimate, hits: spell.hits || 1, spell, damage });
           break;
         case 'nova':
           this.blast(h, spell, h.x, h.y, damage);
@@ -809,18 +832,30 @@
       }
       return best;
     }
-    abilityReady(hero, i, mana = hero.mana) {
-      return hero.level >= UNLOCKS[i] && hero.cd[i] <= this.time && mana >= HEROES[hero.hero].abilities[i].mana;
+    abilityReady(hero, i, mana = hero.mana, spell = abilitySpell(hero, i)) {
+      return hero.level >= abilityLevel(hero, i) && hero.cd[i] <= this.time && spell.kind !== 'weave' && mana >= spell.mana;
     }
     aiBurst(hero, enemy) {
       let mana = hero.mana;
       let damage = 3 * hero.stats.damage * hero.stats.multiplier * physical(enemy.armor);
-      for (const [i, spell] of HEROES[hero.hero].abilities.entries()) {
+      const spec = HEROES[hero.hero];
+      if (spec.weaves) {
+        const weaves = Object.values(spec.weaves).filter(spell => this.abilityReady(hero, 3, mana, spell));
+        return damage + Math.max(0, ...weaves.map(spell => .75 * spellDamage(hero, spell) * (spell.hits ? spell.hits * .5 : 1)));
+      }
+      for (const [i, spell] of spec.abilities.entries()) {
         if (!spell.damage || !this.abilityReady(hero, i, mana)) continue;
         mana -= spell.mana;
         damage += .75 * spellDamage(hero, spell) * (spell.hits ? spell.hits * .5 : 1);
       }
       return damage;
+    }
+    castBotSpell(h, i, pos, recipe) {
+      const previous = h.marks;
+      if (recipe) h.marks = Array.from(recipe, mark => 'QWE'.indexOf(mark));
+      const error = this.order(h.team, { o:'cast', i, x:pos.x, y:pos.y });
+      if (error && recipe) h.marks = previous;
+      return !error;
     }
     aiCast(h, enemy, mode, difficulty) {
       if (this.random() > difficulty.cast) return false;
@@ -833,38 +868,41 @@
         x: enemy.x + enemy.vx * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise,
         y: enemy.y + enemy.vy * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise
       });
-      const cast = (i, pos) => !this.order(h.team, { o: 'cast', i, x: pos.x, y: pos.y });
-      for (const i of [3, 1, 0, 2]) {
-        if (!this.abilityReady(h, i)) continue;
-        const spell = spec.abilities[i], ultimate = i === 3;
+      const recipes = kill ? ['WW', 'WE', 'QW', 'QQ', 'QE', 'EE'] : ['EE', 'QW', 'QQ', 'WE', 'WW', 'QE'];
+      const options = spec.weaves ? recipes.map(recipe => ({ i:3, spell:spec.weaves[recipe], recipe })) :
+        [3, 1, 0, 2].map(i => ({ i, spell:spec.abilities[i] }));
+      for (const { i, spell, recipe } of options) {
+        if (!this.abilityReady(h, i, h.mana, spell)) continue;
+        const ultimate = i === 3 && !recipe;
+        const cast = pos => this.castBotSpell(h, i, pos, recipe);
         switch (spell.kind) {
           case 'bolt': {
             if (reach < spell.range * .85 && (kill || mana > .35) &&
-              (spell.piercing || this.clearShot(h, enemy, spell.radius))) return cast(i, aim(reach / spell.speed));
+              (spell.piercing || this.clearShot(h, enemy, spell.radius))) return cast(aim(reach / spell.speed));
             const cluster = push && spell.piercing && mana > .7 && this.creepCluster(h, spell.range * .7, 150);
-            if (cluster) return cast(i, cluster);
+            if (cluster) return cast(cluster);
             break;
           }
           case 'blast': {
             const want = kill || (ultimate ? enemyHealth < .7 && mana > .3 : mana > .4);
-            if (reach < spell.range + spell.radius * .4 && want) return cast(i, aim(spell.delay * .8));
+            if (reach < spell.range + spell.radius * .4 && want) return cast(aim(spell.delay * .8));
             const cluster = push && !ultimate && mana > .75 && this.creepCluster(h, spell.range, spell.radius);
-            if (cluster) return cast(i, cluster);
+            if (cluster) return cast(cluster);
             break;
           }
           case 'nova':
-            if (reach < spell.radius * .8 && (kill || mana > .3)) return cast(i, h);
-            if (push && mana > .7 && this.nearbyCreeps(h, enemy.team, spell.radius * .9).length >= 3) return cast(i, h);
+            if (reach < spell.radius * .8 && (kill || mana > .3)) return cast(h);
+            if (push && mana > .7 && this.nearbyCreeps(h, enemy.team, spell.radius * .9).length >= 3) return cast(h);
             break;
           case 'dash':
             if (reach < spell.range + 40 && reach > 140 && (kill || (mode === 'trade' && health > enemyHealth && mana > .5))) {
-              return cast(i, enemy);
+              return cast(enemy);
             }
             break;
           case 'blink':
             if (kill && reach > spec.range + 80 && reach < spell.range + spec.range * .8) {
               const fraction = (reach - spec.range * .7) / reach;
-              return cast(i, { x: h.x + (enemy.x - h.x) * fraction, y: h.y + (enemy.y - h.y) * fraction });
+              return cast({ x: h.x + (enemy.x - h.x) * fraction, y: h.y + (enemy.y - h.y) * fraction });
             }
             break;
           case 'buff': {
@@ -873,7 +911,7 @@
             const fighting = (target === enemy && reach < spec.range + 220) || siege;
             const offensive = spell.stats.haste || spell.stats.life;
             const defensive = spell.stats.armor && health < .65 && reach < 650;
-            if (defensive || (fighting && offensive && (!ultimate || kill || enemyHealth < .6 || siege))) return cast(i, h);
+            if (defensive || (fighting && offensive && (!ultimate || kill || enemyHealth < .6 || siege))) return cast(h);
             break;
           }
         }
@@ -912,9 +950,14 @@
           if (h.channel || (homeDist > 1600 && enemyDist > 800 && !order({ o: 'recall' }))) return;
           if (enemyDist < 800) use('striders');
           if (enemyDist < 700) {
-            const escape = data.abilities.findIndex((spell, i) => this.abilityReady(h, i) &&
-              (spell.kind === 'dash' || spell.kind === 'blink' || (spell.kind === 'buff' && (spell.stats.move || spell.stats.armor))));
-            if (escape >= 0) order({ o: 'cast', i: escape, x: h.x - dir * 1000, y: h.y });
+            const away = { x:h.x - dir * 1000, y:h.y };
+            if (data.weaves) {
+              if (this.abilityReady(h, 3, h.mana, data.weaves.QE)) this.castBotSpell(h, 3, away, 'QE');
+            } else {
+              const escape = data.abilities.findIndex((spell, i) => this.abilityReady(h, i) &&
+                (spell.kind === 'dash' || spell.kind === 'blink' || (spell.kind === 'buff' && (spell.stats.move || spell.stats.armor))));
+              if (escape >= 0) this.castBotSpell(h, escape, away);
+            }
           }
           go(own);
           return;
@@ -1015,6 +1058,7 @@
           loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
         return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
+          ...(h.marks && { marks:h.marks }),
           recallReady: h.recallReady, tomeReady: h.tomeReady, pots: h.pots, stats: h.stats, potionUntil: h.potionUntil,
           canShop: this.canShop(h) };
       });
@@ -1050,7 +1094,8 @@
       default: return false;
     }
   }
-  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
+  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell,
+    abilityError, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();

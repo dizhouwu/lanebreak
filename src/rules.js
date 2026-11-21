@@ -36,6 +36,51 @@
         { name: 'Starfall', kind: 'blast', mana: 200, cd: 80, range: 900, radius: 240, delay: 1.4, damage: 250, growth: 38, text: 'Bring down a star after a 1.4-second delay.' }
       ],
       build: ['boots', 'prism', 'rune', 'arcane', 'void', 'charm', 'locket', 'heartstone', 'gloves', 'frost', 'bulwark']
+    },
+    sable: {
+      name: 'Sable', title: 'Glass Duelist', role: 'Mobile melee assassin', color: '#f28e9d',
+      hp: 690, hpGrowth: 92, mana: 280, manaGrowth: 25, damage: 62, damageGrowth: 5.1,
+      armor: 3.5, armorGrowth: .5, range: 125, interval: 1.10, speedGrowth: .035, speed: 320, regen: 2.9, manaRegen: 1.05,
+      abilities: [
+        { name: 'Crosscut', kind: 'dash', mana: 65, cd: 9, range: 515, radius: 100, speed: 1750, damage: 75, growth: 17, stun: .55, text: 'Dash to a point, damaging and briefly stunning enemies where you land.' },
+        { name: 'Splinter', kind: 'bolt', mana: 65, cd: 10, range: 690, radius: 38, speed: 1450, piercing: true, damage: 91, growth: 19, text: 'Send a shard through enemies in a line.' },
+        { name: 'Quickdraw', kind: 'buff', mana: 60, cd: 17, duration: 4, stats: { haste: .65, move: .20 }, text: 'Gain attack and movement speed for 4 seconds.' },
+        { name: 'Shatterline', kind: 'bolt', mana: 145, cd: 65, range: 1050, radius: 33, speed: 1900, piercing: true, damage: 225, growth: 30, text: 'Hurl a glass blade that deals heavy damage to every enemy it pierces.' }
+      ],
+      build: ['boots', 'gloves', 'striders', 'fang', 'reaver', 'stone', 'greatblade', 'executioner', 'charm', 'crown', 'heartstone']
+    },
+    mirel: {
+      name: 'Mirel', title: 'Fen Warden', role: 'Ranged zone control', color: '#a3cf70',
+      hp: 645, hpGrowth: 86, mana: 310, manaGrowth: 31, damage: 52, damageGrowth: 3.8,
+      armor: 3, armorGrowth: .45, range: 460, interval: 1.28, speedGrowth: .018, speed: 294, regen: 2.7, manaRegen: 1.15,
+      abilities: [
+        { name: 'Reed Dart', kind: 'bolt', mana: 55, cd: 7, range: 780, radius: 24, speed: 1250, damage: 73, growth: 17, slow: .25, slowTime: 1.4, text: 'Fire a slowing dart at the first enemy in its path.' },
+        { name: 'Rootbed', kind: 'blast', mana: 85, cd: 14, range: 690, radius: 205, delay: .45, hits: 3, interval: .65, damage: 34, growth: 8, slow: .30, slowTime: 1.1, text: 'Grow a patch of roots that damages and slows enemies in three pulses.' },
+        { name: 'Greenward', kind: 'buff', mana: 65, cd: 22, duration: 5, stats: { armor: 6, regen: 19 }, text: 'Gain 6 armor and 19 health regen for 5 seconds.' },
+        { name: 'Briar Crown', kind: 'blast', mana: 175, cd: 72, range: 720, radius: 230, delay: .75, hits: 4, interval: .75, damage: 41, growth: 8, stun: .32, text: 'Raise a briar thicket that pulses four times, briefly stunning enemies inside.' }
+      ],
+      build: ['boots', 'prism', 'charm', 'locket', 'rune', 'arcane', 'vest', 'bulwark', 'void', 'heartstone', 'colossus']
+    },
+    neris: {
+      name: 'Neris', title: 'Loomkeeper', role: 'Combo spellcaster', color: '#f0c865',
+      hp: 595, hpGrowth: 78, mana: 350, manaGrowth: 39, damage: 49, damageGrowth: 3.7,
+      armor: 2, armorGrowth: .38, range: 530, interval: 1.30, speedGrowth: .023, speed: 299, regen: 1.9, manaRegen: 1.65,
+      unlocks: [1, 1, 1, 1],
+      abilities: [
+        { name: 'Thread', kind: 'mark', mana: 0, cd: 0, text: 'Add a Thread mark. Weave uses your latest two marks.' },
+        { name: 'Needle', kind: 'mark', mana: 0, cd: 0, text: 'Add a Needle mark. Weave uses your latest two marks.' },
+        { name: 'Knot', kind: 'mark', mana: 0, cd: 0, text: 'Add a Knot mark. Weave uses your latest two marks.' },
+        { name: 'Weave', kind: 'weave', mana: 0, cd: 7, text: 'Add two marks with Q, W, or E, then press R to cast the resulting spell.' }
+      ],
+      weaves: {
+        QQ: { name: 'Running Stitch', kind: 'bolt', mana: 60, range: 840, radius: 28, speed: 1500, piercing: true, damage: 82, growth: 19, text: 'Fire a piercing thread through enemies in a line.' },
+        QW: { name: 'Hemline', kind: 'blast', mana: 77, range: 700, radius: 205, delay: .45, damage: 110, growth: 22, slow: .28, slowTime: 1.6, text: 'Cut across a target area and slow enemies caught in the seam.' },
+        QE: { name: 'Loose End', kind: 'blink', mana: 65, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
+        WW: { name: 'Pincushion', kind: 'blast', mana: 105, range: 730, radius: 158, delay: .65, hits: 3, interval: .43, damage: 52, growth: 11, text: 'Rain three showers of needles into a small target area.' },
+        WE: { name: 'Anchor Stitch', kind: 'blast', mana: 90, range: 650, radius: 150, delay: .60, damage: 65, growth: 15, stun: .9, text: 'Tie enemies to the ground with a delayed area stun.' },
+        EE: { name: 'Double Knot', kind: 'buff', mana: 75, duration: 4, stats: { armor: 8, regen: 13 }, text: 'Gain 8 armor and 13 health regen for 4 seconds.' }
+      },
+      build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'vest', 'bulwark', 'heartstone']
     }
   };
   const ITEMS = {

@@ -1,6 +1,28 @@
 # Lanebreak
 
-A one-lane 1v1 strategy game. Pick Vesper, Brakk, or Orrin. Last-hit creeps, contest river runes, and build items as you take down the outer tower, inner tower, and enemy core. Play solo at one of three difficulty levels, invite a friend, or queue for an online match.
+A one-lane 1v1 strategy game inspired by Dota 2's laning. Last-hit creeps, contest river runes, and build items as you take down the outer tower, inner tower, and enemy core. Play solo at one of three difficulty levels, invite a friend, or queue for an online match.
+
+## Heroes
+
+| Hero | Play style |
+|---|---|
+| Vesper, Tide Archer | Ranged pressure with piercing arrows and snares |
+| Brakk, Iron Ram | Durable melee brawler with a charge and lifesteal |
+| Orrin, Gravity Sage | Burst caster with delayed impacts and a blink |
+| Sable, Glass Duelist | Mobile melee pressure with a dash and a piercing finisher |
+| Mirel, Fen Warden | Ranged lane control with persistent zones and defensive sustain |
+| Neris, Loomkeeper | Assembles a spell from a pair of marks at cast time |
+
+Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest two count, in either order. **R** casts the resulting spell, spends its mana, and starts a shared cooldown with a base duration of seven seconds. You can prepare the next pair during the cooldown.
+
+| Marks | Spell |
+|---|---|
+| Q + Q | Running Stitch, a piercing projectile |
+| Q + W | Hemline, an area slow |
+| Q + E | Loose End, a blink |
+| W + W | Pincushion, three focused area hits |
+| W + E | Anchor Stitch, a delayed area stun |
+| E + E | Double Knot, temporary armor and healing |
 
 ## Play solo
 

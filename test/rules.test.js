@@ -221,8 +221,9 @@ test('denies, experience, protected objectives, and core destruction', () => {
   assert.equal(m.winner, 0);
 });
 
-test('spells respect unlock levels, mana, and cooldowns for all three heroes', () => {
+test('standard spells respect unlock levels, mana, and cooldowns', () => {
   for (const hero of Object.keys(HEROES)) {
+    if (HEROES[hero].weaves) continue;
     const m = new Match({ heroes:[hero,'brakk'], bots:[null,null] });
     const h = m.heroes[0];
     assert.match(m.order(0, { o:'cast', i:1, x:650, y:450 }), /level 2/);
@@ -231,6 +232,48 @@ test('spells respect unlock levels, mana, and cooldowns for all three heroes', (
     advance(m, 1);
     assert.match(m.order(0, { o:'cast', i:0, x:650, y:450 }), /cooling/);
   }
+});
+
+test('Neris can cast all six recipes at level one in either order', () => {
+  for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
+    const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
+    const hero = match.heroes[0];
+    const cast = i => match.order(0, { o:'cast', i, x:600, y:450 });
+    assert.match(cast(3), /Queue two marks/);
+    for (const key of [...recipe].reverse()) assert.equal(cast('QWE'.indexOf(key)), null);
+    assert.equal(hero.mana, hero.maxMana);
+    assert.equal(cast(3), null);
+    assert.equal(hero.mana, hero.maxMana - spell.mana);
+    assert.deepEqual(hero.marks, []);
+    assert.equal(hero.cd[3], HEROES.neris.abilities[3].cd);
+    if (spell.kind === 'blast') assert.equal(match.areas[0].spell, spell);
+    else if (spell.kind === 'bolt') assert.equal(match.projectiles[0].spell, spell);
+    else if (spell.kind === 'blink') assert.equal(hero.x, 600);
+    else assert.equal(hero.buffs[0].id, spell.name);
+  }
+});
+
+test('Neris keeps the latest marks when Weave is on cooldown or lacks mana', () => {
+  const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
+  const hero = match.heroes[0];
+  const cast = i => match.order(0, { o:'cast', i, x:600, y:450 });
+  cast(0);
+  cast(0);
+  assert.equal(cast(3), null);
+  cast(0);
+  cast(1);
+  cast(2);
+  assert.deepEqual(hero.marks, [1, 2]);
+  assert.match(cast(3), /cooling down/);
+  match.time = hero.cd[3];
+  hero.mana = 0;
+  assert.match(cast(3), /Not enough mana/);
+  assert.deepEqual(hero.marks, [1, 2]);
+  assert.deepEqual(match.snapshot(0).heroes[0].marks, [1, 2]);
+  assert.equal(match.snapshot(1).heroes[0].marks, undefined);
+  hero.mana = HEROES.neris.weaves.WE.mana;
+  assert.equal(cast(3), null);
+  assert.equal(match.areas[0].spell.name, 'Anchor Stitch');
 });
 
 test('recall is interrupted by an order and completes after three seconds when uninterrupted', () => {

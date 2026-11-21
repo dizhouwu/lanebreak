@@ -1,10 +1,11 @@
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH, HEIGHT } = LanebreakRules;
-  const { Match, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT } = LanebreakRules;
+  const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, pickTarget, pickUnit, xpGoal } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R'];
   const heroKeys = Object.keys(HEROES);
+  const weaveGuide = Object.entries(HEROES.neris.weaves).map(([marks, spell]) => [...marks].join('+') + ' · ' + spell.name).join('\n');
   const difficulties = Object.keys(DIFF);
   const arena = $('arena');
   const renderer = new Renderer(arena, $('minimap'));
@@ -89,7 +90,7 @@
     for (const [index, id] of heroKeys.entries()) {
       const h = HEROES[id], button = make('button', null, 'heroCard');
       button.dataset.hero = id;
-      button.title = h.role;
+      button.title = h.role + '\n' + h.abilities.map((spell, i) => keys[i] + ' · ' + spell.name).join('\n');
       const pic = make('canvas');
       pic.width = 360; pic.height = 236;
       pic.setAttribute('aria-hidden', 'true');
@@ -109,6 +110,9 @@
       bindTooltip(button);
       tile.append(make('small', null, 'abilityName'), button);
       $('abilities').append(tile);
+    }
+    for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
+      $('weaveRecipes').append(make('dt', [...recipe].join(' + ')), make('dd', spell.name + ' · ' + spell.text));
     }
     for (let i = 0; i < 6; i++) {
       const button = make('button');
@@ -339,11 +343,8 @@
       if (socket?.readyState !== WebSocket.OPEN) { hint('Reconnecting…'); return false; }
       const h = snapshot.heroes[team];
       if (h.hp <= 0 && cmd.o !== 'buy' && cmd.o !== 'sell') return false;
-      if (cmd.o === 'cast') {
-        const spell = HEROES[h.hero].abilities[cmd.i];
-        if (h.level < UNLOCKS[cmd.i]) error = 'Unlocks at level ' + UNLOCKS[cmd.i];
-        else if (h.cd[cmd.i] > snapshot.time) error = 'Ability cooling down';
-        else if (h.mana < spell.mana) error = 'Not enough mana';
+      if (cmd.o === 'cast' && !HEROES[h.hero].weaves) {
+        error = abilityError(h, cmd.i, snapshot.time);
       }
       if (cmd.o === 'buy') error = shopOffer(h, cmd.id, snapshot.time, h.canShop).reason;
       if (cmd.o === 'sell' && !h.canShop) error = 'Return to your fountain to sell items';
@@ -351,6 +352,7 @@
     } else {
       error = local.order(team, cmd);
       snapshot = local.snapshot(team, demo);
+      if (cmd.o === 'cast' && snapshot.heroes[team].marks) lastUi = -1;
     }
     if (error) {
       if (cmd.o === 'buy' && !$('shop').hidden) shopFeedback(error, true);
@@ -621,18 +623,28 @@
     meter('mana', h.mana, h.maxMana, true);
     meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
     $('gold').textContent = Math.floor(h.gold) + ' g';
+    const markStatus = $('weaveMarks');
+    markStatus.hidden = !hero.weaves;
+    if (hero.weaves) {
+      const marks = (h.marks || []).map(mark => keys[mark]);
+      const text = marks.length ? 'Marks · ' + [marks[0], marks[1] || '…'].join(' + ') : 'Choose two marks with Q, W, or E';
+      if (markStatus.textContent !== text) markStatus.textContent = text;
+    }
     $('abilities').style.setProperty('--hero',hero.color);
     for (const [i, tile] of [...$('abilities').children].entries()) {
       const button = tile.lastElementChild;
-      const spell = hero.abilities[i], cd = Math.max(0, h.cd[i] - time), locked = h.level < UNLOCKS[i];
+      const slot = hero.abilities[i], spell = abilitySpell(h, i), level = abilityLevel(h, i);
+      const cd = Math.max(0, h.cd[i] - time), locked = h.level < level, awaitingMarks = spell.kind === 'weave';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
-      button.style.setProperty('--cooldown', Math.min(100, cd / spell.cd * 100) + '%');
-      button.lastElementChild.textContent = locked ? 'Lv ' + UNLOCKS[i] : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' : spell.mana;
-      const cooldown = +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
+      button.dataset.state = locked || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
+      button.style.setProperty('--cooldown', (slot.cd ? Math.min(100, cd / slot.cd * 100) : 0) + '%');
+      button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
+        awaitingMarks ? '2 marks' : spell.mana || '';
+      const cooldown = +(slot.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
-      button.dataset.tip = spell.name + ' · ' + spell.mana + ' mana · ' + cooldown + 's' + (locked ? ' · Lv ' + UNLOCKS[i] : '') + '\n' + spell.text +
-        (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '');
+      button.dataset.tip = spell.name + (spell.mana ? ' · ' + spell.mana + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
+        (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
+        (slot.kind === 'weave' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
     for (const [i, button] of [...$('inventory').children].entries()) {
@@ -781,7 +793,9 @@
         if (!rejoin) enter();
         if (rejoin) hint('Reconnected');
       } else if (data.t === 's') {
+        const previousMarks = snapshot?.heroes[team].marks?.join();
         snapshot = data.s;
+        if (previousMarks !== snapshot.heroes[team].marks?.join()) lastUi = -1;
         const sample = snapshot.time - performance.now() / 1000;
         clockOffset = clockOffset === null || Math.abs(sample - clockOffset) > .5 ? sample : clockOffset + .1 * (sample - clockOffset);
         history.push(snapshot);
@@ -888,12 +902,12 @@
     if (k === '?') return help();
     if (game.hidden) {
       if (k === 'escape' && (waiting || networkAction || seat)) return disconnect();
-      if (/^[1-3]$/.test(k)) pick(heroKeys[+k - 1]);
+      if (/^[1-9]$/.test(k) && heroKeys[+k - 1]) pick(heroKeys[+k - 1]);
       if (k.startsWith('arrow')) {
         event.preventDefault();
         const step = k === 'arrowright' || k === 'arrowdown' ? 1 : -1;
         if (k === 'arrowup' || k === 'arrowdown') setDifficulty(difficulties[(difficulties.indexOf(difficulty) + step + 3) % 3]);
-        else pick(heroKeys[(heroKeys.indexOf(selected) + step + 3) % 3]);
+        else pick(heroKeys[(heroKeys.indexOf(selected) + step + heroKeys.length) % heroKeys.length]);
       }
       if (k === 'enter' && event.target.tagName !== 'BUTTON' && view === 'solo') solo();
       if (k === 'n') { tab('online'); $('name').focus(); }

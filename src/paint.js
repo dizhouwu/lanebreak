@@ -33,6 +33,26 @@
     g.addColorStop(0, color); g.addColorStop(1, '#0000');
     ellipse(ctx, x, y, radius, radius, g);
   }
+  function weapon(g, key, x, y, scale, color) {
+    g.save();
+    g.translate(x,y);
+    g.scale(scale,scale);
+    if (key === 'sable') {
+      poly(g,[[-4,19],[1,1],[25,-23],[17,1],[4,23]],'#f7e0e8',color,2);
+      line(g,[[0,18],[18,-14]],'#f097b6',1.6);
+      line(g,[[-8,17],[7,25]],'#5e3447',4);
+    } else if (key === 'mirel') {
+      line(g,[[-4,30],[4,-10],[1,-26]],'#a08050',4);
+      poly(g,[[2,-7],[-13,-16],[-17,-31],[-4,-25]],'#526e3e',color,1.6);
+      poly(g,[[4,-10],[10,-24],[23,-29],[16,-13]],color,'#deedbb',1.4);
+      ellipse(g,2,-12,5,5,'#e3f4c0');
+    } else {
+      line(g,[[-15,6],[0,-17],[15,6],[0,19],[-15,6]],color,2);
+      for (const [dx,dy] of [[-13,6],[0,-15],[13,6]]) ellipse(g,dx,dy,4,4,'#ffe7a0');
+      line(g,[[-13,6],[13,6],[0,-15],[0,19]],'#ffe7a099',1.4);
+    }
+    g.restore();
+  }
   function portrait(canvas, key) {
     const g = canvas.getContext('2d'), color = HEROES[key].color;
     g.fillStyle = gradient(g, 0, 0, 350, 220, [[0, '#0d1d22'], [.56, '#19282a'], [1, color + '8a']]);
@@ -70,7 +90,7 @@
       poly(g, [[191,124],[207,112],[221,123],[221,145],[208,152],[194,144]], '#927059', '#dbab7c', 2);
       poly(g, [[105,233],[167,186],[207,206],[248,188],[296,231]], '#534437', '#b88c5e', 2);
       for (let i = 0; i < 5; i++) line(g, [[180 + i * 11,222],[174 + i * 15,235]], '#b88c5e', 1.5);
-    } else {
+    } else if (key === 'orrin') {
       poly(g, [[95,237],[139,165],[170,148],[207,137],[254,151],[289,237]], '#272646', '#957ac7', 3);
       poly(g, [[158,152],[160,99],[180,71],[212,43],[245,65],[258,107],[247,150],[219,180],[180,172]], '#3a335a', '#bf99fe', 3);
       poly(g, [[174,127],[188,84],[214,65],[240,92],[244,120],[229,151],[210,164],[189,151]], '#171a2c');
@@ -82,6 +102,22 @@
       poly(g, [[307,30],[327,59],[307,83],[289,59]], '#bd9beb', '#efe7ff', 2);
       poly(g, [[307,30],[307,83],[289,59]], '#6c52aa', '#eee1ffa0', 1);
       ellipse(g, 307, 59, 27, 27, null, '#d7b6ff6c', 2);
+    } else {
+      const shape = {
+        sable: { cloak:'#4b2539', mask:'#b7a0ab', shoulders:[82,274], head:[[140,109],[151,71],[184,56],[218,70],[231,105],[212,135],[174,147]], weapon:[262,118,2.8] },
+        mirel: { cloak:'#30472c', mask:'#b5b98d', shoulders:[66,292], head:[[128,103],[149,87],[142,57],[169,74],[184,50],[195,75],[222,62],[217,89],[238,105],[213,138],[157,137]], weapon:[278,110,3] },
+        neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] }
+      }[key];
+      const [left,right] = shape.shoulders;
+      poly(g,[[left-14,238],[left,166],[143,134],[209,134],[right,175],[right+16,238]],shape.cloak,color,2.5);
+      poly(g,[[left,168],[138,143],[178,169],[221,145],[right,178],[216,229],[157,220]],'#1b2829',color+'a0',2);
+      poly(g,shape.head,shape.cloak,color,2);
+      poly(g,[[152,99],[176,83],[213,101],[204,123],[183,138],[160,124]],shape.mask,'#212829',2);
+      line(g,[[155,108],[175,112],[202,106]],'#292527',6);
+      line(g,[[159,107],[169,108],[178,109],[198,105]],color,2.8);
+      glow(g,shape.weapon[0]+10,shape.weapon[1]-20,45,color+'80');
+      weapon(g,key,...shape.weapon,color);
+      for (const [x,y] of [[140,170],[169,183],[202,174]]) ellipse(g,x,y,4,3,color);
     }
   }
   function titleScene(g, width, height) {
@@ -440,7 +476,7 @@
         g.beginPath(); g.arc(x,y,u.r+24,start,start+2*Math.PI*progress); g.strokeStyle=color; g.lineWidth=5; g.stroke();
       }
       const facing = u.facing ?? (u.team ? Math.PI : 0);
-      const lunge = u.attack && u.hero === 'brakk' ? 8 : 0;
+      const lunge = u.attack && HEROES[u.hero].range < 200 ? 8 : 0;
       g.save();
       g.translate(x + Math.cos(facing)*lunge,y + Math.sin(facing)*lunge);
       g.scale(Math.cos(facing) < 0 ? -1 : 1,1);
@@ -456,9 +492,11 @@
         g.beginPath();g.arc(x+18,y-9,18,-1.17,1.17);g.lineWidth=3;g.strokeStyle='#b6e2c4';g.stroke();
         line(g,[[x+25,y-25],[x+25,y+8]],'#a4dec8',1);
         poly(g,[[x-14,y-24],[x-5,y-44],[x+11,y-36],[x+16,y-23],[x+2,y-28]],'#488c87',armor,1.3);
-      } else {
+      } else if (u.hero === 'orrin') {
         line(g,[[x+24,y+16],[x+27,y-35]],'#9b83c4',3);
         this.crystal(g,x+27,y-38,11,'#b494f7');
+      } else {
+        weapon(g,u.hero,x+23,y-9,.8,armor);
       }
       g.restore();
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);

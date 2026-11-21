@@ -42,7 +42,7 @@ h1 span{color:var(--gold)}
 h2{font-size:1rem;margin:0}
 .keyHint{color:var(--muted);white-space:nowrap}
 .heroGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.heroCard{position:relative;overflow:hidden;display:flex;min-height:clamp(150px,19vw,224px);text-align:left;align-items:end;padding:14px;border:1px solid #48534b;background:#142023}
+.heroCard{position:relative;overflow:hidden;display:flex;min-height:clamp(140px,16vw,190px);text-align:left;align-items:end;padding:14px;border:1px solid #48534b;background:#142023}
 .heroCard canvas{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
 .heroCard:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#0b1215 1%,#0b1215ec 18%,#0b12154f 55%,transparent 100%);pointer-events:none}
 .heroCard[aria-pressed=true]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold),0 0 20px #e6aa5724}
@@ -99,8 +99,11 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .meter span{position:absolute;inset:0;text-align:center;text-shadow:0 1px 2px #000;font:750 .7rem/15px system-ui;white-space:nowrap}
 .meter.health i{background:#35a44e}.meter.mana{height:13px;background:#172537}.meter.mana span{line-height:13px}.meter.mana i{background:#3272ce}.meter.xp{height:4px;background:#312719}.meter.xp i{background:#e8c56a}
 .abilities{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;align-items:end}
+.abilityBlock{min-width:0}
+#weaveMarks{display:block;text-align:center;margin:0 0 4px;font-size:.68rem;color:var(--gold)}
 .abilityTile{min-width:0;text-align:center}
 .abilityName,.itemsBlock>small{display:block;font-size:.61rem;color:#c4d0d2;white-space:nowrap;margin-bottom:3px}
+.abilityName{overflow:hidden;text-overflow:ellipsis}
 .abilities button,.inventory button{width:100%;min-height:0;padding:0;position:relative;background:#1a2631;border-color:#59697d}
 .abilities button{height:47px;background:color-mix(in srgb,var(--hero) 30%,#181e29)}
 .abilities button kbd{font:850 1.24rem/1 system-ui;background:none;border:0;color:#eef2fe;padding:0}
@@ -185,7 +188,7 @@ dl{display:grid;grid-template-columns:minmax(90px,140px) 1fr;gap:11px;font-size:
 dt{font-weight:750}dd{margin:0;color:#c4cec6}
 @media(max-width:1150px){.minimapPanel{bottom:91px}#feed{bottom:135px}}
 @media(max-width:790px){.lobbyControls{grid-template-columns:1fr;gap:13px}.deploy{max-width:390px;width:100%}.titleBlock{padding:34px 0 23px}.heroCard{min-height:140px}.scoreboard{min-width:125px;gap:6px}.matchTools small{display:none}.topActions{gap:2px}}
-@media(max-width:720px){.heroHud{grid-template-columns:minmax(0,1fr) 73px 69px;gap:5px}.heroVitals{grid-column:1/3;grid-row:1}.economy{grid-column:3;grid-row:1/3}.abilities{grid-column:1;grid-row:2}.itemsBlock{grid-column:2;grid-row:2}#heroBadge{width:44px;height:44px}.meter.health{height:13px}.meter.health span{line-height:13px}.minimapPanel{bottom:124px}#feed{bottom:158px}#hint,.shop{bottom:143px}}
+@media(max-width:720px){.heroHud{grid-template-columns:minmax(0,1fr) 73px 69px;gap:5px}.heroVitals{grid-column:1/3;grid-row:1}.economy{grid-column:3;grid-row:1/3}.abilityBlock{grid-column:1;grid-row:2}.itemsBlock{grid-column:2;grid-row:2}#heroBadge{width:44px;height:44px}.meter.health{height:13px}.meter.health span{line-height:13px}.minimapPanel{bottom:124px}#feed{bottom:158px}#hint,.shop{bottom:143px}}
 @media(max-width:530px){.matchTop{padding:5px;gap:3px}.matchReadout{font-size:.63rem}.topActions #quality,.topActions #gameHelp{display:none}.topActions .iconButton{font-size:.62rem;padding:2px 3px}.heroCard{padding:7px;min-height:112px}.heroGrid{gap:5px}.brand{font-size:.8rem}.titleBlock h1{font-size:clamp(2.6rem,13vw,4rem)}.shop{right:6px;width:calc(100vw - 12px)}.abilityName{font-size:.55rem;overflow:hidden;text-overflow:ellipsis}.abilities button{height:37px}.shopContent{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.shopDetails{max-height:min(38dvh,240px)}}
 @media(max-width:600px){#shop:not([hidden]) + #inspectPanel{visibility:hidden}.inspectPanel{top:69px}}
 </style>
@@ -204,7 +207,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     </section>
     <div class="lobbyControls">
       <section class="draft">
-        <div class="sectionHeader"><h2>Choose your hero</h2><span class="keyHint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></div>
+        <div class="sectionHeader"><h2>Choose your hero</h2><span class="keyHint"><kbd>1</kbd>–<kbd>6</kbd></span></div>
         <div id="heroes" class="heroGrid"></div>
       </section>
       <section class="deploy">
@@ -255,7 +258,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to pan in free camera mode"></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
-        <div class="abilities" id="abilities"></div>
+        <div class="abilityBlock"><small id="weaveMarks" aria-live="polite" hidden></small><div class="abilities" id="abilities"></div></div>
         <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
         <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton" aria-controls="shop" aria-expanded="false"><kbd>B</kbd><span>Item shop</span></button></div>
       </div>
@@ -268,13 +271,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
       <dt>Right click</dt><dd>Move or attack. Target an enemy hero to draw nearby creep aggro. Target an allied creep to transfer aggro or deny it below 50% HP.</dd>
       <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>The camera follows your hero by default. Press C to toggle free camera, or Space to recenter it on your hero. In free mode, pan with the screen edges, arrow keys, middle-mouse drag, or minimap.</dd>
-      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
+      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Standard abilities unlock at levels 1, 2, 3 and 6.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
       <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
       <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>
       <dt><kbd>G</kbd> / <kbd>M</kbd></dt><dd>Cycle graphics quality / toggle sound.</dd>
     </dl>
+    <details><summary>Neris spell recipes</summary><p>Choose two marks with Q, W, or E in either order. Press R to cast.</p><dl id="weaveRecipes"></dl></details>
     <p class="muted">Last-hit enemy creeps for gold. Destroy the outer tower, inner tower, and enemy core in order.</p>
   </dialog>
   <script>
@@ -316,6 +320,51 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         { name: 'Starfall', kind: 'blast', mana: 200, cd: 80, range: 900, radius: 240, delay: 1.4, damage: 250, growth: 38, text: 'Bring down a star after a 1.4-second delay.' }
       ],
       build: ['boots', 'prism', 'rune', 'arcane', 'void', 'charm', 'locket', 'heartstone', 'gloves', 'frost', 'bulwark']
+    },
+    sable: {
+      name: 'Sable', title: 'Glass Duelist', role: 'Mobile melee assassin', color: '#f28e9d',
+      hp: 690, hpGrowth: 92, mana: 280, manaGrowth: 25, damage: 62, damageGrowth: 5.1,
+      armor: 3.5, armorGrowth: .5, range: 125, interval: 1.10, speedGrowth: .035, speed: 320, regen: 2.9, manaRegen: 1.05,
+      abilities: [
+        { name: 'Crosscut', kind: 'dash', mana: 65, cd: 9, range: 515, radius: 100, speed: 1750, damage: 75, growth: 17, stun: .55, text: 'Dash to a point, damaging and briefly stunning enemies where you land.' },
+        { name: 'Splinter', kind: 'bolt', mana: 65, cd: 10, range: 690, radius: 38, speed: 1450, piercing: true, damage: 91, growth: 19, text: 'Send a shard through enemies in a line.' },
+        { name: 'Quickdraw', kind: 'buff', mana: 60, cd: 17, duration: 4, stats: { haste: .65, move: .20 }, text: 'Gain attack and movement speed for 4 seconds.' },
+        { name: 'Shatterline', kind: 'bolt', mana: 145, cd: 65, range: 1050, radius: 33, speed: 1900, piercing: true, damage: 225, growth: 30, text: 'Hurl a glass blade that deals heavy damage to every enemy it pierces.' }
+      ],
+      build: ['boots', 'gloves', 'striders', 'fang', 'reaver', 'stone', 'greatblade', 'executioner', 'charm', 'crown', 'heartstone']
+    },
+    mirel: {
+      name: 'Mirel', title: 'Fen Warden', role: 'Ranged zone control', color: '#a3cf70',
+      hp: 645, hpGrowth: 86, mana: 310, manaGrowth: 31, damage: 52, damageGrowth: 3.8,
+      armor: 3, armorGrowth: .45, range: 460, interval: 1.28, speedGrowth: .018, speed: 294, regen: 2.7, manaRegen: 1.15,
+      abilities: [
+        { name: 'Reed Dart', kind: 'bolt', mana: 55, cd: 7, range: 780, radius: 24, speed: 1250, damage: 73, growth: 17, slow: .25, slowTime: 1.4, text: 'Fire a slowing dart at the first enemy in its path.' },
+        { name: 'Rootbed', kind: 'blast', mana: 85, cd: 14, range: 690, radius: 205, delay: .45, hits: 3, interval: .65, damage: 34, growth: 8, slow: .30, slowTime: 1.1, text: 'Grow a patch of roots that damages and slows enemies in three pulses.' },
+        { name: 'Greenward', kind: 'buff', mana: 65, cd: 22, duration: 5, stats: { armor: 6, regen: 19 }, text: 'Gain 6 armor and 19 health regen for 5 seconds.' },
+        { name: 'Briar Crown', kind: 'blast', mana: 175, cd: 72, range: 720, radius: 230, delay: .75, hits: 4, interval: .75, damage: 41, growth: 8, stun: .32, text: 'Raise a briar thicket that pulses four times, briefly stunning enemies inside.' }
+      ],
+      build: ['boots', 'prism', 'charm', 'locket', 'rune', 'arcane', 'vest', 'bulwark', 'void', 'heartstone', 'colossus']
+    },
+    neris: {
+      name: 'Neris', title: 'Loomkeeper', role: 'Combo spellcaster', color: '#f0c865',
+      hp: 595, hpGrowth: 78, mana: 350, manaGrowth: 39, damage: 49, damageGrowth: 3.7,
+      armor: 2, armorGrowth: .38, range: 530, interval: 1.30, speedGrowth: .023, speed: 299, regen: 1.9, manaRegen: 1.65,
+      unlocks: [1, 1, 1, 1],
+      abilities: [
+        { name: 'Thread', kind: 'mark', mana: 0, cd: 0, text: 'Add a Thread mark. Weave uses your latest two marks.' },
+        { name: 'Needle', kind: 'mark', mana: 0, cd: 0, text: 'Add a Needle mark. Weave uses your latest two marks.' },
+        { name: 'Knot', kind: 'mark', mana: 0, cd: 0, text: 'Add a Knot mark. Weave uses your latest two marks.' },
+        { name: 'Weave', kind: 'weave', mana: 0, cd: 7, text: 'Add two marks with Q, W, or E, then press R to cast the resulting spell.' }
+      ],
+      weaves: {
+        QQ: { name: 'Running Stitch', kind: 'bolt', mana: 60, range: 840, radius: 28, speed: 1500, piercing: true, damage: 82, growth: 19, text: 'Fire a piercing thread through enemies in a line.' },
+        QW: { name: 'Hemline', kind: 'blast', mana: 77, range: 700, radius: 205, delay: .45, damage: 110, growth: 22, slow: .28, slowTime: 1.6, text: 'Cut across a target area and slow enemies caught in the seam.' },
+        QE: { name: 'Loose End', kind: 'blink', mana: 65, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
+        WW: { name: 'Pincushion', kind: 'blast', mana: 105, range: 730, radius: 158, delay: .65, hits: 3, interval: .43, damage: 52, growth: 11, text: 'Rain three showers of needles into a small target area.' },
+        WE: { name: 'Anchor Stitch', kind: 'blast', mana: 90, range: 650, radius: 150, delay: .60, damage: 65, growth: 15, stun: .9, text: 'Tie enemies to the ground with a delayed area stun.' },
+        EE: { name: 'Double Knot', kind: 'buff', mana: 75, duration: 4, stats: { armor: 8, regen: 13 }, text: 'Gain 8 armor and 13 health regen for 4 seconds.' }
+      },
+      build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'vest', 'bulwark', 'heartstone']
     }
   };
   const ITEMS = {
@@ -379,6 +428,23 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   const CREEP_AGGRO_TIME = 2.3;
   const CREEP_AGGRO_COOLDOWN = 3;
   const spellDamage = (hero, spell) => spell.damage ? Math.round((spell.damage + spell.growth * (hero.level - 1)) * hero.stats.power) : 0;
+  const abilityLevel = (hero, i) => (HEROES[hero.hero].unlocks || UNLOCKS)[i];
+  function abilitySpell(hero, i) {
+    const kit = HEROES[hero.hero];
+    if (i === 3 && kit.weaves && hero.marks?.length === 2) {
+      const recipe = [...hero.marks].sort().map(mark => 'QWE'[mark]).join('');
+      return kit.weaves[recipe] || kit.abilities[i];
+    }
+    return kit.abilities[i];
+  }
+  function abilityError(hero, i, time, spell = abilitySpell(hero, i)) {
+    const level = abilityLevel(hero, i);
+    if (hero.level < level) return 'Unlocks at level ' + level;
+    if (hero.cd[i] > time) return 'Ability cooling down';
+    if (spell.kind === 'weave') return 'Queue two marks with Q, W, or E';
+    if (hero.mana < spell.mana) return 'Not enough mana';
+    return null;
+  }
   function randomGenerator(seed) {
     return () => {
       seed = (seed + 0x6D2B79F5) | 0;
@@ -502,6 +568,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         const spec = HEROES[hero];
         const h = this.unit({ type: 'hero', team, hero, name: names[team] || spec.name, ...home(team), r: 26,
           level: 1, xp: 0, gold: 600, inventory: [], pots: 0, buffs: [], cd: [0, 0, 0, 0],
+          ...(spec.weaves && { marks: [] }),
           itemsReady: {}, recallReady: 0, tomeReady: 0, lastThreat: -Infinity, recentAggro: -Infinity,
           bot: bots[team], think: this.random() * .3, buildIndex: 0, sway: 0, deaths: 0, lastHits: 0, denies: 0 });
         refresh(h, 0);
@@ -734,18 +801,23 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
     }
     cast(h, i, x, y) {
-      const spell = HEROES[h.hero].abilities[i];
       if (h.stunUntil > this.time || h.dash) return 'Unable to act';
-      if (h.level < UNLOCKS[i]) return 'Unlocks at level ' + UNLOCKS[i];
-      if (h.cd[i] > this.time) return 'Ability cooling down';
-      if (h.mana < spell.mana) return 'Not enough mana';
+      const spec = HEROES[h.hero], spell = abilitySpell(h, i);
+      const error = abilityError(h, i, this.time, spell);
+      if (error) return error;
+      if (spell.kind === 'mark') {
+        h.marks = [...h.marks.slice(-1), i];
+        return null;
+      }
+      if (spec.weaves) h.marks = [];
+      const ultimate = i === 3 && !spec.weaves;
       h.mana -= spell.mana;
-      h.cd[i] = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+      h.cd[i] = this.time + spec.abilities[i].cd * (1 - (h.stats.cdr || 0));
       h.windup = null;
       h.channel = 0;
       if (spell.kind !== 'nova' && spell.kind !== 'buff' && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
       const damage = spellDamage(h, spell);
-      this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate: i === 3 });
+      this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate });
       switch (spell.kind) {
         case 'bolt': {
           const length = Math.hypot(x - h.x, y - h.y) || 1;
@@ -756,7 +828,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         }
         case 'blast':
           this.areas.push({ id: this.nextId++, ...point(h, x, y, spell.range, 0, false), from: h, team: h.team, radius: spell.radius,
-            time: this.time + spell.delay, duration: spell.delay, ultimate: i === 3, hits: spell.hits || 1, spell, damage });
+            time: this.time + spell.delay, duration: spell.delay, ultimate, hits: spell.hits || 1, spell, damage });
           break;
         case 'nova':
           this.blast(h, spell, h.x, h.y, damage);
@@ -1175,18 +1247,30 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       return best;
     }
-    abilityReady(hero, i, mana = hero.mana) {
-      return hero.level >= UNLOCKS[i] && hero.cd[i] <= this.time && mana >= HEROES[hero.hero].abilities[i].mana;
+    abilityReady(hero, i, mana = hero.mana, spell = abilitySpell(hero, i)) {
+      return hero.level >= abilityLevel(hero, i) && hero.cd[i] <= this.time && spell.kind !== 'weave' && mana >= spell.mana;
     }
     aiBurst(hero, enemy) {
       let mana = hero.mana;
       let damage = 3 * hero.stats.damage * hero.stats.multiplier * physical(enemy.armor);
-      for (const [i, spell] of HEROES[hero.hero].abilities.entries()) {
+      const spec = HEROES[hero.hero];
+      if (spec.weaves) {
+        const weaves = Object.values(spec.weaves).filter(spell => this.abilityReady(hero, 3, mana, spell));
+        return damage + Math.max(0, ...weaves.map(spell => .75 * spellDamage(hero, spell) * (spell.hits ? spell.hits * .5 : 1)));
+      }
+      for (const [i, spell] of spec.abilities.entries()) {
         if (!spell.damage || !this.abilityReady(hero, i, mana)) continue;
         mana -= spell.mana;
         damage += .75 * spellDamage(hero, spell) * (spell.hits ? spell.hits * .5 : 1);
       }
       return damage;
+    }
+    castBotSpell(h, i, pos, recipe) {
+      const previous = h.marks;
+      if (recipe) h.marks = Array.from(recipe, mark => 'QWE'.indexOf(mark));
+      const error = this.order(h.team, { o:'cast', i, x:pos.x, y:pos.y });
+      if (error && recipe) h.marks = previous;
+      return !error;
     }
     aiCast(h, enemy, mode, difficulty) {
       if (this.random() > difficulty.cast) return false;
@@ -1199,38 +1283,41 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         x: enemy.x + enemy.vx * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise,
         y: enemy.y + enemy.vy * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise
       });
-      const cast = (i, pos) => !this.order(h.team, { o: 'cast', i, x: pos.x, y: pos.y });
-      for (const i of [3, 1, 0, 2]) {
-        if (!this.abilityReady(h, i)) continue;
-        const spell = spec.abilities[i], ultimate = i === 3;
+      const recipes = kill ? ['WW', 'WE', 'QW', 'QQ', 'QE', 'EE'] : ['EE', 'QW', 'QQ', 'WE', 'WW', 'QE'];
+      const options = spec.weaves ? recipes.map(recipe => ({ i:3, spell:spec.weaves[recipe], recipe })) :
+        [3, 1, 0, 2].map(i => ({ i, spell:spec.abilities[i] }));
+      for (const { i, spell, recipe } of options) {
+        if (!this.abilityReady(h, i, h.mana, spell)) continue;
+        const ultimate = i === 3 && !recipe;
+        const cast = pos => this.castBotSpell(h, i, pos, recipe);
         switch (spell.kind) {
           case 'bolt': {
             if (reach < spell.range * .85 && (kill || mana > .35) &&
-              (spell.piercing || this.clearShot(h, enemy, spell.radius))) return cast(i, aim(reach / spell.speed));
+              (spell.piercing || this.clearShot(h, enemy, spell.radius))) return cast(aim(reach / spell.speed));
             const cluster = push && spell.piercing && mana > .7 && this.creepCluster(h, spell.range * .7, 150);
-            if (cluster) return cast(i, cluster);
+            if (cluster) return cast(cluster);
             break;
           }
           case 'blast': {
             const want = kill || (ultimate ? enemyHealth < .7 && mana > .3 : mana > .4);
-            if (reach < spell.range + spell.radius * .4 && want) return cast(i, aim(spell.delay * .8));
+            if (reach < spell.range + spell.radius * .4 && want) return cast(aim(spell.delay * .8));
             const cluster = push && !ultimate && mana > .75 && this.creepCluster(h, spell.range, spell.radius);
-            if (cluster) return cast(i, cluster);
+            if (cluster) return cast(cluster);
             break;
           }
           case 'nova':
-            if (reach < spell.radius * .8 && (kill || mana > .3)) return cast(i, h);
-            if (push && mana > .7 && this.nearbyCreeps(h, enemy.team, spell.radius * .9).length >= 3) return cast(i, h);
+            if (reach < spell.radius * .8 && (kill || mana > .3)) return cast(h);
+            if (push && mana > .7 && this.nearbyCreeps(h, enemy.team, spell.radius * .9).length >= 3) return cast(h);
             break;
           case 'dash':
             if (reach < spell.range + 40 && reach > 140 && (kill || (mode === 'trade' && health > enemyHealth && mana > .5))) {
-              return cast(i, enemy);
+              return cast(enemy);
             }
             break;
           case 'blink':
             if (kill && reach > spec.range + 80 && reach < spell.range + spec.range * .8) {
               const fraction = (reach - spec.range * .7) / reach;
-              return cast(i, { x: h.x + (enemy.x - h.x) * fraction, y: h.y + (enemy.y - h.y) * fraction });
+              return cast({ x: h.x + (enemy.x - h.x) * fraction, y: h.y + (enemy.y - h.y) * fraction });
             }
             break;
           case 'buff': {
@@ -1239,7 +1326,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
             const fighting = (target === enemy && reach < spec.range + 220) || siege;
             const offensive = spell.stats.haste || spell.stats.life;
             const defensive = spell.stats.armor && health < .65 && reach < 650;
-            if (defensive || (fighting && offensive && (!ultimate || kill || enemyHealth < .6 || siege))) return cast(i, h);
+            if (defensive || (fighting && offensive && (!ultimate || kill || enemyHealth < .6 || siege))) return cast(h);
             break;
           }
         }
@@ -1278,9 +1365,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           if (h.channel || (homeDist > 1600 && enemyDist > 800 && !order({ o: 'recall' }))) return;
           if (enemyDist < 800) use('striders');
           if (enemyDist < 700) {
-            const escape = data.abilities.findIndex((spell, i) => this.abilityReady(h, i) &&
-              (spell.kind === 'dash' || spell.kind === 'blink' || (spell.kind === 'buff' && (spell.stats.move || spell.stats.armor))));
-            if (escape >= 0) order({ o: 'cast', i: escape, x: h.x - dir * 1000, y: h.y });
+            const away = { x:h.x - dir * 1000, y:h.y };
+            if (data.weaves) {
+              if (this.abilityReady(h, 3, h.mana, data.weaves.QE)) this.castBotSpell(h, 3, away, 'QE');
+            } else {
+              const escape = data.abilities.findIndex((spell, i) => this.abilityReady(h, i) &&
+                (spell.kind === 'dash' || spell.kind === 'blink' || (spell.kind === 'buff' && (spell.stats.move || spell.stats.armor))));
+              if (escape >= 0) this.castBotSpell(h, escape, away);
+            }
           }
           go(own);
           return;
@@ -1381,6 +1473,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
         return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
+          ...(h.marks && { marks:h.marks }),
           recallReady: h.recallReady, tomeReady: h.tomeReady, pots: h.pots, stats: h.stats, potionUntil: h.potionUntil,
           canShop: this.canShop(h) };
       });
@@ -1416,7 +1509,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       default: return false;
     }
   }
-  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
+  const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell,
+    abilityError, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();
@@ -1457,6 +1551,26 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     g.addColorStop(0, color); g.addColorStop(1, '#0000');
     ellipse(ctx, x, y, radius, radius, g);
   }
+  function weapon(g, key, x, y, scale, color) {
+    g.save();
+    g.translate(x,y);
+    g.scale(scale,scale);
+    if (key === 'sable') {
+      poly(g,[[-4,19],[1,1],[25,-23],[17,1],[4,23]],'#f7e0e8',color,2);
+      line(g,[[0,18],[18,-14]],'#f097b6',1.6);
+      line(g,[[-8,17],[7,25]],'#5e3447',4);
+    } else if (key === 'mirel') {
+      line(g,[[-4,30],[4,-10],[1,-26]],'#a08050',4);
+      poly(g,[[2,-7],[-13,-16],[-17,-31],[-4,-25]],'#526e3e',color,1.6);
+      poly(g,[[4,-10],[10,-24],[23,-29],[16,-13]],color,'#deedbb',1.4);
+      ellipse(g,2,-12,5,5,'#e3f4c0');
+    } else {
+      line(g,[[-15,6],[0,-17],[15,6],[0,19],[-15,6]],color,2);
+      for (const [dx,dy] of [[-13,6],[0,-15],[13,6]]) ellipse(g,dx,dy,4,4,'#ffe7a0');
+      line(g,[[-13,6],[13,6],[0,-15],[0,19]],'#ffe7a099',1.4);
+    }
+    g.restore();
+  }
   function portrait(canvas, key) {
     const g = canvas.getContext('2d'), color = HEROES[key].color;
     g.fillStyle = gradient(g, 0, 0, 350, 220, [[0, '#0d1d22'], [.56, '#19282a'], [1, color + '8a']]);
@@ -1494,7 +1608,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       poly(g, [[191,124],[207,112],[221,123],[221,145],[208,152],[194,144]], '#927059', '#dbab7c', 2);
       poly(g, [[105,233],[167,186],[207,206],[248,188],[296,231]], '#534437', '#b88c5e', 2);
       for (let i = 0; i < 5; i++) line(g, [[180 + i * 11,222],[174 + i * 15,235]], '#b88c5e', 1.5);
-    } else {
+    } else if (key === 'orrin') {
       poly(g, [[95,237],[139,165],[170,148],[207,137],[254,151],[289,237]], '#272646', '#957ac7', 3);
       poly(g, [[158,152],[160,99],[180,71],[212,43],[245,65],[258,107],[247,150],[219,180],[180,172]], '#3a335a', '#bf99fe', 3);
       poly(g, [[174,127],[188,84],[214,65],[240,92],[244,120],[229,151],[210,164],[189,151]], '#171a2c');
@@ -1506,6 +1620,22 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       poly(g, [[307,30],[327,59],[307,83],[289,59]], '#bd9beb', '#efe7ff', 2);
       poly(g, [[307,30],[307,83],[289,59]], '#6c52aa', '#eee1ffa0', 1);
       ellipse(g, 307, 59, 27, 27, null, '#d7b6ff6c', 2);
+    } else {
+      const shape = {
+        sable: { cloak:'#4b2539', mask:'#b7a0ab', shoulders:[82,274], head:[[140,109],[151,71],[184,56],[218,70],[231,105],[212,135],[174,147]], weapon:[262,118,2.8] },
+        mirel: { cloak:'#30472c', mask:'#b5b98d', shoulders:[66,292], head:[[128,103],[149,87],[142,57],[169,74],[184,50],[195,75],[222,62],[217,89],[238,105],[213,138],[157,137]], weapon:[278,110,3] },
+        neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] }
+      }[key];
+      const [left,right] = shape.shoulders;
+      poly(g,[[left-14,238],[left,166],[143,134],[209,134],[right,175],[right+16,238]],shape.cloak,color,2.5);
+      poly(g,[[left,168],[138,143],[178,169],[221,145],[right,178],[216,229],[157,220]],'#1b2829',color+'a0',2);
+      poly(g,shape.head,shape.cloak,color,2);
+      poly(g,[[152,99],[176,83],[213,101],[204,123],[183,138],[160,124]],shape.mask,'#212829',2);
+      line(g,[[155,108],[175,112],[202,106]],'#292527',6);
+      line(g,[[159,107],[169,108],[178,109],[198,105]],color,2.8);
+      glow(g,shape.weapon[0]+10,shape.weapon[1]-20,45,color+'80');
+      weapon(g,key,...shape.weapon,color);
+      for (const [x,y] of [[140,170],[169,183],[202,174]]) ellipse(g,x,y,4,3,color);
     }
   }
   function titleScene(g, width, height) {
@@ -1864,7 +1994,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         g.beginPath(); g.arc(x,y,u.r+24,start,start+2*Math.PI*progress); g.strokeStyle=color; g.lineWidth=5; g.stroke();
       }
       const facing = u.facing ?? (u.team ? Math.PI : 0);
-      const lunge = u.attack && u.hero === 'brakk' ? 8 : 0;
+      const lunge = u.attack && HEROES[u.hero].range < 200 ? 8 : 0;
       g.save();
       g.translate(x + Math.cos(facing)*lunge,y + Math.sin(facing)*lunge);
       g.scale(Math.cos(facing) < 0 ? -1 : 1,1);
@@ -1880,9 +2010,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         g.beginPath();g.arc(x+18,y-9,18,-1.17,1.17);g.lineWidth=3;g.strokeStyle='#b6e2c4';g.stroke();
         line(g,[[x+25,y-25],[x+25,y+8]],'#a4dec8',1);
         poly(g,[[x-14,y-24],[x-5,y-44],[x+11,y-36],[x+16,y-23],[x+2,y-28]],'#488c87',armor,1.3);
-      } else {
+      } else if (u.hero === 'orrin') {
         line(g,[[x+24,y+16],[x+27,y-35]],'#9b83c4',3);
         this.crystal(g,x+27,y-38,11,'#b494f7');
+      } else {
+        weapon(g,u.hero,x+23,y-9,.8,armor);
       }
       g.restore();
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
@@ -1947,11 +2079,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
 <script>
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, UNLOCKS, WIDTH, HEIGHT } = LanebreakRules;
-  const { Match, buyPlan, shopOffer, sellValue, spellDamage, pickTarget, pickUnit, xpGoal } = Lanebreak;
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT } = LanebreakRules;
+  const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, pickTarget, pickUnit, xpGoal } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R'];
   const heroKeys = Object.keys(HEROES);
+  const weaveGuide = Object.entries(HEROES.neris.weaves).map(([marks, spell]) => [...marks].join('+') + ' · ' + spell.name).join('\n');
   const difficulties = Object.keys(DIFF);
   const arena = $('arena');
   const renderer = new Renderer(arena, $('minimap'));
@@ -2036,7 +2169,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     for (const [index, id] of heroKeys.entries()) {
       const h = HEROES[id], button = make('button', null, 'heroCard');
       button.dataset.hero = id;
-      button.title = h.role;
+      button.title = h.role + '\n' + h.abilities.map((spell, i) => keys[i] + ' · ' + spell.name).join('\n');
       const pic = make('canvas');
       pic.width = 360; pic.height = 236;
       pic.setAttribute('aria-hidden', 'true');
@@ -2056,6 +2189,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       bindTooltip(button);
       tile.append(make('small', null, 'abilityName'), button);
       $('abilities').append(tile);
+    }
+    for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
+      $('weaveRecipes').append(make('dt', [...recipe].join(' + ')), make('dd', spell.name + ' · ' + spell.text));
     }
     for (let i = 0; i < 6; i++) {
       const button = make('button');
@@ -2286,11 +2422,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (socket?.readyState !== WebSocket.OPEN) { hint('Reconnecting…'); return false; }
       const h = snapshot.heroes[team];
       if (h.hp <= 0 && cmd.o !== 'buy' && cmd.o !== 'sell') return false;
-      if (cmd.o === 'cast') {
-        const spell = HEROES[h.hero].abilities[cmd.i];
-        if (h.level < UNLOCKS[cmd.i]) error = 'Unlocks at level ' + UNLOCKS[cmd.i];
-        else if (h.cd[cmd.i] > snapshot.time) error = 'Ability cooling down';
-        else if (h.mana < spell.mana) error = 'Not enough mana';
+      if (cmd.o === 'cast' && !HEROES[h.hero].weaves) {
+        error = abilityError(h, cmd.i, snapshot.time);
       }
       if (cmd.o === 'buy') error = shopOffer(h, cmd.id, snapshot.time, h.canShop).reason;
       if (cmd.o === 'sell' && !h.canShop) error = 'Return to your fountain to sell items';
@@ -2298,6 +2431,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     } else {
       error = local.order(team, cmd);
       snapshot = local.snapshot(team, demo);
+      if (cmd.o === 'cast' && snapshot.heroes[team].marks) lastUi = -1;
     }
     if (error) {
       if (cmd.o === 'buy' && !$('shop').hidden) shopFeedback(error, true);
@@ -2568,18 +2702,28 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     meter('mana', h.mana, h.maxMana, true);
     meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
     $('gold').textContent = Math.floor(h.gold) + ' g';
+    const markStatus = $('weaveMarks');
+    markStatus.hidden = !hero.weaves;
+    if (hero.weaves) {
+      const marks = (h.marks || []).map(mark => keys[mark]);
+      const text = marks.length ? 'Marks · ' + [marks[0], marks[1] || '…'].join(' + ') : 'Choose two marks with Q, W, or E';
+      if (markStatus.textContent !== text) markStatus.textContent = text;
+    }
     $('abilities').style.setProperty('--hero',hero.color);
     for (const [i, tile] of [...$('abilities').children].entries()) {
       const button = tile.lastElementChild;
-      const spell = hero.abilities[i], cd = Math.max(0, h.cd[i] - time), locked = h.level < UNLOCKS[i];
+      const slot = hero.abilities[i], spell = abilitySpell(h, i), level = abilityLevel(h, i);
+      const cd = Math.max(0, h.cd[i] - time), locked = h.level < level, awaitingMarks = spell.kind === 'weave';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
-      button.style.setProperty('--cooldown', Math.min(100, cd / spell.cd * 100) + '%');
-      button.lastElementChild.textContent = locked ? 'Lv ' + UNLOCKS[i] : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' : spell.mana;
-      const cooldown = +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
+      button.dataset.state = locked || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
+      button.style.setProperty('--cooldown', (slot.cd ? Math.min(100, cd / slot.cd * 100) : 0) + '%');
+      button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
+        awaitingMarks ? '2 marks' : spell.mana || '';
+      const cooldown = +(slot.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
-      button.dataset.tip = spell.name + ' · ' + spell.mana + ' mana · ' + cooldown + 's' + (locked ? ' · Lv ' + UNLOCKS[i] : '') + '\n' + spell.text +
-        (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '');
+      button.dataset.tip = spell.name + (spell.mana ? ' · ' + spell.mana + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
+        (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
+        (slot.kind === 'weave' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
     for (const [i, button] of [...$('inventory').children].entries()) {
@@ -2728,7 +2872,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         if (!rejoin) enter();
         if (rejoin) hint('Reconnected');
       } else if (data.t === 's') {
+        const previousMarks = snapshot?.heroes[team].marks?.join();
         snapshot = data.s;
+        if (previousMarks !== snapshot.heroes[team].marks?.join()) lastUi = -1;
         const sample = snapshot.time - performance.now() / 1000;
         clockOffset = clockOffset === null || Math.abs(sample - clockOffset) > .5 ? sample : clockOffset + .1 * (sample - clockOffset);
         history.push(snapshot);
@@ -2835,12 +2981,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     if (k === '?') return help();
     if (game.hidden) {
       if (k === 'escape' && (waiting || networkAction || seat)) return disconnect();
-      if (/^[1-3]$/.test(k)) pick(heroKeys[+k - 1]);
+      if (/^[1-9]$/.test(k) && heroKeys[+k - 1]) pick(heroKeys[+k - 1]);
       if (k.startsWith('arrow')) {
         event.preventDefault();
         const step = k === 'arrowright' || k === 'arrowdown' ? 1 : -1;
         if (k === 'arrowup' || k === 'arrowdown') setDifficulty(difficulties[(difficulties.indexOf(difficulty) + step + 3) % 3]);
-        else pick(heroKeys[(heroKeys.indexOf(selected) + step + 3) % 3]);
+        else pick(heroKeys[(heroKeys.indexOf(selected) + step + heroKeys.length) % heroKeys.length]);
       }
       if (k === 'enter' && event.target.tagName !== 'BUTTON' && view === 'solo') solo();
       if (k === 'n') { tab('online'); $('name').focus(); }

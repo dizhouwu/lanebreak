@@ -21,7 +21,7 @@
     </section>
     <div class="lobbyControls">
       <section class="draft">
-        <div class="sectionHeader"><h2>Choose your hero</h2><span class="keyHint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></div>
+        <div class="sectionHeader"><h2>Choose your hero</h2><span class="keyHint"><kbd>1</kbd>–<kbd>6</kbd></span></div>
         <div id="heroes" class="heroGrid"></div>
       </section>
       <section class="deploy">
@@ -72,7 +72,7 @@
       <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to pan in free camera mode"></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
-        <div class="abilities" id="abilities"></div>
+        <div class="abilityBlock"><small id="weaveMarks" aria-live="polite" hidden></small><div class="abilities" id="abilities"></div></div>
         <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
         <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton" aria-controls="shop" aria-expanded="false"><kbd>B</kbd><span>Item shop</span></button></div>
       </div>
@@ -85,13 +85,14 @@
       <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
       <dt>Right click</dt><dd>Move or attack. Target an enemy hero to draw nearby creep aggro. Target an allied creep to transfer aggro or deny it below 50% HP.</dd>
       <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>The camera follows your hero by default. Press C to toggle free camera, or Space to recenter it on your hero. In free mode, pan with the screen edges, arrow keys, middle-mouse drag, or minimap.</dd>
-      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Abilities unlock at levels 1, 2, 3 and 6.</dd>
+      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Standard abilities unlock at levels 1, 2, 3 and 6.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
       <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
       <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>
       <dt><kbd>G</kbd> / <kbd>M</kbd></dt><dd>Cycle graphics quality / toggle sound.</dd>
     </dl>
+    <details><summary>Neris spell recipes</summary><p>Choose two marks with Q, W, or E in either order. Press R to cast.</p><dl id="weaveRecipes"></dl></details>
     <p class="muted">Last-hit enemy creeps for gold. Destroy the outer tower, inner tower, and enemy core in order.</p>
   </dialog>
   <!-- SCRIPTS -->

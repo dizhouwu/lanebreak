@@ -149,3 +149,25 @@ test('only a seated player can surrender and both players receive the same final
   assert.equal(rejoined.winner, 1);
   assert.equal(rejoined.endReason, 'surrender');
 });
+
+test('online Neris can queue marks and cast before receiving a new snapshot', async t => {
+  const url = await setup(t);
+  const a = connect(url.ws), b = connect(url.ws);
+  t.after(() => { a.ws.close(); b.ws.close(); });
+  await Promise.all([a.opened, b.opened]);
+  a.send({ t:'host', hero:'neris' });
+  const { code } = await a.get(type('wait'));
+  b.send({ t:'join', code, hero:'mirel' });
+  await Promise.all([a.get(type('start')), b.get(type('start'))]);
+  const cast = i => a.send({ t:'o', o:'cast', i, x:700, y:450 });
+  cast(2);
+  cast(0);
+  cast(3);
+  const moved = message => message.t === 's' && message.s.heroes[0].jump > 0;
+  const [host, guest] = await Promise.all([a.get(moved), b.get(moved)]);
+  assert.equal(host.s.heroes[0].x, 620);
+  assert.deepEqual(host.s.heroes[0].marks, []);
+  assert.ok(host.s.heroes[0].cd[3] > host.s.time);
+  assert.equal(guest.s.heroes[0].marks, undefined);
+  assert.equal(guest.s.heroes[1].hero, 'mirel');
+});
