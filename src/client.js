@@ -756,15 +756,16 @@
       const button = tile.lastElementChild;
       const spell = abilitySpell(h, i), level = abilityLevel(h, i);
       const cd = Math.max(0, abilityReadyAt(h, i) - time), locked = h.level < level;
+      const manaCost = s.training ? 0 : spell.mana;
       const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
+      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
-        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : spell.mana || '';
-      const cooldown = +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
+        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : manaCost || '';
+      const cooldown = s.training ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
-      button.dataset.tip = spell.name + (spell.mana ? ' · ' + spell.mana + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
+      button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
@@ -1127,7 +1128,7 @@
       local.refillTraining();
       snapshot = local.snapshot(team);
       lastUi = -1;
-      hint('Resources refilled · Cooldowns reset');
+      hint('Resources refilled · Item and recall cooldowns reset');
     };
     $('host').onclick = () => network('host');
     $('find').onclick = () => network('find');

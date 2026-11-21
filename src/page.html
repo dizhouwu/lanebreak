@@ -42,6 +42,7 @@
           <div id="waiting" class="onlineRow" hidden><button id="copy" class="primary">Copy invite link</button><button id="cancelWait">Cancel</button></div>
         </div>
         <div id="trainingPanel" hidden>
+          <p class="fieldLabel">Abilities have no mana cost or cooldown.</p>
           <label class="trainingOption"><input id="trainingDummy" type="checkbox" checked> Include a training dummy</label>
           <button id="startTraining" class="primary">Start training <kbd>Enter</kbd></button>
         </div>
@@ -50,7 +51,7 @@
   </main>
   <section id="game" hidden aria-label="Match controls">
     <header class="matchTop">
-      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><button id="trainingRefill" class="iconButton" title="Restore health, mana, gold, and cooldowns" hidden>Refill</button></div>
+      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><button id="trainingRefill" class="iconButton" title="Restore resources and reset item and recall cooldowns" hidden>Refill</button></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="trainingTag" hidden>Training</span><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
       <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">End match</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · C Toggle camera</small></div>
     </header>

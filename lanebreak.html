@@ -257,6 +257,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           <div id="waiting" class="onlineRow" hidden><button id="copy" class="primary">Copy invite link</button><button id="cancelWait">Cancel</button></div>
         </div>
         <div id="trainingPanel" hidden>
+          <p class="fieldLabel">Abilities have no mana cost or cooldown.</p>
           <label class="trainingOption"><input id="trainingDummy" type="checkbox" checked> Include a training dummy</label>
           <button id="startTraining" class="primary">Start training <kbd>Enter</kbd></button>
         </div>
@@ -265,7 +266,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   </main>
   <section id="game" hidden aria-label="Match controls">
     <header class="matchTop">
-      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><button id="trainingRefill" class="iconButton" title="Restore health, mana, gold, and cooldowns" hidden>Refill</button></div>
+      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><button id="trainingRefill" class="iconButton" title="Restore resources and reset item and recall cooldowns" hidden>Refill</button></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="trainingTag" hidden>Training</span><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
       <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">End match</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · C Toggle camera</small></div>
     </header>
@@ -505,18 +506,18 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     return kit.abilities[i];
   }
   const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
-  function abilityError(hero, i, time, spell = abilitySpell(hero, i)) {
+  function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
     if (!spell) return 'Invalid ability';
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
-    if (abilityReadyAt(hero, i) > time) return 'Ability cooling down';
+    if (!free && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
     if (spell.kind === 'prepared') return 'Prepare a spell with R first';
     if (spell.kind === 'invoke') {
       const recipe = weaveRecipe(hero);
       if (!recipe) return 'Queue three marks with Q, W, or E';
       if (hero.prepared[0] === recipe) return 'That spell is already in D';
     }
-    if (hero.mana < spell.mana) return 'Not enough mana';
+    if (!free && hero.mana < spell.mana) return 'Not enough mana';
     return null;
   }
   function randomGenerator(seed) {
@@ -694,8 +695,6 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       hero.hp = hero.maxHp;
       hero.mana = hero.maxMana;
       hero.gold = Math.max(hero.gold, TRAINING_GOLD);
-      hero.cd = [0, 0, 0, 0];
-      if (kit.weaves) hero.weaveReady = {};
       hero.itemsReady = {};
       hero.recallReady = 0;
     }
@@ -936,24 +935,26 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     cast(h, i, x, y) {
       if (h.stunUntil > this.time || h.dash) return 'Unable to act';
       const spec = HEROES[h.hero], spell = abilitySpell(h, i);
-      const error = abilityError(h, i, this.time, spell);
+      const free = Boolean(this.training);
+      const error = abilityError(h, i, this.time, spell, free);
       if (error) return error;
       if (spell.kind === 'mark') {
         h.marks = [...h.marks.slice(1 - WEAVE_MARKS), i];
         return null;
       }
-      const readyAt = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+      if (!free) {
+        const readyAt = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+        h.mana -= spell.mana;
+        if (i >= 4) h.weaveReady[h.prepared[i - 4]] = readyAt;
+        else h.cd[i] = readyAt;
+      }
       if (spell.kind === 'invoke') {
         const recipe = weaveRecipe(h);
         h.prepared = [recipe, ...h.prepared.filter(previous => previous !== recipe)].slice(0, 2);
         h.marks = [];
-        h.cd[i] = readyAt;
         return null;
       }
       const ultimate = i === 3 && !spec.weaves;
-      h.mana -= spell.mana;
-      if (i >= 4) h.weaveReady[h.prepared[i - 4]] = readyAt;
-      else h.cd[i] = readyAt;
       h.windup = null;
       h.channel = 0;
       if (spell.kind !== 'nova' && spell.kind !== 'buff' && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
@@ -3068,15 +3069,16 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const button = tile.lastElementChild;
       const spell = abilitySpell(h, i), level = abilityLevel(h, i);
       const cd = Math.max(0, abilityReadyAt(h, i) - time), locked = h.level < level;
+      const manaCost = s.training ? 0 : spell.mana;
       const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
+      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
-        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : spell.mana || '';
-      const cooldown = +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
+        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : manaCost || '';
+      const cooldown = s.training ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
-      button.dataset.tip = spell.name + (spell.mana ? ' · ' + spell.mana + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
+      button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
@@ -3439,7 +3441,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       local.refillTraining();
       snapshot = local.snapshot(team);
       lastUi = -1;
-      hint('Resources refilled · Cooldowns reset');
+      hint('Resources refilled · Item and recall cooldowns reset');
     };
     $('host').onclick = () => network('host');
     $('find').onclick = () => network('find');

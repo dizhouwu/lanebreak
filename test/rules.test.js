@@ -420,23 +420,42 @@ test('training has one stationary, invulnerable target and records real damage',
   assert.equal(match.mode, 'match');
 });
 
-test('empty training lets Neris refill and practice without adding a target', () => {
+test('empty training lets Neris prepare and cast repeatedly at zero mana', () => {
   const match = new Match({ heroes:['neris', 'brakk'], training:{ dummy:false } });
   const [hero, dummy] = match.heroes;
   const cast = i => match.order(0, { o:'cast', i, x:hero.x + 500, y:hero.y });
   assert.equal(match.units.size, 1);
   assert.equal(pickTarget(match.snapshot(0), 0, dummy), null);
   assert.equal(match.canShop(hero), true);
+  hero.mana = 0;
   cast(0); cast(1); cast(1);
   assert.equal(cast(3), null);
   assert.equal(cast(4), null);
-  assert.ok(hero.mana < hero.maxMana);
-  assert.ok(hero.weaveReady.QWW > match.time);
+  assert.equal(cast(4), null);
+  cast(2); cast(2); cast(2);
+  assert.equal(cast(3), null);
+  assert.deepEqual(hero.prepared, ['EEE', 'QWW']);
+  assert.equal(cast(4), null);
+  assert.equal(cast(5), null);
+  assert.equal(hero.mana, 0);
+  assert.equal(hero.cd[3], 0);
+  assert.deepEqual(hero.weaveReady, {});
   match.refillTraining();
   assert.equal(hero.mana, hero.maxMana);
-  assert.deepEqual(hero.prepared, ['QWW']);
-  assert.equal(cast(4), null);
+  assert.deepEqual(hero.prepared, ['EEE', 'QWW']);
   assert.equal(match.training.hits, 0);
+});
+
+test('training with a dummy lets Cairn repeat standard abilities without mana or cooldowns', () => {
+  const match = new Match({ heroes:['cairn', 'brakk'], training:{ dummy:true } });
+  const [hero, dummy] = match.heroes;
+  hero.mana = 0;
+  for (const i of [0, 1, 2, 1, 1, 2]) {
+    assert.equal(match.order(0, { o:'cast', i, x:dummy.x, y:dummy.y }), null);
+  }
+  assert.equal(match.areas.length, 6);
+  assert.equal(hero.mana, 0);
+  assert.deepEqual(hero.cd, [0, 0, 0, 0]);
 });
 
 test('recall is interrupted by an order and completes after three seconds when uninterrupted', () => {

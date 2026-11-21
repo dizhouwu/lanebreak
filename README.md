@@ -62,7 +62,7 @@ Append `#play=brakk,hard` to the URL to start a match immediately, or append `#d
 
 ## Training
 
-Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a stationary target with unlimited health, or uncheck it for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. **Refill** restores resources and cooldowns without clearing the damage counter.
+Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a stationary target with unlimited health, or uncheck it for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities have no mana cost or cooldown. **Refill** restores resources and resets item and recall cooldowns without clearing the damage counter.
 
 Append `#training=neris` to jump straight into training with Neris. Add `&dummy=off` to start in an empty arena.
 

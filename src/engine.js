@@ -25,18 +25,18 @@
     return kit.abilities[i];
   }
   const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
-  function abilityError(hero, i, time, spell = abilitySpell(hero, i)) {
+  function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
     if (!spell) return 'Invalid ability';
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
-    if (abilityReadyAt(hero, i) > time) return 'Ability cooling down';
+    if (!free && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
     if (spell.kind === 'prepared') return 'Prepare a spell with R first';
     if (spell.kind === 'invoke') {
       const recipe = weaveRecipe(hero);
       if (!recipe) return 'Queue three marks with Q, W, or E';
       if (hero.prepared[0] === recipe) return 'That spell is already in D';
     }
-    if (hero.mana < spell.mana) return 'Not enough mana';
+    if (!free && hero.mana < spell.mana) return 'Not enough mana';
     return null;
   }
   function randomGenerator(seed) {
@@ -214,8 +214,6 @@
       hero.hp = hero.maxHp;
       hero.mana = hero.maxMana;
       hero.gold = Math.max(hero.gold, TRAINING_GOLD);
-      hero.cd = [0, 0, 0, 0];
-      if (kit.weaves) hero.weaveReady = {};
       hero.itemsReady = {};
       hero.recallReady = 0;
     }
@@ -456,24 +454,26 @@
     cast(h, i, x, y) {
       if (h.stunUntil > this.time || h.dash) return 'Unable to act';
       const spec = HEROES[h.hero], spell = abilitySpell(h, i);
-      const error = abilityError(h, i, this.time, spell);
+      const free = Boolean(this.training);
+      const error = abilityError(h, i, this.time, spell, free);
       if (error) return error;
       if (spell.kind === 'mark') {
         h.marks = [...h.marks.slice(1 - WEAVE_MARKS), i];
         return null;
       }
-      const readyAt = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+      if (!free) {
+        const readyAt = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+        h.mana -= spell.mana;
+        if (i >= 4) h.weaveReady[h.prepared[i - 4]] = readyAt;
+        else h.cd[i] = readyAt;
+      }
       if (spell.kind === 'invoke') {
         const recipe = weaveRecipe(h);
         h.prepared = [recipe, ...h.prepared.filter(previous => previous !== recipe)].slice(0, 2);
         h.marks = [];
-        h.cd[i] = readyAt;
         return null;
       }
       const ultimate = i === 3 && !spec.weaves;
-      h.mana -= spell.mana;
-      if (i >= 4) h.weaveReady[h.prepared[i - 4]] = readyAt;
-      else h.cd[i] = readyAt;
       h.windup = null;
       h.channel = 0;
       if (spell.kind !== 'nova' && spell.kind !== 'buff' && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
