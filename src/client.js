@@ -39,6 +39,7 @@
   const game = $('game');
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
+    veil: [520,.24,'sine',.05,.52],
     blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5], sentry: [370,.16,'triangle',.052,1.3]
   };
 
@@ -728,6 +729,7 @@
   function updateInspection(s) {
     if (inspectedId == null) return;
     const hero = s.heroes.find(u => u.id === inspectedId);
+    if (hero?.concealed) return selectUnit(null);
     const building = !hero && s.buildings.find(u => u.id === inspectedId);
     const creep = !hero && !building && s.creeps.find(u => u[0] === inspectedId);
     if (!hero && !building && !creep) return selectUnit(null);
@@ -778,7 +780,8 @@
       const enemyHero = HEROES[foe.hero].name;
       $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
         (foe.heat != null ? ' · Heat ' + foe.heat : '') +
-        (foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') + (remote && foe.computer ? ' · Bot' : '');
+        (foe.concealed ? ' · Hidden' : foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') +
+        (remote && foe.computer ? ' · Bot' : '');
     }
     $('heroBadge').style.color = hero.color;
     const portraitCanvas = $('hudPortrait');
@@ -804,6 +807,7 @@
       const queue = Array.from({ length:WEAVE_MARKS }, (_, i) => marks[i] || '…');
       resourceText = marks.length ? 'Marks · ' + queue.join(' + ') : 'Choose three marks with Q, W, or E';
       if (recipe) resourceText += ' → ' + hero.weaves[recipe].name;
+      if (h.veiled) resourceText += ' · Invisible';
     } else if (hero.heat) {
       resourceText = 'Heat ' + h.heat + '/' + hero.heat.max + ' · +' + h.heat * hero.heat.attack + ' attack damage';
     }
@@ -1064,7 +1068,8 @@
     function objects() {
       return b.heroes.map((h, i) => {
         const current = snapshot.heroes[i];
-        if (h.jump !== current.jump || h.jump !== a.heroes[i].jump || h.hp <= 0 || a.heroes[i].hp <= 0) return current;
+        if (current.concealed || h.concealed || a.heroes[i].concealed || h.jump !== current.jump ||
+          h.jump !== a.heroes[i].jump || h.hp <= 0 || a.heroes[i].hp <= 0) return current;
         const [x,y] = mix(a.heroes[i].x,a.heroes[i].y,h.x,h.y);
         return { ...h,x,y };
       });

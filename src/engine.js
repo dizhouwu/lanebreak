@@ -12,7 +12,8 @@
   const physical = armor => 1 - .06 * armor / (1 + .06 * Math.abs(armor));
   const xpGoal = level => 200 + 100 * (level - 1);
   const owns = (object, id) => Object.hasOwn(object, id);
-  const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, sentry: 8 };
+  const isVeiled = (unit, time) => unit.veilUntil > time;
+  const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, sentry: 8, lifted: 16 };
   const CREEP_AGGRO_RANGE = 500;
   const CREEP_AGGRO_TIME = 2.3;
   const CREEP_AGGRO_COOLDOWN = 3;
@@ -276,7 +277,8 @@
         refresh(hero, this.time);
         if (hero.hp > 0) hero.hp += hero.maxHp - hp;
         hero.mana += hero.maxMana - mana;
-        this.effect('level', hero.x, hero.y, { team: hero.team, text: 'LEVEL ' + hero.level });
+        this.effect('level', hero.x, hero.y, { team: hero.team, audience: isVeiled(hero, this.time) ? hero.team : undefined,
+          text: 'LEVEL ' + hero.level });
       }
       if (hero.level === 15) hero.xp = 0;
     }
@@ -299,14 +301,16 @@
         this.training.hits++;
       } else target.hp -= amount;
       if (target.type === 'hero' || source.type === 'hero') this.effect('hit', target.x, target.y, {
-        team: source.team, audience: source.type === 'hero' || source.sentry ? source.team : target.team, text: Math.round(amount).toString()
+        team: source.team, audience: isVeiled(target, this.time) || (source.type !== 'hero' && !source.sentry) ?
+          target.team : source.team, text: Math.round(amount).toString()
       });
       const stitch = target.stitch;
       if (target.hp > 0 && stitch?.source === source.id && stitch.until > this.time && stitch.ready <= this.time) {
         target.stunUntil = Math.max(target.stunUntil, this.time + .22);
         stitch.ready = this.time + .65;
         if (--stitch.hits === 0) target.stitch = null;
-        this.effect('burst', target.x, target.y, { team:source.team, radius:42, hero:source.hero });
+        this.effect('burst', target.x, target.y, { team:source.team, radius:42, hero:source.hero,
+          audience: isVeiled(target, this.time) ? target.team : undefined });
       }
       const deny = target.type === 'creep' && source.type === 'hero' && target.team === source.team;
       if (attack && source.type === 'hero' && target.type !== 'building') {
@@ -349,6 +353,8 @@
         unit.stitch = null;
         unit.resonance = null;
         unit.disarmedUntil = 0;
+        unit.veilUntil = 0;
+        unit.liftUntil = 0;
         if (unit.heat != null) unit.heat = Math.floor(unit.heat / 2);
         this.effect('fall', unit.x, unit.y, { unit: 'hero' });
         unit.respawn = this.time + 5 + 2.2 * unit.level;
@@ -395,8 +401,12 @@
     }
     attack(a, target) {
       const spec = a.type === 'hero' ? HEROES[a.hero] : a;
-      if (!target || target.hp <= 0 || range(a, target) > spec.range || this.protected(target)) return false;
+      if (!target || target.hp <= 0 || isVeiled(target, this.time) || range(a, target) > spec.range || this.protected(target)) return false;
       if (a.attackReady > this.time || a.disarmedUntil > this.time) return true;
+      if (a.type === 'hero' && a.veilUntil) {
+        if (target.type === 'hero' && isVeiled(a, this.time)) this.drawCreepAggro(a);
+        a.veilUntil = 0;
+      }
       const windup = a.type === 'hero' ? .28 : a.type === 'building' ? .2 : .35;
       a.windup = { target: target.id, time: this.time + windup / this.attackSpeed(a) };
       a.facing = Math.atan2(target.y - a.y, target.x - a.x);
@@ -428,7 +438,7 @@
     finishAttack(a, spec) {
       if (!a.windup) return false;
       const shot = a.windup, b = this.units.get(shot.target);
-      if (!b || b.hp <= 0 || range(a, b) > spec.range + 140 || this.protected(b)) {
+      if (!b || b.hp <= 0 || isVeiled(b, this.time) || range(a, b) > spec.range + 140 || this.protected(b)) {
         a.windup = null;
         return false;
       }
@@ -448,16 +458,17 @@
     magic(target, source, spell, damage) {
       if (target.team === source.team || target.hp <= 0 || target.type === 'building') return;
       if (spell.slow) this.slow(target, spell.slow, spell.slowTime);
-      if (spell.stun) {
-        target.stunUntil = Math.max(target.stunUntil, this.time + spell.stun);
-      }
+      const disable = spell.lift || spell.stun;
+      if (disable) target.stunUntil = Math.max(target.stunUntil, this.time + disable);
+      if (spell.lift) target.liftUntil = Math.max(target.liftUntil || 0, this.time + spell.lift);
       if (target.type === 'hero') {
         const mark = target.resonance;
         if (spell.accent && mark?.owner === source.id && mark.until > this.time) {
           target.resonance = null;
           damage = Math.round(damage * (1 + spell.accent));
           target.stunUntil = Math.max(target.stunUntil, this.time + spell.accentStun);
-          this.effect('burst', target.x, target.y, { team:source.team, radius:70, hero:source.hero });
+          this.effect('burst', target.x, target.y, { team:source.team, radius:70, hero:source.hero,
+            audience: isVeiled(target, this.time) ? target.team : undefined });
         }
         if (spell.drain) target.mana = Math.max(0, target.mana - spell.drain);
         if (spell.disarm) {
@@ -510,12 +521,15 @@
         return null;
       }
       const ultimate = i === 3 && !spec.weaves;
+      const recastingVeil = spell.kind === 'veil' && isVeiled(h, this.time);
+      if (h.veilUntil) h.veilUntil = 0;
       h.windup = null;
       h.channel = 0;
       if (abilityNeedsTarget(spell) && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
       const damage = spellDamage(h, spell);
       if (spell.heatDamage) h.heat = 0;
-      this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate });
+      this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate,
+        audience: recastingVeil ? h.team : undefined });
       switch (spell.kind) {
         case 'bolt': {
           const dx = Math.cos(h.facing), dy = Math.sin(h.facing);
@@ -548,6 +562,10 @@
         case 'buff':
           this.buff(h, spell.name, spell.duration, spell.stats);
           break;
+        case 'veil':
+          h.veilUntil = this.time + spell.duration;
+          if (h.order?.o === 'attack' || h.order?.o === 'amove') h.order = null;
+          break;
       }
       return null;
     }
@@ -557,11 +575,12 @@
       h.statsDirty = true;
     }
     blink(h, destination) {
-      this.effect('burst', h.x, h.y, { team: h.team, radius: 65, hero: h.hero });
+      const audience = isVeiled(h, this.time) ? h.team : undefined;
+      this.effect('burst', h.x, h.y, { team: h.team, radius: 65, hero: h.hero, audience });
       Object.assign(h, destination);
       h.jump = (h.jump || 0) + 1;
       if (h.order?.o === 'move') h.order = null;
-      this.effect('burst', h.x, h.y, { team: h.team, radius: 75, hero: h.hero });
+      this.effect('burst', h.x, h.y, { team: h.team, radius: 75, hero: h.hero, audience });
     }
     canShop(h) {
       return !!this.training || h.hp <= 0 || distance(h, home(h.team)) <= 430;
@@ -620,7 +639,8 @@
         const nearby = this.creeps.filter(creep => creep.hp > 0 && creep.team === h.team && distance(h, creep) < 700);
         if (!nearby.length) return 'War Horn requires nearby allied creeps';
         for (const creep of nearby) creep.hornUntil = this.time + 8;
-        this.effect('burst', h.x, h.y, { team: h.team, radius: 700, hero: h.hero });
+        this.effect('burst', h.x, h.y, { team: h.team, radius: 700, hero: h.hero,
+          audience: isVeiled(h, this.time) ? h.team : undefined });
       }
       h.itemsReady[id] = this.time + ITEMS[id].cd;
       return null;
@@ -646,14 +666,14 @@
           break;
         case 'attack': {
           const target = this.units.get(id);
-          if (!target || target.hp <= 0 || this.protected(target) ||
+          if (!target || target.hp <= 0 || isVeiled(target, this.time) || this.protected(target) ||
             (target.team === team && target.type !== 'creep')) return 'Invalid attack target';
           if (target.team === team) {
             const transferred = this.transferCreepAggro(h, target);
             h.order = target.hp < target.maxHp / 2 ? { o, id } :
               transferred ? { o:'stop' } : { o:'move', ...point(h, target.x, target.y) };
           } else {
-            if (target.type === 'hero') this.drawCreepAggro(h);
+            if (target.type === 'hero' && !isVeiled(h, this.time)) this.drawCreepAggro(h);
             h.order = { o, id };
           }
           h.channel = 0;
@@ -691,7 +711,7 @@
     nearest(unit, radius, filter = anyUnit) {
       let best = null, closest = radius;
       for (const other of this.units.values()) {
-        if (other.hp <= 0 || other.team === unit.team) continue;
+        if (other.hp <= 0 || other.team === unit.team || isVeiled(other, this.time)) continue;
         const reach = closest + other.r;
         if (reach < 0 || distanceSquared(unit, other) > reach * reach + 1e-8) continue;
         if (this.protected(other) || !filter(other)) continue;
@@ -789,9 +809,11 @@
         if (distance(h, order) < 2) h.order = null;
         return;
       }
+      const autoAttack = order?.o === 'amove' || (!h.bot && !isVeiled(h, this.time));
       const target = order?.o === 'attack' ? this.units.get(order.id) :
-        (!h.bot || order?.o === 'amove' ? this.nearest(h, spec.range + (order ? 200 : 140)) : null);
-      if (target?.hp > 0 && !this.protected(target) && (target.team !== h.team || target.hp < target.maxHp * .5)) {
+        (autoAttack ? this.nearest(h, spec.range + (order ? 200 : 140)) : null);
+      if (target?.hp > 0 && !isVeiled(target, this.time) && !this.protected(target) &&
+        (target.team !== h.team || target.hp < target.maxHp * .5)) {
         if (!this.attack(h, target)) this.walk(h, target, speed, dt);
       } else if (order?.o === 'amove') {
         this.walk(h, order, speed, dt);
@@ -813,7 +835,7 @@
         return;
       }
       let target = this.units.get(c.target);
-      if (target && (target.hp <= 0 || this.protected(target) || distance(c, target) > 720)) target = null;
+      if (target && (target.hp <= 0 || isVeiled(target, this.time) || this.protected(target) || distance(c, target) > 720)) target = null;
       if (!target || (!(c.forcedUntil > this.time) && this.time >= c.scan)) {
         c.forcedUntil = 0;
         target = this.nearest(c, 480);
@@ -831,11 +853,11 @@
         return;
       }
       const enemy = this.heroes[1 - b.team];
-      const danger = enemy.hp > 0 && range(b, enemy) <= b.range && this.time - enemy.recentAggro <= 2.5;
+      const danger = enemy.hp > 0 && !isVeiled(enemy, this.time) && range(b, enemy) <= b.range && this.time - enemy.recentAggro <= 2.5;
       this.finishAttack(b, b);
       let target = this.units.get(b.target);
       if (danger) target = enemy;
-      else if (!target || target.hp <= 0 || range(b, target) > b.range) {
+      else if (!target || target.hp <= 0 || isVeiled(target, this.time) || range(b, target) > b.range) {
         target = this.nearest(b, b.range, t => t.type === 'creep') ||
           this.nearest(b, b.range, t => t.type === 'hero');
       }
@@ -851,6 +873,7 @@
           const b = units[j], required = a.r + b.r;
           const dx = b.x - a.x, dy = b.y - a.y;
           if (Math.abs(dx) >= required || Math.abs(dy) >= required) continue;
+          if (a.team !== b.team && (isVeiled(a, this.time) || isVeiled(b, this.time))) continue;
           const d = Math.hypot(dx, dy);
           if (d >= required) continue;
           const am = a.type === 'building' || a.dash || a.dummy || a.sentry ? 0 : 1;
@@ -866,7 +889,7 @@
     updateProjectiles(dt) {
       this.projectiles = this.projectiles.filter(p => {
         if (p.kind === 'attack') {
-          if (p.target.hp <= 0) return false;
+          if (p.target.hp <= 0 || isVeiled(p.target, this.time)) return false;
           const d = distance(p, p.target);
           if (d <= p.speed * dt + p.target.r / 2) {
             this.attackHit(p.from, p.target, p.damage);
@@ -1026,7 +1049,7 @@
     }
     aiCast(h, enemy, mode, difficulty) {
       if (this.random() > difficulty.cast) return false;
-      const spec = HEROES[h.hero], enemyAlive = enemy.hp > 0;
+      const spec = HEROES[h.hero], enemyAlive = enemy.hp > 0 && !isVeiled(enemy, this.time);
       const reach = enemyAlive ? distance(h, enemy) : Infinity;
       const health = h.hp / h.maxHp, mana = h.mana / h.maxMana;
       const enemyHealth = enemyAlive ? enemy.hp / enemy.maxHp : 1;
@@ -1035,8 +1058,8 @@
         x: enemy.x + enemy.vx * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise,
         y: enemy.y + enemy.vy * seconds * difficulty.lead + (this.random() - .5) * difficulty.noise
       });
-      const recipes = kill ? ['QQW', 'WEE', 'EEE', 'QWE', 'QQQ', 'WWW', 'QWW', 'WWE', 'QEE', 'QQE'] :
-        ['WWE', 'QQE', 'QQW', 'WWW', 'QQQ', 'QEE', 'QWE', 'WEE', 'EEE', 'QWW'];
+      const recipes = kill ? ['QWW', 'WEE', 'EEE', 'QWE', 'QQQ', 'WWW', 'WWE', 'QEE', 'QQE'] :
+        ['WWE', 'QQE', 'QWW', 'WWW', 'QQQ', 'QEE', 'QWE', 'WEE', 'EEE'];
       const buildResonance = spec.abilities[0].resonance &&
         !(enemy.resonance?.owner === h.id && enemy.resonance.until > this.time);
       const options = spec.weaves ? recipes.map(recipe => ({ i:3, spell:spec.weaves[recipe], recipe })) :
@@ -1104,7 +1127,7 @@
       const d = DIFF[h.bot] || DIFF.normal, data = HEROES[h.hero], t = this.time;
       h.think = t + d.react * (.7 + this.random() * .6);
       const enemy = this.heroes[1 - h.team], own = home(h.team), enemyHome = home(enemy.team);
-      const enemyAlive = enemy.hp > 0, enemyDist = enemyAlive ? distance(h, enemy) : Infinity;
+      const enemyAlive = enemy.hp > 0 && !isVeiled(enemy, t), enemyDist = enemyAlive ? distance(h, enemy) : Infinity;
       const hp = h.hp / h.maxHp, mana = h.mana / h.maxMana, enemyHp = enemy.hp / enemy.maxHp;
       const homeDist = distance(h, own), dir = h.team ? -1 : 1;
       const order = cmd => this.order(h.team, cmd);
@@ -1134,7 +1157,7 @@
           if (enemyDist < 700) {
             const away = { x:h.x - dir * 1000, y:h.y };
             if (data.weaves) {
-              if (this.weaveAvailable(h, 'QWW', data.weaves.QWW)) this.castBotSpell(h, 3, away, 'QWW');
+              if (!isVeiled(h, t) && this.weaveAvailable(h, 'QQW', data.weaves.QQW)) this.castBotSpell(h, 3, h, 'QQW');
             } else {
               const escape = data.abilities.findIndex((spell, i) => this.abilityReady(h, i) &&
                 (spell.kind === 'dash' || spell.kind === 'blink' || (spell.kind === 'buff' && (spell.stats.move || spell.stats.armor))));
@@ -1241,11 +1264,17 @@
     }
     snapshotView(team, full = false) {
       const heroes = this.heroes.map(h => {
+        const veiled = isVeiled(h, this.time);
+        if (veiled && h.team !== team && !full) {
+          return { id:h.id, type:h.type, team:h.team, hero:h.hero, name:h.name, level:h.level, concealed:true, computer:!!h.bot };
+        }
         const common = { ...unitSnapshot(h, this.time), hero: h.hero, name: h.name, level: h.level, respawn: h.respawn,
           channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
           facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot,
           ...(h.heat != null && { heat:h.heat }),
           ...(h.dummy && { dummy:true }),
+          ...(veiled && { veiled:true }),
+          ...(h.liftUntil > this.time && { lifted:true }),
           ...(h.stitch?.until > this.time && { stitched:true }),
           ...(h.resonance?.until > this.time && { resonating:true }),
           ...(h.disarmedUntil > this.time && { disarmed:true }),
@@ -1267,9 +1296,11 @@
           ...(u.kind === 'core' ? {} : { range: u.range, target: u.windup?.target || u.target }) })),
         creeps: this.creeps.map(c => [c.id, c.team, c.kind, quant(c.x), quant(c.y), Math.ceil(c.hp), Math.ceil(c.maxHp), !!c.windup, quant(c.r), angle(c.facing),
           (c.stunUntil > this.time ? CREEP_FLAGS.stunned : 0) | (c.hornUntil > this.time ? CREEP_FLAGS.rallied : 0) |
-          (c.hp < c.maxHp / 2 && !c.sentry ? CREEP_FLAGS.deniable : 0) | (c.sentry ? CREEP_FLAGS.sentry : 0)]),
+          (c.hp < c.maxHp / 2 && !c.sentry ? CREEP_FLAGS.deniable : 0) | (c.sentry ? CREEP_FLAGS.sentry : 0) |
+          (c.liftUntil > this.time ? CREEP_FLAGS.lifted : 0)]),
         projectiles: this.projectiles.map(p => p.kind === 'bolt' ?
-          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero, angle(p.dx), angle(p.dy), p.spell.radius] :
+          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero, angle(p.dx), angle(p.dy), p.spell.radius,
+            ...(p.spell.lift ? ['wind'] : [])] :
           [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero || p.from.type]),
         areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate]) };
     }

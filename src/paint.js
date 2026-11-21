@@ -406,10 +406,16 @@
         const hpColor = u.team !== team ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
         this.bar(g,u,u.y-u.r-11,34,hpColor,5);
       }
-      for (const [, side, kind, x, y, source, dx, dy, width] of s.projectiles) {
+      for (const [, side, kind, x, y, source, dx, dy, width, trail] of s.projectiles) {
         if (!visible({x})) continue;
         const color = source === 'building' ? '#fff0b0' : HEROES[source]?.color || COLORS[side];
-        if (kind === 'bolt') {
+        if (trail === 'wind') {
+          ellipse(g, x, y + 3, 30, 12, '#101f3273');
+          for (let i = 0; i < 4; i++) {
+            const spin = Math.sin(now * 31 + i * 1.5) * (5 + i * 2);
+            ellipse(g, x + spin, y - 8 - i * 12, 13 + i * 6, 6 + i * 2, '#8dedee26', '#b7feefd9', 2.5);
+          }
+        } else if (kind === 'bolt') {
           g.lineCap = 'round';
           line(g, [[x - dx * 70, y - dy * 70], [x, y]], color + '78', width * .5);
           line(g, [[x - dx * 30, y - dy * 30], [x, y]], '#f5f1ee', 4);
@@ -522,8 +528,8 @@
       this.bar(g,b,y - (core ? 102 : 109),core ? 130 : 86,b.team === team ? '#58d86a' : '#ff5a5a',8);
     }
     dummy(g, u) {
-      const { x, y } = u;
-      ellipse(g,x,y+7,37,15,'#171a18a0');
+      const { x } = u, y = u.y - (u.lifted ? 22 : 0);
+      ellipse(g,x,u.y+7,37,15,'#171a18a0');
       line(g,[[x-24,y+9],[x+24,y+9]],'#956b49',7);
       line(g,[[x,y+9],[x,y-43]],'#b08457',9);
       line(g,[[x-32,y-28],[x+32,y-28]],'#b08457',6);
@@ -536,8 +542,8 @@
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
     }
     hero(g, u, team, now) {
-      const {x,y} = u, color = COLORS[u.team], armor = HEROES[u.hero].color;
-      ellipse(g,x+7,y+10,30,16,'#102125a5');
+      const {x} = u, y = u.y - (u.lifted ? 22 : 0), color = COLORS[u.team], armor = HEROES[u.hero].color;
+      ellipse(g,x+7,u.y+10,30,16,'#102125a5');
       ellipse(g,x,y+4,u.r+9,u.r+5,null,color,4);
       for (const id of u.potionActive ? [...(u.buffs || []), 'potion'] : u.buffs || []) {
         const buffColor = ORBS[id] || (id === 'potion' ? '#e2506a' : id === 'sprint' ? '#f0a23c' : armor);
@@ -552,6 +558,7 @@
       const facing = u.facing ?? (u.team ? Math.PI : 0);
       const lunge = u.attack && HEROES[u.hero].range < 200 ? 8 : 0;
       g.save();
+      if (u.veiled) g.globalAlpha = .44;
       g.translate(x + Math.cos(facing)*lunge,y + Math.sin(facing)*lunge);
       g.scale(Math.cos(facing) < 0 ? -1 : 1,1);
       g.translate(-x,-y);
@@ -590,7 +597,8 @@
       ellipse(g,x+4,y+6,r+3,r*.63,'#111e2385');
       const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
       const direction = Math.cos(facing) < 0 ? -1 : 1;
-      g.save(); g.translate(Math.cos(facing)*lunge,Math.sin(facing)*lunge);
+      const lift = u.flags & flags.lifted ? 16 : 0;
+      g.save(); g.translate(Math.cos(facing)*lunge,Math.sin(facing)*lunge - lift);
       if (flags & Lanebreak.CREEP_FLAGS.sentry) {
         poly(g,[[x-16,y+8],[x-9,y-9],[x+9,y-9],[x+16,y+8]],'#3c3025',color,2);
         line(g,[[x,y+5],[x,y-20]],'#eac98b',2.5);
@@ -608,7 +616,7 @@
       }
       g.restore();
       if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
-      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17,16,'#fff29a');
+      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17-lift,16,'#fff29a');
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
     }
     minimap(s, team, viewWidth, viewHeight) {

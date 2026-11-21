@@ -159,19 +159,31 @@ test('online Neris can queue marks, prepare a spell, and cast before receiving a
   const { code } = await a.get(type('wait'));
   b.send({ t:'join', code, hero:'mirel' });
   await Promise.all([a.get(type('start')), b.get(type('start'))]);
-  const cast = i => a.send({ t:'o', o:'cast', i, x:700, y:450 });
+  const cast = (i, castMode = 'self', recipe) => a.send({ t:'o', o:'cast', i, x:700, y:450, castMode, recipe });
   cast(0);
   cast(1);
   cast(1);
   cast(3);
-  cast(4);
-  const moved = message => message.t === 's' && message.s.heroes[0].jump > 0;
-  const [host, guest] = await Promise.all([a.get(moved), b.get(moved)]);
-  assert.equal(host.s.heroes[0].x, 620);
+  cast(4, 'point', 'QWW');
+  const tornado = message => message.t === 's' && message.s.projectiles.some(p => p[9] === 'wind');
+  const [host, guest] = await Promise.all([a.get(tornado), b.get(tornado)]);
+  assert.equal(host.s.heroes[0].jump, 0);
   assert.deepEqual(host.s.heroes[0].marks, []);
   assert.deepEqual(host.s.heroes[0].prepared, ['QWW']);
   assert.ok(host.s.heroes[0].weaveReady.QWW > host.s.time);
   assert.equal(guest.s.heroes[0].marks, undefined);
   assert.equal(guest.s.heroes[0].prepared, undefined);
   assert.equal(guest.s.heroes[1].hero, 'mirel');
+
+  await a.get(message => message.t === 's' && message.s.time >= host.s.heroes[0].cd[3]);
+  for (const i of [0, 0, 1, 3]) cast(i);
+  cast(4, 'self', 'QQW');
+  const [owner, opponent] = await Promise.all([
+    a.get(message => message.t === 's' && message.s.heroes[0].veiled),
+    b.get(message => message.t === 's' && message.s.heroes[0].concealed)
+  ]);
+  assert.deepEqual(owner.s.heroes[0].prepared, ['QQW', 'QWW']);
+  assert.ok(Number.isFinite(owner.s.heroes[0].x));
+  assert.equal(opponent.s.heroes[0].x, undefined);
+  assert.equal(opponent.s.heroes[0].hp, undefined);
 });

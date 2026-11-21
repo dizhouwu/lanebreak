@@ -76,9 +76,9 @@
       ],
       weaves: {
         QQQ: { name: 'Pin Stitch', kind: 'bolt', mana: 65, cd: 11, range: 720, radius: 29, speed: 1550, damage: 59, growth: 14, stitch: true, text: 'Tag the first enemy hero hit for 4 seconds. Your follow-up hits can briefly stagger them up to three times.' },
-        QQW: { name: 'Crosswind', kind: 'bolt', mana: 85, cd: 15, range: 940, radius: 45, speed: 1150, piercing: true, damage: 72, growth: 17, stun:.8, text: 'Send a cutting gust through the lane, damaging and briefly stunning enemies it crosses.' },
+        QQW: { name: 'Veil Stitch', kind: 'veil', mana: 90, cd: 18, duration: 5.5, text: 'Become invisible for 5.5 seconds. Attacking or casting another spell breaks the veil.' },
         QQE: { name: 'Fray Screen', kind: 'blast', mana: 75, cd: 13, range: 650, radius: 195, delay: .3, hits: 4, interval: .65, damage: 24, growth: 6, slow: .34, slowTime:1, text: 'Leave a tangle on the ground that damages and slows enemies in four pulses.' },
-        QWW: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Teleport up to 510 units toward the selected point.' },
+        QWW: { name: 'Crosswind', kind: 'bolt', mana: 85, cd: 15, range: 940, radius: 45, speed: 1150, piercing: true, damage: 72, growth: 17, lift:.8, text: 'Send a tornado toward the selected point, damaging and briefly lifting enemies it crosses.' },
         QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 41, speed: 1400, piercing: true, damage: 81, growth: 18, push:115, disarm:1.2, text: 'Fire a piercing shockwave that pushes enemies away. Hero basic attacks are disabled for 1.2 seconds.' },
         QEE: { name: 'Needle Post', kind: 'sentry', mana: 85, cd: 20, range: 610, duration: 10, health:270, shot:30, shotGrowth:3, text: 'Plant a destructible sentry for 10 seconds. It fires at nearby enemy heroes and creeps.' },
         WWW: { name: 'Hollow Seam', kind: 'blast', mana: 90, cd: 17, range: 750, radius: 220, delay: 1.1, damage: 88, growth: 19, drain:80, text: 'Mark an area that bursts after a delay, dealing damage and draining up to 80 mana from enemy heroes inside.' },

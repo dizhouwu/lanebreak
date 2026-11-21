@@ -22,9 +22,9 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 | Marks | Spell |
 |---|---|
 | Q + Q + Q | Pin Stitch, a tag that lets follow-up hits briefly stagger a hero |
-| Q + Q + W | Crosswind, a piercing line stun |
+| Q + Q + W | Veil Stitch, self-cast invisibility that ends when you attack or cast another spell |
 | Q + Q + E | Fray Screen, a persistent slow zone |
-| Q + W + W | Loose End, a short teleport |
+| Q + W + W | Crosswind, a click-aimed tornado that damages and briefly lifts enemies in its path |
 | Q + W + E | Spool Break, a wave that pushes enemies and disarms heroes |
 | Q + E + E | Needle Post, a stationary sentry |
 | W + W + W | Hollow Seam, a delayed mana drain |
