@@ -70,20 +70,22 @@
         { name: 'Thread', kind: 'mark', mana: 0, cd: 0, text: 'Add a Thread mark. Weave uses your latest three marks.' },
         { name: 'Needle', kind: 'mark', mana: 0, cd: 0, text: 'Add a Needle mark. Weave uses your latest three marks.' },
         { name: 'Knot', kind: 'mark', mana: 0, cd: 0, text: 'Add a Knot mark. Weave uses your latest three marks.' },
-        { name: 'Weave', kind: 'invoke', mana: 0, cd: 3, text: 'Turn three marks into a prepared spell. The new spell moves to D and the previous spell moves to F.' },
+        { name: 'Weave', kind: 'invoke', mana: 0, cd: 1.5, text: 'Turn three marks into a prepared spell. The new spell moves to D and the previous spell moves to F.' },
         { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a spell with R to cast it from this slot.' },
         { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a second spell with R to fill both slots.' }
       ],
       weaves: {
-        QQQ: { name: 'Pin Stitch', kind: 'bolt', mana: 65, cd: 11, range: 720, radius: 29, speed: 1550, damage: 59, growth: 14, stitch: true, text: 'Tag the first enemy hero hit for 4 seconds. Your follow-up hits can briefly stagger them up to three times.' },
+        QQQ: { name: 'Pin Stitch', kind: 'unit', mana: 65, cd: 11, range: 720, damage: 59, growth: 14, stun:.22, stitch: true, text: 'Click an enemy hero to stagger them instantly and mark them for 4 seconds. Your follow-up damage can stagger them up to three more times.' },
         QQW: { name: 'Veil Stitch', kind: 'veil', mana: 90, cd: 18, duration: 5.5, text: 'Become invisible for 5.5 seconds. Attacking or casting another spell breaks the veil.' },
         QQE: { name: 'Fray Screen', kind: 'blast', mana: 75, cd: 13, range: 650, radius: 195, delay: .3, hits: 4, interval: .65, damage: 24, growth: 6, slow: .34, slowTime:1, text: 'Leave a tangle on the ground that damages and slows enemies in four pulses.' },
         QWW: { name: 'Crosswind', kind: 'bolt', mana: 85, cd: 15, range: 940, radius: 45, speed: 1150, piercing: true, damage: 72, growth: 17, lift:.8, text: 'Send a tornado toward the selected point, damaging and briefly lifting enemies it crosses.' },
-        QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 41, speed: 1400, piercing: true, damage: 81, growth: 18, push:115, disarm:1.2, text: 'Fire a piercing shockwave that pushes enemies away. Hero basic attacks are disabled for 1.2 seconds.' },
+        QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 62, speed: 1400, piercing: true, damage: 81, growth: 18, push:145, stun:.3, disarm:1.2, text: 'Send a piercing shockwave toward the selected point. It knocks enemies back along its path and disarms heroes for 1.2 seconds.' },
         QEE: { name: 'Needle Post', kind: 'sentry', mana: 85, cd: 20, range: 610, duration: 10, health:270, shot:30, shotGrowth:3, text: 'Plant a destructible sentry for 10 seconds. It fires at nearby enemy heroes and creeps.' },
         WWW: { name: 'Hollow Seam', kind: 'blast', mana: 90, cd: 17, range: 750, radius: 220, delay: 1.1, damage: 88, growth: 19, drain:80, text: 'Mark an area that bursts after a delay, dealing damage and draining up to 80 mana from enemy heroes inside.' },
         WWE: { name: 'Tighten Thread', kind: 'buff', mana: 65, cd: 17, duration: 4.5, stats: { haste:.46, damage:20 }, text: 'Gain 46% attack speed and 20 attack damage for 4.5 seconds.' },
-        WEE: { name: 'Rolling Stitch', kind: 'blast', mana: 110, cd: 18, range: 440, radius: 150, delay: .6, hits: 4, interval: .42, travel:130, damage: 40, growth: 8, text: 'Send four bursts rolling in the cast direction. Each advances 130 units from the previous one.' },
+        WEE: { name: 'Emberfall', kind: 'meteor', mana: 110, cd: 18, range: 650, radius: 115, delay: .55, speed: 420,
+          roll: 800, piercing: true, damage: 55, growth: 11, burnTicks: 4, burnInterval: .55, burnScale: .48,
+          text: 'Drop a meteor at the selected point. It rolls away from you, scorching enemies in its path for 2.2 seconds.' },
         EEE: { name: 'Sky Needle', kind: 'blast', mana: 115, cd: 20, range: 1420, radius: 128, delay: 1.05, damage: 155, growth: 26, text: 'Call down a narrow, delayed strike up to 1,420 units away.' }
       },
       build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'vest', 'bulwark', 'heartstone']

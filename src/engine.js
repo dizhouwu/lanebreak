@@ -27,10 +27,13 @@
     if (i >= 4 && kit.weaves) return kit.weaves[hero.prepared?.[i - 4]] || kit.abilities[i];
     return kit.abilities[i];
   }
-  function abilityNeedsTarget(spell) {
-    return Boolean(spell && !spell.fixed && (spell.kind === 'blast' ? spell.range > 0 :
-      ['bolt', 'dash', 'blink', 'sentry'].includes(spell.kind)));
+  function abilityCastMode(spell) {
+    if (!spell || spell.fixed) return 'self';
+    if (spell.kind === 'unit') return 'unit';
+    return (spell.kind === 'blast' ? spell.range > 0 : ['bolt', 'dash', 'blink', 'sentry', 'meteor'].includes(spell.kind)) ?
+      'point' : 'self';
   }
+  const abilityNeedsTarget = spell => abilityCastMode(spell) !== 'self';
   const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
   function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
     if (!spell) return 'Invalid ability';
@@ -105,6 +108,21 @@
   function pickTarget(snapshot, team, point, includeAlliedCreeps = false) {
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
     return pickUnit(snapshot, point, team, includeAlliedCreeps);
+  }
+  const targetableHero = (caster, target, spell, time) => target?.type === 'hero' && target.team !== caster.team &&
+    target.hp > 0 && !isVeiled(target, time) && range(caster, target) <= spell.range;
+  function pickSpellTarget(snapshot, caster, spell, at) {
+    let best = null, nearest = Infinity;
+    for (const target of snapshot.heroes) {
+      if (!targetableHero(caster, target, spell, snapshot.time)) continue;
+      const height = (target.dummy ? 28 : 18) + (target.lifted ? 22 : 0);
+      const d = Math.hypot(target.x - at.x, Math.max(target.y - height - at.y, at.y - target.y, 0));
+      if (d <= target.r + 12 && d < nearest) {
+        best = target;
+        nearest = d;
+      }
+    }
+    return best;
   }
   function pickUnit(snapshot, point, attackTeam, includeAlliedCreeps = false) {
     let best = null, nearest = Infinity;
@@ -351,6 +369,7 @@
       } else if (unit.type === 'hero') {
         unit.deaths++;
         unit.stitch = null;
+        unit.meteorBurn = null;
         unit.resonance = null;
         unit.disarmedUntil = 0;
         unit.veilUntil = 0;
@@ -455,7 +474,7 @@
       target.slows = target.slows.filter(slow => slow.id !== id);
       target.slows.push({ id, value, until: this.time + seconds });
     }
-    magic(target, source, spell, damage) {
+    magic(target, source, spell, damage, direction) {
       if (target.team === source.team || target.hp <= 0 || target.type === 'building') return;
       if (spell.slow) this.slow(target, spell.slow, spell.slowTime);
       const disable = spell.lift || spell.stun;
@@ -484,8 +503,12 @@
       if (spell.stitch && target.type === 'hero') {
         target.stitch = { source:source.id, until:this.time + 4, ready:this.time + .25, hits:3 };
       }
-      if (spell.push && !target.dummy && !target.sentry) {
-        Object.assign(target, point(source, target.x, target.y, Infinity, distance(source,target) + spell.push));
+      if (spell.burnTicks) {
+        target.meteorBurn = { source, damage: damage * spell.burnScale, ticks: spell.burnTicks,
+          interval: spell.burnInterval, next: this.time + spell.burnInterval };
+      }
+      if (spell.push && direction && !target.dummy && !target.sentry) {
+        Object.assign(target, point(target, target.x + direction.dx * spell.push, target.y + direction.dy * spell.push));
         if (target.type === 'hero') target.jump = (target.jump || 0) + 1;
       }
     }
@@ -498,12 +521,17 @@
         if (distanceSquared(unit, center) <= reach * reach) this.magic(unit, h, spell, damage);
       }
     }
-    cast(h, i, x, y) {
+    cast(h, i, x, y, id) {
       if (h.stunUntil > this.time || h.dash) return 'Unable to act';
       const spec = HEROES[h.hero], spell = abilitySpell(h, i);
       const free = Boolean(this.training);
       const error = abilityError(h, i, this.time, spell, free);
       if (error) return error;
+      const target = spell.kind === 'unit' ? this.units.get(id) : null;
+      if (spell.kind === 'unit') {
+        if (!targetableHero(h, target, spell, this.time)) return 'Select an enemy hero in range';
+        ({ x, y } = target);
+      }
       if (spell.kind === 'mark') {
         h.marks = [...h.marks.slice(1 - WEAVE_MARKS), i];
         return null;
@@ -537,10 +565,14 @@
             from: h, team: h.team, speed: spell.speed, dx, dy, left: spell.range, spell, damage, hit: new Set() });
           break;
         }
+        case 'unit':
+          this.magic(target, h, spell, damage);
+          break;
+        case 'meteor':
         case 'blast': {
           this.areas.push({ id: this.nextId++, ...castPoint(h, spell, x, y), from: h, team: h.team, radius: spell.radius,
             time: this.time + spell.delay, duration: spell.delay, ultimate, hits: spell.hits || 1, spell, damage,
-            ...(spell.travel && { heading:h.facing }) });
+            ...(spell.roll && { dx:Math.cos(h.facing), dy:Math.sin(h.facing) }) });
           break;
         }
         case 'sentry': {
@@ -685,10 +717,12 @@
           h.channel = 0;
           h.windup = null;
           break;
-        case 'cast':
-          if ((cmd.castMode && (cmd.castMode === 'point') !== abilityNeedsTarget(abilitySpell(h, i))) ||
+        case 'cast': {
+          const mode = abilityCastMode(abilitySpell(h, i));
+          if ((cmd.castMode && cmd.castMode !== mode) ||
             (cmd.recipe && cmd.recipe !== h.prepared?.[i - 4])) return 'Spell changed. Select the ability again.';
-          return this.cast(h, i, x, y);
+          return this.cast(h, i, x, y, id);
+        }
         case 'item':
           return this.useItem(h, i, x, y);
         case 'potion':
@@ -776,6 +810,7 @@
         }
       }
       if (h.hp <= 0) return;
+      if (h.liftUntil > this.time) h.dash = null;
       if (h.dash) {
         this.walk(h, h.dash, h.dash.spell.speed, dt);
         if (distance(h, h.dash) < 1e-6) {
@@ -911,7 +946,7 @@
         targets.sort((a, b) => a.t - b.t);
         for (const { u } of targets) {
           p.hit.add(u.id);
-          this.magic(u, p.from, p.spell, p.damage);
+          this.magic(u, p.from, p.spell, p.damage, p);
           if (!p.spell.piercing) return false;
         }
         p.left -= length;
@@ -951,6 +986,12 @@
       for (const u of this.units.values()) {
         u.vx = u.vy = 0;
         if (u.slows.length) u.slows = u.slows.filter(s => s.until > this.time);
+        const burn = u.meteorBurn;
+        if (u.hp > 0 && burn && burn.next <= this.time) {
+          burn.next += burn.interval;
+          if (--burn.ticks === 0) u.meteorBurn = null;
+          this.hurt(u, burn.damage, burn.source, { ability:true });
+        }
       }
       for (const h of this.heroes) if (!h.dummy) this.updateHero(h, dt);
       for (const b of this.buildings) if (b.hp > 0) this.updateBuilding(b, dt);
@@ -959,13 +1000,14 @@
       if (this.projectiles.length) this.updateProjectiles(dt);
       if (this.areas.length) this.areas = this.areas.filter(a => {
         if (this.time + 1e-8 < a.time) return true;
+        if (a.spell.kind === 'meteor') {
+          this.projectiles.push({ id:a.id, kind:'bolt', x:a.x, y:a.y, from:a.from, team:a.team, dx:a.dx, dy:a.dy,
+            speed:a.spell.speed, left:a.spell.roll, spell:a.spell, damage:a.damage, hit:new Set() });
+          this.effect('burst', a.x, a.y, { team:a.team, radius:a.radius, hero:a.from.hero, spell:'meteor' });
+          return false;
+        }
         this.blast(a.from, a.spell, a.x, a.y, a.damage);
         if (--a.hits <= 0) return false;
-        if (a.spell.travel) {
-          const x = a.x + Math.cos(a.heading) * a.spell.travel, y = a.y + Math.sin(a.heading) * a.spell.travel;
-          if (x < 20 || x > WIDTH - 20 || y < 20 || y > HEIGHT - 20) return false;
-          Object.assign(a, { x, y });
-        }
         a.time += a.spell.interval || 0;
         a.duration = a.spell.interval;
         return true;
@@ -1045,7 +1087,8 @@
         }
         i = slot + 4;
       }
-      return !this.order(h.team, { o:'cast', i, x:pos.x, y:pos.y });
+      return !this.order(h.team, abilitySpell(h, i).kind === 'unit' ?
+        { o:'cast', i, id:pos.id, castMode:'unit' } : { o:'cast', i, x:pos.x, y:pos.y });
     }
     aiCast(h, enemy, mode, difficulty) {
       if (this.random() > difficulty.cast) return false;
@@ -1076,6 +1119,10 @@
             if (cluster) return cast(cluster);
             break;
           }
+          case 'unit':
+            if ((kill || mana > .4) && targetableHero(h, enemy, spell, this.time)) return cast(enemy);
+            break;
+          case 'meteor':
           case 'blast': {
             const want = kill || (ultimate ? enemyHealth < .7 && mana > .3 : mana > .4);
             if (spell.fixed) {
@@ -1275,6 +1322,7 @@
           ...(h.dummy && { dummy:true }),
           ...(veiled && { veiled:true }),
           ...(h.liftUntil > this.time && { lifted:true }),
+          ...(h.meteorBurn && { burning:true }),
           ...(h.stitch?.until > this.time && { stitched:true }),
           ...(h.resonance?.until > this.time && { resonating:true }),
           ...(h.disarmedUntil > this.time && { disarmed:true }),
@@ -1298,11 +1346,17 @@
           (c.stunUntil > this.time ? CREEP_FLAGS.stunned : 0) | (c.hornUntil > this.time ? CREEP_FLAGS.rallied : 0) |
           (c.hp < c.maxHp / 2 && !c.sentry ? CREEP_FLAGS.deniable : 0) | (c.sentry ? CREEP_FLAGS.sentry : 0) |
           (c.liftUntil > this.time ? CREEP_FLAGS.lifted : 0)]),
-        projectiles: this.projectiles.map(p => p.kind === 'bolt' ?
-          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero, angle(p.dx), angle(p.dy), p.spell.radius,
-            ...(p.spell.lift ? ['wind'] : [])] :
-          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero || p.from.type]),
-        areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate]) };
+        projectiles: this.projectiles.map(p => {
+          const row = [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero || p.from.type];
+          if (p.kind !== 'bolt') return row;
+          row.push(angle(p.dx), angle(p.dy), p.spell.radius);
+          if (p.spell.lift) row.push('wind');
+          if (p.spell.push) row.push('shockwave');
+          if (p.spell.roll) row.push('meteor');
+          return row;
+        }),
+        areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate,
+          ...(a.spell.roll ? ['meteor'] : [])]) };
     }
   }
   function validOrder(cmd) {
@@ -1313,7 +1367,8 @@
       case 'move':
       case 'amove': return pos;
       case 'attack': return Number.isSafeInteger(cmd.id) && cmd.id > 0;
-      case 'cast': return slot(6) && pos && (cmd.castMode === undefined || ['self', 'point'].includes(cmd.castMode)) &&
+      case 'cast': return slot(6) && (cmd.castMode === 'unit' ? Number.isSafeInteger(cmd.id) && cmd.id > 0 :
+        pos && (cmd.castMode === undefined || cmd.castMode === 'self' || cmd.castMode === 'point')) &&
         (cmd.recipe === undefined || (cmd.i >= 4 && typeof cmd.recipe === 'string' && /^[QWE]{3}$/.test(cmd.recipe)));
       case 'item': return slot(6) && pos;
       case 'sell': return slot(6);
@@ -1325,7 +1380,8 @@
     }
   }
   const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell,
-    abilityError, abilityReadyAt, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
+    abilityError, abilityReadyAt, abilityCastMode, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, pickSpellTarget,
+    CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();

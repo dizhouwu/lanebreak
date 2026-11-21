@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Match, buyPlan, sellValue, spellDamage, physical, pickTarget, pickUnit, abilityNeedsTarget, castPoint, CREEP_FLAGS } = require('../src/engine.js');
+const { Match, buyPlan, sellValue, spellDamage, physical, pickTarget, pickUnit, pickSpellTarget, abilityCastMode,
+  abilityNeedsTarget, castPoint, CREEP_FLAGS } = require('../src/engine.js');
 const { HEROES, ITEMS } = require('../src/rules.js');
 
 const advance = (match, elapsed) => {
@@ -264,6 +265,7 @@ test('aimed abilities and instant abilities are classified across the roster', (
   for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
     assert.equal(abilityNeedsTarget(spell), recipe !== 'WWE' && recipe !== 'QQW');
   }
+  assert.equal(abilityCastMode(HEROES.neris.weaves.QQQ), 'unit');
 });
 
 test('an aimed cast uses the previewed point and a stale Neris slot cannot cast a different spell', () => {
@@ -294,10 +296,12 @@ test('Neris can prepare and cast all ten recipes at level one in any order', () 
   assert.equal(Object.keys(HEROES.neris.weaves).length, 10);
   for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
     const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
-    const hero = match.heroes[0];
-    const cast = i => match.order(0, { o:'cast', i, x:600, y:450 });
+    const [hero, enemy] = match.heroes;
+    enemy.x = 600;
+    const cast = i => match.order(0, i === 4 && spell.kind === 'unit' ?
+      { o:'cast', i, id:enemy.id, castMode:'unit' } : { o:'cast', i, x:600, y:450 });
     assert.match(cast(3), /Queue three marks/);
-    assert.match(cast(4), /Prepare a spell/);
+    assert.match(match.order(0, { o:'cast', i:4, x:600, y:450 }), /Prepare a spell/);
     for (const key of [...recipe].reverse()) assert.equal(cast('QWE'.indexOf(key)), null);
     assert.equal(hero.mana, hero.maxMana);
     assert.equal(cast(3), null);
@@ -308,8 +312,9 @@ test('Neris can prepare and cast all ten recipes at level one in any order', () 
     assert.equal(cast(4), null);
     assert.equal(hero.mana, hero.maxMana - spell.mana);
     assert.equal(hero.weaveReady[recipe], spell.cd);
-    if (spell.kind === 'blast') assert.equal(match.areas[0].spell, spell);
+    if (spell.kind === 'blast' || spell.kind === 'meteor') assert.equal(match.areas[0].spell, spell);
     else if (spell.kind === 'bolt') assert.equal(match.projectiles[0].spell, spell);
+    else if (spell.kind === 'unit') assert.equal(enemy.stitch.source, hero.id);
     else if (spell.kind === 'veil') assert.equal(hero.veilUntil, spell.duration);
     else if (spell.kind === 'sentry') assert.equal(match.creeps[0].sentry, true);
     else assert.equal(hero.buffs[0].id, spell.name);
@@ -352,10 +357,23 @@ test('Neris preserves spell cooldowns when spells swap slots or are prepared aga
   assert.equal(cast(5), null);
 });
 
-test('Neris marks and drains enemies, and Spool Break cancels attacks without moving the dummy', () => {
+test('Pin Stitch targets a hero by id, lands immediately, and staggers on later damage', () => {
   const match = new Match({ heroes:['neris','brakk'], training:{ dummy:true } });
   const [hero, dummy] = match.heroes, spells = HEROES.neris.weaves;
-  match.magic(dummy,hero,spells.QQQ,30);
+  const cast = { o:'cast', i:4, id:dummy.id, castMode:'unit', recipe:'QQQ' };
+  for (const i of [0, 0, 0, 3]) assert.equal(match.order(0, { o:'cast', i, x:hero.x, y:hero.y }), null);
+  assert.match(match.order(0, { ...cast, castMode:'point', x:dummy.x, y:dummy.y }), /Select the ability again/);
+  assert.match(match.order(0, { ...cast, id:hero.id }), /enemy hero in range/);
+  dummy.x += 300;
+  assert.match(match.order(0, cast), /enemy hero in range/);
+  dummy.x -= 300;
+  dummy.liftUntil = match.time + 1;
+  assert.equal(pickSpellTarget(match.snapshot(0), hero, spells.QQQ, { x:dummy.x, y:dummy.y - 55 }).id, dummy.id);
+  assert.equal(match.training.hits, 0);
+  assert.equal(match.order(0, cast), null);
+  assert.equal(match.projectiles.length, 0);
+  assert.equal(match.training.hits, 1);
+  assert.ok(dummy.stunUntil > match.time);
   assert.equal(dummy.stitch.hits, 3);
   advance(match, .3);
   match.hurt(dummy,30,hero,{ attack:true });
@@ -372,6 +390,21 @@ test('Neris marks and drains enemies, and Spool Break cancels attacks without mo
   assert.equal(dummy.x, x);
   assert.equal(dummy.windup, null);
   assert.ok(dummy.disarmedUntil > match.time);
+});
+
+test('Spool Break pushes along its trajectory even when Neris moves after casting', () => {
+  const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
+  const [hero, enemy] = match.heroes;
+  Object.assign(hero, { x:2100, y:450, order:{ o:'stop' } });
+  Object.assign(enemy, { x:2460, y:480, order:{ o:'stop' } });
+  for (const i of [0, 1, 2, 3, 4]) {
+    assert.equal(match.order(0, { o:'cast', i, x:2600, y:450 }), null);
+  }
+  hero.y = 680;
+  advance(match, .35);
+  assert.equal(enemy.x, 2460 + HEROES.neris.weaves.QWE.push);
+  assert.equal(enemy.y, 480);
+  assert.ok(enemy.disarmedUntil > match.time);
 });
 
 test('WWQ sends a tornado that hits once and lifts the training dummy', () => {
@@ -432,7 +465,7 @@ test('QQW conceals Neris through movement and preparation, but spells and attack
   assert.equal(match.snapshot(1).heroes[0].concealed, undefined);
 });
 
-test('Needle Post fires and expires, and Rolling Stitch advances after each pulse', () => {
+test('Needle Post fires and expires, and Emberfall rolls and keeps burning enemies it passes', () => {
   const match = new Match({ heroes:['neris','brakk'], training:{ dummy:true } });
   const [, dummy] = match.heroes;
   const cast = (i, x) => match.order(0, { o:'cast', i, x, y:dummy.y });
@@ -451,11 +484,19 @@ test('Needle Post fires and expires, and Rolling Stitch advances after each puls
   advance(match, 10);
   assert.equal(match.units.has(post.id), false);
   prepare('WEE');
-  assert.equal(cast(4, dummy.x), null);
-  const area = match.areas[0], first = area.x, previousHits = match.training.hits;
-  advance(match, .63);
-  assert.equal(area.x, first + HEROES.neris.weaves.WEE.travel);
-  assert.ok(match.training.hits > previousHits);
+  assert.equal(cast(4, dummy.x - 230), null);
+  const area = match.areas[0], previousHits = match.training.hits;
+  advance(match, .55);
+  assert.equal(match.projectiles[0].x, area.x);
+  assert.equal(match.training.hits, previousHits);
+  advance(match, .4);
+  assert.ok(match.projectiles[0].x > area.x);
+  assert.equal(match.training.hits, previousHits + 1);
+  assert.equal(match.snapshot(0).heroes[1].burning, true);
+  advance(match, 2.5);
+  assert.equal(match.training.hits, previousHits + 5);
+  assert.equal(match.projectiles.length, 0);
+  assert.equal(match.snapshot(0).heroes[1].burning, undefined);
 });
 
 test('bots can finish a weakened enemy Needle Post without treating it as a lane creep', () => {

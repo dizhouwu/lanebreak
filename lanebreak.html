@@ -404,20 +404,22 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         { name: 'Thread', kind: 'mark', mana: 0, cd: 0, text: 'Add a Thread mark. Weave uses your latest three marks.' },
         { name: 'Needle', kind: 'mark', mana: 0, cd: 0, text: 'Add a Needle mark. Weave uses your latest three marks.' },
         { name: 'Knot', kind: 'mark', mana: 0, cd: 0, text: 'Add a Knot mark. Weave uses your latest three marks.' },
-        { name: 'Weave', kind: 'invoke', mana: 0, cd: 3, text: 'Turn three marks into a prepared spell. The new spell moves to D and the previous spell moves to F.' },
+        { name: 'Weave', kind: 'invoke', mana: 0, cd: 1.5, text: 'Turn three marks into a prepared spell. The new spell moves to D and the previous spell moves to F.' },
         { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a spell with R to cast it from this slot.' },
         { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a second spell with R to fill both slots.' }
       ],
       weaves: {
-        QQQ: { name: 'Pin Stitch', kind: 'bolt', mana: 65, cd: 11, range: 720, radius: 29, speed: 1550, damage: 59, growth: 14, stitch: true, text: 'Tag the first enemy hero hit for 4 seconds. Your follow-up hits can briefly stagger them up to three times.' },
+        QQQ: { name: 'Pin Stitch', kind: 'unit', mana: 65, cd: 11, range: 720, damage: 59, growth: 14, stun:.22, stitch: true, text: 'Click an enemy hero to stagger them instantly and mark them for 4 seconds. Your follow-up damage can stagger them up to three more times.' },
         QQW: { name: 'Veil Stitch', kind: 'veil', mana: 90, cd: 18, duration: 5.5, text: 'Become invisible for 5.5 seconds. Attacking or casting another spell breaks the veil.' },
         QQE: { name: 'Fray Screen', kind: 'blast', mana: 75, cd: 13, range: 650, radius: 195, delay: .3, hits: 4, interval: .65, damage: 24, growth: 6, slow: .34, slowTime:1, text: 'Leave a tangle on the ground that damages and slows enemies in four pulses.' },
         QWW: { name: 'Crosswind', kind: 'bolt', mana: 85, cd: 15, range: 940, radius: 45, speed: 1150, piercing: true, damage: 72, growth: 17, lift:.8, text: 'Send a tornado toward the selected point, damaging and briefly lifting enemies it crosses.' },
-        QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 41, speed: 1400, piercing: true, damage: 81, growth: 18, push:115, disarm:1.2, text: 'Fire a piercing shockwave that pushes enemies away. Hero basic attacks are disabled for 1.2 seconds.' },
+        QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 62, speed: 1400, piercing: true, damage: 81, growth: 18, push:145, stun:.3, disarm:1.2, text: 'Send a piercing shockwave toward the selected point. It knocks enemies back along its path and disarms heroes for 1.2 seconds.' },
         QEE: { name: 'Needle Post', kind: 'sentry', mana: 85, cd: 20, range: 610, duration: 10, health:270, shot:30, shotGrowth:3, text: 'Plant a destructible sentry for 10 seconds. It fires at nearby enemy heroes and creeps.' },
         WWW: { name: 'Hollow Seam', kind: 'blast', mana: 90, cd: 17, range: 750, radius: 220, delay: 1.1, damage: 88, growth: 19, drain:80, text: 'Mark an area that bursts after a delay, dealing damage and draining up to 80 mana from enemy heroes inside.' },
         WWE: { name: 'Tighten Thread', kind: 'buff', mana: 65, cd: 17, duration: 4.5, stats: { haste:.46, damage:20 }, text: 'Gain 46% attack speed and 20 attack damage for 4.5 seconds.' },
-        WEE: { name: 'Rolling Stitch', kind: 'blast', mana: 110, cd: 18, range: 440, radius: 150, delay: .6, hits: 4, interval: .42, travel:130, damage: 40, growth: 8, text: 'Send four bursts rolling in the cast direction. Each advances 130 units from the previous one.' },
+        WEE: { name: 'Emberfall', kind: 'meteor', mana: 110, cd: 18, range: 650, radius: 115, delay: .55, speed: 420,
+          roll: 800, piercing: true, damage: 55, growth: 11, burnTicks: 4, burnInterval: .55, burnScale: .48,
+          text: 'Drop a meteor at the selected point. It rolls away from you, scorching enemies in its path for 2.2 seconds.' },
         EEE: { name: 'Sky Needle', kind: 'blast', mana: 115, cd: 20, range: 1420, radius: 128, delay: 1.05, damage: 155, growth: 26, text: 'Call down a narrow, delayed strike up to 1,420 units away.' }
       },
       build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'vest', 'bulwark', 'heartstone']
@@ -528,10 +530,13 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     if (i >= 4 && kit.weaves) return kit.weaves[hero.prepared?.[i - 4]] || kit.abilities[i];
     return kit.abilities[i];
   }
-  function abilityNeedsTarget(spell) {
-    return Boolean(spell && !spell.fixed && (spell.kind === 'blast' ? spell.range > 0 :
-      ['bolt', 'dash', 'blink', 'sentry'].includes(spell.kind)));
+  function abilityCastMode(spell) {
+    if (!spell || spell.fixed) return 'self';
+    if (spell.kind === 'unit') return 'unit';
+    return (spell.kind === 'blast' ? spell.range > 0 : ['bolt', 'dash', 'blink', 'sentry', 'meteor'].includes(spell.kind)) ?
+      'point' : 'self';
   }
+  const abilityNeedsTarget = spell => abilityCastMode(spell) !== 'self';
   const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
   function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
     if (!spell) return 'Invalid ability';
@@ -606,6 +611,21 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   function pickTarget(snapshot, team, point, includeAlliedCreeps = false) {
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
     return pickUnit(snapshot, point, team, includeAlliedCreeps);
+  }
+  const targetableHero = (caster, target, spell, time) => target?.type === 'hero' && target.team !== caster.team &&
+    target.hp > 0 && !isVeiled(target, time) && range(caster, target) <= spell.range;
+  function pickSpellTarget(snapshot, caster, spell, at) {
+    let best = null, nearest = Infinity;
+    for (const target of snapshot.heroes) {
+      if (!targetableHero(caster, target, spell, snapshot.time)) continue;
+      const height = (target.dummy ? 28 : 18) + (target.lifted ? 22 : 0);
+      const d = Math.hypot(target.x - at.x, Math.max(target.y - height - at.y, at.y - target.y, 0));
+      if (d <= target.r + 12 && d < nearest) {
+        best = target;
+        nearest = d;
+      }
+    }
+    return best;
   }
   function pickUnit(snapshot, point, attackTeam, includeAlliedCreeps = false) {
     let best = null, nearest = Infinity;
@@ -852,6 +872,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       } else if (unit.type === 'hero') {
         unit.deaths++;
         unit.stitch = null;
+        unit.meteorBurn = null;
         unit.resonance = null;
         unit.disarmedUntil = 0;
         unit.veilUntil = 0;
@@ -956,7 +977,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       target.slows = target.slows.filter(slow => slow.id !== id);
       target.slows.push({ id, value, until: this.time + seconds });
     }
-    magic(target, source, spell, damage) {
+    magic(target, source, spell, damage, direction) {
       if (target.team === source.team || target.hp <= 0 || target.type === 'building') return;
       if (spell.slow) this.slow(target, spell.slow, spell.slowTime);
       const disable = spell.lift || spell.stun;
@@ -985,8 +1006,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (spell.stitch && target.type === 'hero') {
         target.stitch = { source:source.id, until:this.time + 4, ready:this.time + .25, hits:3 };
       }
-      if (spell.push && !target.dummy && !target.sentry) {
-        Object.assign(target, point(source, target.x, target.y, Infinity, distance(source,target) + spell.push));
+      if (spell.burnTicks) {
+        target.meteorBurn = { source, damage: damage * spell.burnScale, ticks: spell.burnTicks,
+          interval: spell.burnInterval, next: this.time + spell.burnInterval };
+      }
+      if (spell.push && direction && !target.dummy && !target.sentry) {
+        Object.assign(target, point(target, target.x + direction.dx * spell.push, target.y + direction.dy * spell.push));
         if (target.type === 'hero') target.jump = (target.jump || 0) + 1;
       }
     }
@@ -999,12 +1024,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         if (distanceSquared(unit, center) <= reach * reach) this.magic(unit, h, spell, damage);
       }
     }
-    cast(h, i, x, y) {
+    cast(h, i, x, y, id) {
       if (h.stunUntil > this.time || h.dash) return 'Unable to act';
       const spec = HEROES[h.hero], spell = abilitySpell(h, i);
       const free = Boolean(this.training);
       const error = abilityError(h, i, this.time, spell, free);
       if (error) return error;
+      const target = spell.kind === 'unit' ? this.units.get(id) : null;
+      if (spell.kind === 'unit') {
+        if (!targetableHero(h, target, spell, this.time)) return 'Select an enemy hero in range';
+        ({ x, y } = target);
+      }
       if (spell.kind === 'mark') {
         h.marks = [...h.marks.slice(1 - WEAVE_MARKS), i];
         return null;
@@ -1038,10 +1068,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
             from: h, team: h.team, speed: spell.speed, dx, dy, left: spell.range, spell, damage, hit: new Set() });
           break;
         }
+        case 'unit':
+          this.magic(target, h, spell, damage);
+          break;
+        case 'meteor':
         case 'blast': {
           this.areas.push({ id: this.nextId++, ...castPoint(h, spell, x, y), from: h, team: h.team, radius: spell.radius,
             time: this.time + spell.delay, duration: spell.delay, ultimate, hits: spell.hits || 1, spell, damage,
-            ...(spell.travel && { heading:h.facing }) });
+            ...(spell.roll && { dx:Math.cos(h.facing), dy:Math.sin(h.facing) }) });
           break;
         }
         case 'sentry': {
@@ -1186,10 +1220,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           h.channel = 0;
           h.windup = null;
           break;
-        case 'cast':
-          if ((cmd.castMode && (cmd.castMode === 'point') !== abilityNeedsTarget(abilitySpell(h, i))) ||
+        case 'cast': {
+          const mode = abilityCastMode(abilitySpell(h, i));
+          if ((cmd.castMode && cmd.castMode !== mode) ||
             (cmd.recipe && cmd.recipe !== h.prepared?.[i - 4])) return 'Spell changed. Select the ability again.';
-          return this.cast(h, i, x, y);
+          return this.cast(h, i, x, y, id);
+        }
         case 'item':
           return this.useItem(h, i, x, y);
         case 'potion':
@@ -1277,6 +1313,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         }
       }
       if (h.hp <= 0) return;
+      if (h.liftUntil > this.time) h.dash = null;
       if (h.dash) {
         this.walk(h, h.dash, h.dash.spell.speed, dt);
         if (distance(h, h.dash) < 1e-6) {
@@ -1412,7 +1449,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         targets.sort((a, b) => a.t - b.t);
         for (const { u } of targets) {
           p.hit.add(u.id);
-          this.magic(u, p.from, p.spell, p.damage);
+          this.magic(u, p.from, p.spell, p.damage, p);
           if (!p.spell.piercing) return false;
         }
         p.left -= length;
@@ -1452,6 +1489,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       for (const u of this.units.values()) {
         u.vx = u.vy = 0;
         if (u.slows.length) u.slows = u.slows.filter(s => s.until > this.time);
+        const burn = u.meteorBurn;
+        if (u.hp > 0 && burn && burn.next <= this.time) {
+          burn.next += burn.interval;
+          if (--burn.ticks === 0) u.meteorBurn = null;
+          this.hurt(u, burn.damage, burn.source, { ability:true });
+        }
       }
       for (const h of this.heroes) if (!h.dummy) this.updateHero(h, dt);
       for (const b of this.buildings) if (b.hp > 0) this.updateBuilding(b, dt);
@@ -1460,13 +1503,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (this.projectiles.length) this.updateProjectiles(dt);
       if (this.areas.length) this.areas = this.areas.filter(a => {
         if (this.time + 1e-8 < a.time) return true;
+        if (a.spell.kind === 'meteor') {
+          this.projectiles.push({ id:a.id, kind:'bolt', x:a.x, y:a.y, from:a.from, team:a.team, dx:a.dx, dy:a.dy,
+            speed:a.spell.speed, left:a.spell.roll, spell:a.spell, damage:a.damage, hit:new Set() });
+          this.effect('burst', a.x, a.y, { team:a.team, radius:a.radius, hero:a.from.hero, spell:'meteor' });
+          return false;
+        }
         this.blast(a.from, a.spell, a.x, a.y, a.damage);
         if (--a.hits <= 0) return false;
-        if (a.spell.travel) {
-          const x = a.x + Math.cos(a.heading) * a.spell.travel, y = a.y + Math.sin(a.heading) * a.spell.travel;
-          if (x < 20 || x > WIDTH - 20 || y < 20 || y > HEIGHT - 20) return false;
-          Object.assign(a, { x, y });
-        }
         a.time += a.spell.interval || 0;
         a.duration = a.spell.interval;
         return true;
@@ -1546,7 +1590,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         }
         i = slot + 4;
       }
-      return !this.order(h.team, { o:'cast', i, x:pos.x, y:pos.y });
+      return !this.order(h.team, abilitySpell(h, i).kind === 'unit' ?
+        { o:'cast', i, id:pos.id, castMode:'unit' } : { o:'cast', i, x:pos.x, y:pos.y });
     }
     aiCast(h, enemy, mode, difficulty) {
       if (this.random() > difficulty.cast) return false;
@@ -1577,6 +1622,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
             if (cluster) return cast(cluster);
             break;
           }
+          case 'unit':
+            if ((kill || mana > .4) && targetableHero(h, enemy, spell, this.time)) return cast(enemy);
+            break;
+          case 'meteor':
           case 'blast': {
             const want = kill || (ultimate ? enemyHealth < .7 && mana > .3 : mana > .4);
             if (spell.fixed) {
@@ -1776,6 +1825,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           ...(h.dummy && { dummy:true }),
           ...(veiled && { veiled:true }),
           ...(h.liftUntil > this.time && { lifted:true }),
+          ...(h.meteorBurn && { burning:true }),
           ...(h.stitch?.until > this.time && { stitched:true }),
           ...(h.resonance?.until > this.time && { resonating:true }),
           ...(h.disarmedUntil > this.time && { disarmed:true }),
@@ -1799,11 +1849,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           (c.stunUntil > this.time ? CREEP_FLAGS.stunned : 0) | (c.hornUntil > this.time ? CREEP_FLAGS.rallied : 0) |
           (c.hp < c.maxHp / 2 && !c.sentry ? CREEP_FLAGS.deniable : 0) | (c.sentry ? CREEP_FLAGS.sentry : 0) |
           (c.liftUntil > this.time ? CREEP_FLAGS.lifted : 0)]),
-        projectiles: this.projectiles.map(p => p.kind === 'bolt' ?
-          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero, angle(p.dx), angle(p.dy), p.spell.radius,
-            ...(p.spell.lift ? ['wind'] : [])] :
-          [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero || p.from.type]),
-        areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate]) };
+        projectiles: this.projectiles.map(p => {
+          const row = [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero || p.from.type];
+          if (p.kind !== 'bolt') return row;
+          row.push(angle(p.dx), angle(p.dy), p.spell.radius);
+          if (p.spell.lift) row.push('wind');
+          if (p.spell.push) row.push('shockwave');
+          if (p.spell.roll) row.push('meteor');
+          return row;
+        }),
+        areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate,
+          ...(a.spell.roll ? ['meteor'] : [])]) };
     }
   }
   function validOrder(cmd) {
@@ -1814,7 +1870,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       case 'move':
       case 'amove': return pos;
       case 'attack': return Number.isSafeInteger(cmd.id) && cmd.id > 0;
-      case 'cast': return slot(6) && pos && (cmd.castMode === undefined || ['self', 'point'].includes(cmd.castMode)) &&
+      case 'cast': return slot(6) && (cmd.castMode === 'unit' ? Number.isSafeInteger(cmd.id) && cmd.id > 0 :
+        pos && (cmd.castMode === undefined || cmd.castMode === 'self' || cmd.castMode === 'point')) &&
         (cmd.recipe === undefined || (cmd.i >= 4 && typeof cmd.recipe === 'string' && /^[QWE]{3}$/.test(cmd.recipe)));
       case 'item': return slot(6) && pos;
       case 'sell': return slot(6);
@@ -1826,7 +1883,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     }
   }
   const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell,
-    abilityError, abilityReadyAt, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
+    abilityError, abilityReadyAt, abilityCastMode, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, pickSpellTarget,
+    CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();
@@ -2220,12 +2278,13 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         this.crystal(g, x, u, 21, color);
         this.label(g, kind.toUpperCase(), x, y + 43, 13, color);
       }
-      for (const [, side, rad, x, y, strike, duration, hero, ultimate] of s.areas) {
+      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style] of s.areas) {
         if (!visible({x})) continue;
-        const color = HEROES[hero]?.color || COLORS[side];
+        const color = style === 'meteor' ? '#ff9d56' : HEROES[hero]?.color || COLORS[side];
         const progress = clamp(1 - (strike - now) / (duration || 1), 0, 1);
         ellipse(g, x, y, rad, rad, color + '22', color + '9d', 3);
         ellipse(g, x, y, rad * progress, rad * progress, null, color + 'b8', ultimate ? 4 : 2);
+        if (style === 'meteor') this.meteor(g, x, y, 1, 0, now, (1 - progress) ** 2 * 240);
       }
       const fighters = units.filter(visible).sort((a, b) => a.y - b.y);
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
@@ -2249,6 +2308,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
             const spin = Math.sin(now * 31 + i * 1.5) * (5 + i * 2);
             ellipse(g, x + spin, y - 8 - i * 12, 13 + i * 6, 6 + i * 2, '#8dedee26', '#b7feefd9', 2.5);
           }
+        } else if (trail === 'meteor') {
+          this.meteor(g, x, y, dx, dy, now);
+        } else if (trail === 'shockwave') {
+          g.save();
+          g.translate(x, y);
+          g.rotate(Math.atan2(dy, dx));
+          g.beginPath();
+          g.ellipse(-14, 0, 42, width, 0, -1.25, 1.25);
+          g.strokeStyle = '#bd8df18f'; g.lineWidth = 13; g.stroke();
+          g.strokeStyle = '#eee1ff'; g.lineWidth = 3; g.stroke();
+          g.restore();
         } else if (kind === 'bolt') {
           g.lineCap = 'round';
           line(g, [[x - dx * 70, y - dy * 70], [x, y]], color + '78', width * .5);
@@ -2271,7 +2341,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         if (age < -.06 || age > 1.08 || !visible(e)) continue;
         g.globalAlpha = clamp((1 - age) * 1.3, 0, 1);
         if (e.kind === 'burst' || e.kind === 'cast') {
-          const color = HEROES[e.hero]?.color || COLORS[e.team];
+          const color = e.spell === 'meteor' ? '#ff9d56' : HEROES[e.hero]?.color || COLORS[e.team];
           const r = (e.radius || 45) * clamp(.25 + age * 3, .25, 1);
           ellipse(g, e.x, e.y, r, r, color + '24', color + 'cc', 4);
           if (e.kind === 'burst') {
@@ -2289,7 +2359,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       if (pointer) {
         const at = this.toWorld(pointer.x, pointer.y);
-        if (spell) this.castPreview(g, player, spell, at);
+        if (spell?.kind === 'unit') {
+          ellipse(g, player.x, player.y, spell.range, spell.range, null, '#ffe0a23d', 2);
+          const target = Lanebreak.pickSpellTarget(s, player, spell, at);
+          if (target) ellipse(g, target.x, target.y, target.r + 9, target.r + 9, '#ffe0a229', '#ffe0a2', 3);
+        } else if (spell) this.castPreview(g, player, spell, at);
         else {
           const target = Lanebreak.pickTarget(s, team, at);
           if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
@@ -2307,6 +2381,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       g.save();
       g.setLineDash([10, 7]);
       line(g, [[hero.x, hero.y], [end.x, end.y]], color + 'b0', 2);
+      if (spell.roll) {
+        const angle = at.x === hero.x && at.y === hero.y ? hero.facing : Math.atan2(at.y - hero.y, at.x - hero.x);
+        line(g, [[end.x, end.y], [end.x + Math.cos(angle) * spell.roll, end.y + Math.sin(angle) * spell.roll]], '#ff9d56b0', 2);
+      }
       g.setLineDash([]);
       if (spell.kind !== 'bolt' && spell.radius) {
         ellipse(g, end.x, end.y, spell.radius, spell.radius, color + '18', color + 'd0', 2.5);
@@ -2314,6 +2392,19 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       ellipse(g, end.x, end.y, 11, 11, null, color, 2);
       line(g, [[end.x - 15, end.y], [end.x + 15, end.y]], color, 1.5);
       line(g, [[end.x, end.y - 15], [end.x, end.y + 15]], color, 1.5);
+      g.restore();
+    }
+    meteor(g, x, y, dx, dy, now, altitude = 0) {
+      ellipse(g, x, y, 44, 23, '#36131c80', '#e97c4b88', 2);
+      const centerY = y - altitude - 25;
+      if (!altitude) line(g, [[x - dx * 110, y - dy * 110], [x, y]], '#fb613179', 34);
+      glow(g, x, centerY, 63, '#ff843a9a');
+      g.save();
+      g.translate(x, centerY);
+      g.rotate(now * 6);
+      poly(g, [[-41,-3],[-26,-32],[5,-41],[34,-23],[43,8],[24,33],[-13,41],[-37,24]], '#662f37', '#ffab58', 4);
+      line(g, [[-29,-21],[-11,-8],[-16,9],[1,26]], '#ff984d', 5);
+      line(g, [[24,-27],[14,-11],[25,2],[22,21]], '#ffcd73', 4);
       g.restore();
     }
     label(g, text, x, y, size, color) {
@@ -2372,6 +2463,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       ellipse(g,x,y-15,6,6,'#ead29d');
       this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
       if (u.stitched) ellipse(g,x,y-15,29,27,null,'#d5bfea',2);
+      if (u.burning) ellipse(g,x,y-15,26,25,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-15,32,29,null,HEROES.ecarg.color,3);
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
     }
@@ -2417,6 +2509,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
+      if (u.burning) ellipse(g,x,y-19,30,28,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
@@ -2486,7 +2579,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT, WEAVE_MARKS } = LanebreakRules;
   const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, xpGoal, CREEP_FLAGS } = Lanebreak;
+    abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
@@ -2524,6 +2617,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
     veil: [520,.24,'sine',.05,.52],
+    meteor: [170,.38,'triangle',.07,.4], unit: [580,.17,'triangle',.05,.68],
     blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5], sentry: [370,.16,'triangle',.052,1.3]
   };
 
@@ -2994,7 +3088,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     prompt.hidden = !cast;
     arena.classList.toggle('aiming', Boolean(cast));
     if (cast) {
-      prompt.textContent = cast.spell.name + ' · Select a target';
+      prompt.textContent = cast.spell.name + (cast.mode === 'unit' ? ' · Click an enemy hero' : ' · Select a target');
       tiles[cast.i].lastElementChild.classList.add('aiming');
     }
   }
@@ -3005,10 +3099,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const h = snapshot.heroes[team], spell = abilitySpell(h, i);
     if (!spell || h.hp <= 0) return;
     const recipe = i >= 4 ? h.prepared?.[i - 4] : undefined;
-    if (abilityNeedsTarget(spell)) {
+    const mode = abilityCastMode(spell);
+    if (mode !== 'self') {
       const error = abilityError(h, i, snapshot.time, spell, Boolean(snapshot.training));
       if (error) return hint(error);
-      setPendingCast({ i, spell, recipe });
+      setPendingCast({ i, spell, recipe, mode });
     } else {
       issue({ o:'cast', i, x:h.x, y:h.y, castMode:'self', recipe });
     }
@@ -3317,7 +3412,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
-        (abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
+        (spell.kind === 'unit' ? '\nClick an enemy hero to cast' : abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
@@ -3415,15 +3510,24 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
     const p = aimPoint();
+    const visible = renderer.displayed || snapshot;
     if (pendingCast) {
-      const { i, spell, recipe } = pendingCast;
-      setPendingCast(null);
-      if (event.button === 2) return;
-      if (abilitySpell(snapshot.heroes[team], i) !== spell) return hint('Spell changed. Select the ability again.');
-      issue({ o:'cast', i, ...p, castMode:'point', recipe });
+      const { i, spell, recipe, mode } = pendingCast;
+      if (event.button === 2) return setPendingCast(null);
+      if (abilitySpell(snapshot.heroes[team], i) !== spell) {
+        setPendingCast(null);
+        return hint('Spell changed. Select the ability again.');
+      }
+      if (mode === 'unit') {
+        const target = pickSpellTarget(visible, visible.heroes[team], spell, p);
+        if (!target) return hint('Select an enemy hero in range');
+        if (issue({ o:'cast', i, id:target.id, castMode:mode, recipe })) setPendingCast(null);
+      } else {
+        setPendingCast(null);
+        issue({ o:'cast', i, ...p, castMode:mode, recipe });
+      }
       return;
     }
-    const visible = renderer.displayed || snapshot;
     if (event.button === 0 && event.pointerType !== 'touch') {
       selectUnit(pickUnit(visible, p)?.id ?? null);
       return;

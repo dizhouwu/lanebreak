@@ -21,16 +21,18 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 
 | Marks | Spell |
 |---|---|
-| Q + Q + Q | Pin Stitch, a tag that lets follow-up hits briefly stagger a hero |
+| Q + Q + Q | Pin Stitch, an instant click on an enemy hero that staggers them and marks them for follow-up staggers |
 | Q + Q + W | Veil Stitch, self-cast invisibility that ends when you attack or cast another spell |
 | Q + Q + E | Fray Screen, a persistent slow zone |
 | Q + W + W | Crosswind, a click-aimed tornado that damages and briefly lifts enemies in its path |
-| Q + W + E | Spool Break, a wave that pushes enemies and disarms heroes |
+| Q + W + E | Spool Break, a piercing shockwave that knocks enemies back along its path and disarms heroes |
 | Q + E + E | Needle Post, a stationary sentry |
 | W + W + W | Hollow Seam, a delayed mana drain |
 | W + W + E | Tighten Thread, a temporary attack-speed and damage buff |
-| W + E + E | Rolling Stitch, four bursts that advance in the cast direction |
+| W + E + E | Emberfall, a meteor that lands, rolls forward, and burns enemies in its path |
 | E + E + E | Sky Needle, a long-range delayed strike |
+
+Prepare **WWQ** and **EEW** before a fight. Lift the opponent with Crosswind, land Emberfall in their path, then prepare **QWE** to knock them along the meteor's path. Prepare **QQQ** and click the enemy hero to stagger them while the burn ticks.
 
 Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units ahead, **W** lands 460 units ahead, and **E** lands 700 units ahead. Turn Cairn with movement or an attack order, then press the ability key to cast along his facing. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
 

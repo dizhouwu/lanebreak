@@ -2,7 +2,7 @@
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT, WEAVE_MARKS } = LanebreakRules;
   const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, xpGoal, CREEP_FLAGS } = Lanebreak;
+    abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
@@ -40,6 +40,7 @@
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
     veil: [520,.24,'sine',.05,.52],
+    meteor: [170,.38,'triangle',.07,.4], unit: [580,.17,'triangle',.05,.68],
     blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5], sentry: [370,.16,'triangle',.052,1.3]
   };
 
@@ -510,7 +511,7 @@
     prompt.hidden = !cast;
     arena.classList.toggle('aiming', Boolean(cast));
     if (cast) {
-      prompt.textContent = cast.spell.name + ' · Select a target';
+      prompt.textContent = cast.spell.name + (cast.mode === 'unit' ? ' · Click an enemy hero' : ' · Select a target');
       tiles[cast.i].lastElementChild.classList.add('aiming');
     }
   }
@@ -521,10 +522,11 @@
     const h = snapshot.heroes[team], spell = abilitySpell(h, i);
     if (!spell || h.hp <= 0) return;
     const recipe = i >= 4 ? h.prepared?.[i - 4] : undefined;
-    if (abilityNeedsTarget(spell)) {
+    const mode = abilityCastMode(spell);
+    if (mode !== 'self') {
       const error = abilityError(h, i, snapshot.time, spell, Boolean(snapshot.training));
       if (error) return hint(error);
-      setPendingCast({ i, spell, recipe });
+      setPendingCast({ i, spell, recipe, mode });
     } else {
       issue({ o:'cast', i, x:h.x, y:h.y, castMode:'self', recipe });
     }
@@ -833,7 +835,7 @@
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
-        (abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
+        (spell.kind === 'unit' ? '\nClick an enemy hero to cast' : abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
@@ -931,15 +933,24 @@
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
     const p = aimPoint();
+    const visible = renderer.displayed || snapshot;
     if (pendingCast) {
-      const { i, spell, recipe } = pendingCast;
-      setPendingCast(null);
-      if (event.button === 2) return;
-      if (abilitySpell(snapshot.heroes[team], i) !== spell) return hint('Spell changed. Select the ability again.');
-      issue({ o:'cast', i, ...p, castMode:'point', recipe });
+      const { i, spell, recipe, mode } = pendingCast;
+      if (event.button === 2) return setPendingCast(null);
+      if (abilitySpell(snapshot.heroes[team], i) !== spell) {
+        setPendingCast(null);
+        return hint('Spell changed. Select the ability again.');
+      }
+      if (mode === 'unit') {
+        const target = pickSpellTarget(visible, visible.heroes[team], spell, p);
+        if (!target) return hint('Select an enemy hero in range');
+        if (issue({ o:'cast', i, id:target.id, castMode:mode, recipe })) setPendingCast(null);
+      } else {
+        setPendingCast(null);
+        issue({ o:'cast', i, ...p, castMode:mode, recipe });
+      }
       return;
     }
-    const visible = renderer.displayed || snapshot;
     if (event.button === 0 && event.pointerType !== 'touch') {
       selectUnit(pickUnit(visible, p)?.id ?? null);
       return;

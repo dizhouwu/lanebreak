@@ -386,12 +386,13 @@
         this.crystal(g, x, u, 21, color);
         this.label(g, kind.toUpperCase(), x, y + 43, 13, color);
       }
-      for (const [, side, rad, x, y, strike, duration, hero, ultimate] of s.areas) {
+      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style] of s.areas) {
         if (!visible({x})) continue;
-        const color = HEROES[hero]?.color || COLORS[side];
+        const color = style === 'meteor' ? '#ff9d56' : HEROES[hero]?.color || COLORS[side];
         const progress = clamp(1 - (strike - now) / (duration || 1), 0, 1);
         ellipse(g, x, y, rad, rad, color + '22', color + '9d', 3);
         ellipse(g, x, y, rad * progress, rad * progress, null, color + 'b8', ultimate ? 4 : 2);
+        if (style === 'meteor') this.meteor(g, x, y, 1, 0, now, (1 - progress) ** 2 * 240);
       }
       const fighters = units.filter(visible).sort((a, b) => a.y - b.y);
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
@@ -415,6 +416,17 @@
             const spin = Math.sin(now * 31 + i * 1.5) * (5 + i * 2);
             ellipse(g, x + spin, y - 8 - i * 12, 13 + i * 6, 6 + i * 2, '#8dedee26', '#b7feefd9', 2.5);
           }
+        } else if (trail === 'meteor') {
+          this.meteor(g, x, y, dx, dy, now);
+        } else if (trail === 'shockwave') {
+          g.save();
+          g.translate(x, y);
+          g.rotate(Math.atan2(dy, dx));
+          g.beginPath();
+          g.ellipse(-14, 0, 42, width, 0, -1.25, 1.25);
+          g.strokeStyle = '#bd8df18f'; g.lineWidth = 13; g.stroke();
+          g.strokeStyle = '#eee1ff'; g.lineWidth = 3; g.stroke();
+          g.restore();
         } else if (kind === 'bolt') {
           g.lineCap = 'round';
           line(g, [[x - dx * 70, y - dy * 70], [x, y]], color + '78', width * .5);
@@ -437,7 +449,7 @@
         if (age < -.06 || age > 1.08 || !visible(e)) continue;
         g.globalAlpha = clamp((1 - age) * 1.3, 0, 1);
         if (e.kind === 'burst' || e.kind === 'cast') {
-          const color = HEROES[e.hero]?.color || COLORS[e.team];
+          const color = e.spell === 'meteor' ? '#ff9d56' : HEROES[e.hero]?.color || COLORS[e.team];
           const r = (e.radius || 45) * clamp(.25 + age * 3, .25, 1);
           ellipse(g, e.x, e.y, r, r, color + '24', color + 'cc', 4);
           if (e.kind === 'burst') {
@@ -455,7 +467,11 @@
       }
       if (pointer) {
         const at = this.toWorld(pointer.x, pointer.y);
-        if (spell) this.castPreview(g, player, spell, at);
+        if (spell?.kind === 'unit') {
+          ellipse(g, player.x, player.y, spell.range, spell.range, null, '#ffe0a23d', 2);
+          const target = Lanebreak.pickSpellTarget(s, player, spell, at);
+          if (target) ellipse(g, target.x, target.y, target.r + 9, target.r + 9, '#ffe0a229', '#ffe0a2', 3);
+        } else if (spell) this.castPreview(g, player, spell, at);
         else {
           const target = Lanebreak.pickTarget(s, team, at);
           if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
@@ -473,6 +489,10 @@
       g.save();
       g.setLineDash([10, 7]);
       line(g, [[hero.x, hero.y], [end.x, end.y]], color + 'b0', 2);
+      if (spell.roll) {
+        const angle = at.x === hero.x && at.y === hero.y ? hero.facing : Math.atan2(at.y - hero.y, at.x - hero.x);
+        line(g, [[end.x, end.y], [end.x + Math.cos(angle) * spell.roll, end.y + Math.sin(angle) * spell.roll]], '#ff9d56b0', 2);
+      }
       g.setLineDash([]);
       if (spell.kind !== 'bolt' && spell.radius) {
         ellipse(g, end.x, end.y, spell.radius, spell.radius, color + '18', color + 'd0', 2.5);
@@ -480,6 +500,19 @@
       ellipse(g, end.x, end.y, 11, 11, null, color, 2);
       line(g, [[end.x - 15, end.y], [end.x + 15, end.y]], color, 1.5);
       line(g, [[end.x, end.y - 15], [end.x, end.y + 15]], color, 1.5);
+      g.restore();
+    }
+    meteor(g, x, y, dx, dy, now, altitude = 0) {
+      ellipse(g, x, y, 44, 23, '#36131c80', '#e97c4b88', 2);
+      const centerY = y - altitude - 25;
+      if (!altitude) line(g, [[x - dx * 110, y - dy * 110], [x, y]], '#fb613179', 34);
+      glow(g, x, centerY, 63, '#ff843a9a');
+      g.save();
+      g.translate(x, centerY);
+      g.rotate(now * 6);
+      poly(g, [[-41,-3],[-26,-32],[5,-41],[34,-23],[43,8],[24,33],[-13,41],[-37,24]], '#662f37', '#ffab58', 4);
+      line(g, [[-29,-21],[-11,-8],[-16,9],[1,26]], '#ff984d', 5);
+      line(g, [[24,-27],[14,-11],[25,2],[22,21]], '#ffcd73', 4);
       g.restore();
     }
     label(g, text, x, y, size, color) {
@@ -538,6 +571,7 @@
       ellipse(g,x,y-15,6,6,'#ead29d');
       this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
       if (u.stitched) ellipse(g,x,y-15,29,27,null,'#d5bfea',2);
+      if (u.burning) ellipse(g,x,y-15,26,25,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-15,32,29,null,HEROES.ecarg.color,3);
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
     }
@@ -583,6 +617,7 @@
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
+      if (u.burning) ellipse(g,x,y-19,30,28,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
