@@ -234,6 +234,24 @@ test('standard spells respect unlock levels, mana, and cooldowns', () => {
   }
 });
 
+test('hero stats update on equipment changes and temporary buff expiration', () => {
+  const match = new Match({ heroes:['vesper','brakk'], bots:[null,null] });
+  const hero = match.heroes[0];
+  match.gainXp(hero, 500);
+  const speed = hero.stats.speed, haste = hero.stats.haste;
+  assert.equal(match.order(0, { o:'buy', id:'boots' }), null);
+  assert.equal(hero.stats.speed, speed + 50);
+  assert.equal(match.order(0, { o:'cast', i:2, x:hero.x, y:hero.y }), null);
+  advance(match, .1);
+  assert.ok(hero.stats.speed > speed + 50);
+  assert.equal(hero.stats.haste, haste + .5);
+  advance(match, HEROES.vesper.abilities[2].duration);
+  assert.equal(hero.stats.speed, speed + 50);
+  assert.equal(hero.stats.haste, haste);
+  assert.equal(match.order(0, { o:'sell', i:0 }), null);
+  assert.equal(hero.stats.speed, speed);
+});
+
 test('aimed abilities and instant abilities are classified across the roster', () => {
   const expected = {
     vesper:[true, true, false, true], brakk:[true, false, false, false], orrin:[true, true, true, true],

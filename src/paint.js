@@ -236,7 +236,9 @@
       this.canvas = canvas;
       this.mini = minimap;
       this.g = canvas.getContext('2d', { alpha: false });
+      this.miniContext = minimap.getContext('2d');
       this.map = null;
+      this.vignette = null;
       this.cam = 0;
       this.camY = 0;
       this.focus = null;
@@ -254,6 +256,7 @@
       const w = Math.round(clientWidth * dpr), h = Math.round(clientHeight * dpr);
       if (w !== this.canvas.width || h !== this.canvas.height) {
         this.canvas.width = w; this.canvas.height = h; this.dirty = true;
+        this.vignette = null;
       }
       this.scale = h / (this.focus ? FREE_VIEW_HEIGHT : HEIGHT);
     }
@@ -316,18 +319,26 @@
       this.cam = this.camera(s.heroes[team]);
       this.camY = this.focus ? clamp(this.focus.y - FREE_VIEW_HEIGHT / 2, 0, HEIGHT - FREE_VIEW_HEIGHT) : 0;
       this.displayed = s;
-      g.setTransform(1, 0, 0, 1, 0, 0);
-      g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
+      const viewWidth = w / this.scale, viewHeight = h / this.scale;
+      if (viewWidth > WIDTH) {
+        const edge = Math.floor(WIDTH * this.scale);
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.fillStyle = '#142529'; g.fillRect(edge, 0, w - edge, h);
+      }
       g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
-      g.drawImage(this.map, 0, 0);
-      const visible = u => u.x >= this.cam - 175 && u.x <= this.cam + w / this.scale + 175;
+      const left = Math.max(0, Math.floor(this.cam) - 1);
+      const top = Math.max(0, Math.floor(this.camY) - 1);
+      const width = Math.min(WIDTH, Math.ceil(this.cam + viewWidth) + 1) - left;
+      const height = Math.min(HEIGHT, Math.ceil(this.camY + viewHeight) + 1) - top;
+      g.drawImage(this.map, left, top, width, height, left, top, width, height);
+      const visible = u => u.x >= this.cam - 175 && u.x <= this.cam + viewWidth + 175;
       const player = s.heroes[team];
       const troops = s.creeps.map(([id, team, kind, x, y, hp, maxHp, attack, r, facing, flags]) =>
         ({ id, type: 'creep', team, kind, x, y, hp, maxHp, attack, r: r ?? CREEPS[kind].r, facing, flags }));
       const units = [...troops, ...s.heroes].filter(u => u.hp > 0);
       for (const b of s.buildings) {
         if (b.hp <= 0 || !b.range) continue;
-        if (b.team !== team && !b.protected && b.x + b.range > this.cam && b.x - b.range < this.cam + w / this.scale) {
+        if (b.team !== team && !b.protected && b.x + b.range > this.cam && b.x - b.range < this.cam + viewWidth) {
           g.setLineDash([11, 9]);
           ellipse(g, b.x, b.y, b.range, b.range, null, '#ff636eaa', 2);
           g.setLineDash([]);
@@ -436,9 +447,12 @@
         }
       }
       g.setTransform(1, 0, 0, 1, 0, 0);
-      g.fillStyle = gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
-      g.fillRect(0, 0, w, h);
-      this.minimap(s, team, w / this.scale, h / this.scale);
+      this.vignette ||= gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
+      g.fillStyle = this.vignette;
+      g.fillRect(0, 0, w, Math.ceil(h * .23));
+      const shadeAt = Math.floor(h * .66);
+      g.fillRect(0, shadeAt, w, h - shadeAt);
+      this.minimap(s, team, viewWidth, viewHeight);
     }
     castPreview(g, hero, spell, at) {
       const end = Lanebreak.castPoint(hero, spell, at.x, at.y);
@@ -589,7 +603,7 @@
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
     }
     minimap(s, team, viewWidth, viewHeight) {
-      const g = this.mini.getContext('2d'), w = this.mini.width, h = this.mini.height;
+      const g = this.miniContext, w = this.mini.width, h = this.mini.height;
       const x = n => n / WIDTH * w, y = n => n / HEIGHT * h;
       g.fillStyle = '#141c1e'; g.fillRect(0,0,w,h);
       g.fillStyle='#444331';g.fillRect(0,y(320),w,y(260));

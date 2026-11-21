@@ -34,6 +34,7 @@
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
+  const rowIndexes = new WeakMap();
   const panKeys = new Set();
   const game = $('game');
   const castSounds = {
@@ -1032,7 +1033,7 @@
     if (index <= 0) return index === 0 ? history[0] : snapshot;
     const a = history[index-1], b = history[index];
     const f = (time - a.time) / ((b.time - a.time) || 1);
-    const mix = (x, y, bx, by) => Math.hypot(x-bx,y-by) > 250 ? [bx,by] : [x+(bx-x)*f,y+(by-y)*f];
+    const mix = (x, y, bx, by) => (x-bx)**2 + (y-by)**2 > 250**2 ? [bx,by] : [x+(bx-x)*f,y+(by-y)*f];
     function objects() {
       return b.heroes.map((h, i) => {
         const current = snapshot.heroes[i];
@@ -1042,7 +1043,13 @@
       });
     }
     function rows(prev, next, xi, yi) {
-      const old = new Map(prev.map(row => [row[0],row]));
+      if (!prev.length || !next.length) return next;
+      let old = rowIndexes.get(prev);
+      if (!old) {
+        old = new Map();
+        for (const row of prev) old.set(row[0], row);
+        rowIndexes.set(prev, old);
+      }
       return next.map(row => {
         const before = old.get(row[0]);
         if (!before) return row;

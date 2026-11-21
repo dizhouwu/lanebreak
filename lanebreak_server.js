@@ -41,7 +41,8 @@ function createServer(options = {}) {
     if (!peer || peer.closed || peer.socket.destroyed) return;
     if (peer.socket.writableLength > 256 * 1024) return closePeer(peer, 1013);
     if (snapshot && peer.socket.writableLength > 32 * 1024) return;
-    peer.socket.write(serverFrame(1, Buffer.from(JSON.stringify(message))));
+    const json = typeof message === 'string' ? message : JSON.stringify(message);
+    peer.socket.write(serverFrame(1, Buffer.from(json)));
   }
   function error(peer, msg, recoverable = false) { send(peer, { t:'err',msg,recoverable }); }
   function closePeer(peer, code = 1000) {
@@ -221,8 +222,13 @@ function createServer(options = {}) {
       const interval = 1000 / 30;
       room.nextSnapshot = Math.max(room.nextSnapshot + interval, now + interval / 2);
       const ended = room.match.mode === 'ended';
+      let publicPrefix;
       for (const [team,member] of room.members.entries()) {
-        if (member.peer) send(member.peer,{t:'s',s:room.match.snapshot(team)},!ended);
+        if (!member.peer) continue;
+        // Both players receive the same world data. Hero details and effects are filtered per seat.
+        publicPrefix ??= '{"t":"s","s":' + JSON.stringify(room.match.snapshotWorld()).slice(0, -1) + ',';
+        const view = JSON.stringify(room.match.snapshotView(team));
+        send(member.peer,publicPrefix + view.slice(1) + '}',!ended);
       }
       if (ended) {
         room.endedAt = now;

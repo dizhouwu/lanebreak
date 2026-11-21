@@ -3,6 +3,8 @@
   const { HEROES, ITEMS, CREEPS, DIFF, WIDTH, HEIGHT, ORBS, UNLOCKS, WEAVE_MARKS, TEAM } = rules;
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const distanceSquared = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+  const anyUnit = () => true;
   const range = (a, b) => distance(a, b) - b.r;
   const home = team => ({ x: team ? WIDTH - 110 : 110, y: 450 });
   const TRAINING_START = { x:WIDTH / 2 - 420, y:450 };
@@ -149,6 +151,15 @@
     h.maxMana = s.mana;
     h.armor = s.armor;
     h.stats = s;
+    h.statsLevel = h.level;
+    h.statsHeat = h.heat;
+    h.statsDirty = false;
+  }
+  function refreshIfChanged(h, now) {
+    if (h.statsDirty || h.statsLevel !== h.level || h.statsHeat !== h.heat) refresh(h, now);
+  }
+  function unitSnapshot({ id, type, kind, team, x, y, r, hp, maxHp, windup, stunUntil }, time) {
+    return { id, type, kind, team, x, y, r, hp, maxHp, attack: !!windup, stunned: stunUntil > time };
   }
 
   class Match {
@@ -221,7 +232,7 @@
     refillTraining(hero) {
       const kit = HEROES[hero.hero];
       if (kit.heat) hero.heat = kit.heat.max;
-      refresh(hero, this.time);
+      refreshIfChanged(hero, this.time);
       hero.hp = hero.maxHp;
       hero.mana = hero.maxMana;
       hero.gold = Math.max(hero.gold, TRAINING_GOLD);
@@ -458,8 +469,11 @@
     }
     blast(h, spell, x, y, damage) {
       this.effect('burst', x, y, { team: h.team, radius: spell.radius, hero: h.hero });
+      const center = { x, y };
       for (const unit of this.units.values()) {
-        if (Math.hypot(unit.x - x, unit.y - y) <= spell.radius + unit.r / 2) this.magic(unit, h, spell, damage);
+        if (unit.team === h.team || unit.hp <= 0 || unit.type === 'building') continue;
+        const reach = spell.radius + unit.r / 2;
+        if (distanceSquared(unit, center) <= reach * reach) this.magic(unit, h, spell, damage);
       }
     }
     cast(h, i, x, y) {
@@ -529,6 +543,7 @@
     buff(h, id, duration, stats) {
       h.buffs = h.buffs.filter(buff => buff.id !== id);
       h.buffs.push({ id, until: this.time + duration, stats });
+      h.statsDirty = true;
     }
     blink(h, destination) {
       this.effect('burst', h.x, h.y, { team: h.team, radius: 65, hero: h.hero });
@@ -662,10 +677,13 @@
       }
       return null;
     }
-    nearest(unit, radius, filter = () => true) {
+    nearest(unit, radius, filter = anyUnit) {
       let best = null, closest = radius;
       for (const other of this.units.values()) {
-        if (other.hp <= 0 || other.team === unit.team || this.protected(other) || !filter(other)) continue;
+        if (other.hp <= 0 || other.team === unit.team) continue;
+        const reach = closest + other.r;
+        if (reach < 0 || distanceSquared(unit, other) > reach * reach + 1e-8) continue;
+        if (this.protected(other) || !filter(other)) continue;
         const d = range(unit, other);
         if (d <= closest) {
           closest = d;
@@ -692,7 +710,7 @@
       Object.assign(u, p);
     }
     movementSpeed(unit, speed) {
-      return speed * (1 - unit.slows.reduce((max, s) => Math.max(max, s.value), 0));
+      return unit.slows.length ? speed * (1 - unit.slows.reduce((max, s) => Math.max(max, s.value), 0)) : speed;
     }
     updateHero(h, dt) {
       h.gold += dt * 1.6;
@@ -709,10 +727,13 @@
         }
         return;
       }
-      h.buffs = h.buffs.filter(b => b.until > this.time);
+      if (h.buffs.some(buff => buff.until <= this.time)) {
+        h.buffs = h.buffs.filter(buff => buff.until > this.time);
+        h.statsDirty = true;
+      }
       if (this.training) this.refillTraining(h);
       else {
-        refresh(h, this.time);
+        refreshIfChanged(h, this.time);
         const regen = h.stats.regen + (h.potionUntil > this.time ? 30 : 0) +
           (h.stats.recover && this.time - h.lastThreat >= 6 ? h.stats.recover * h.maxHp : 0);
         const fountain = distance(h, home(h.team)) <= 400 ? .15 : 0;
@@ -811,7 +832,8 @@
       if (!b.windup) this.attack(b, target);
     }
     collide() {
-      const units = [...this.units.values()].filter(u => u.hp > 0);
+      const units = [];
+      for (const unit of this.units.values()) if (unit.hp > 0) units.push(unit);
       for (let i = 0; i < units.length; i++) {
         const a = units[i];
         for (let j = i + 1; j < units.length; j++) {
@@ -847,8 +869,10 @@
         const targets = [];
         for (const u of this.units.values()) {
           if (u.hp <= 0 || u.team === p.team || u.type === 'building' || p.hit.has(u.id)) continue;
-          const t = clamp((u.x - p.x) * p.dx + (u.y - p.y) * p.dy, 0, length);
-          if (Math.hypot(u.x - p.x - p.dx * t, u.y - p.y - p.dy * t) <= p.spell.radius + u.r) targets.push({ u, t });
+          const x = u.x - p.x, y = u.y - p.y, reach = p.spell.radius + u.r;
+          if (Math.abs(x) > length + reach || Math.abs(y) > length + reach) continue;
+          const t = clamp(x * p.dx + y * p.dy, 0, length);
+          if ((x - p.dx * t) ** 2 + (y - p.dy * t) ** 2 <= reach * reach) targets.push({ u, t });
         }
         targets.sort((a, b) => a.t - b.t);
         for (const { u } of targets) {
@@ -883,21 +907,23 @@
     step(dt) {
       if (this.mode !== 'match') return;
       this.time += dt;
-      this.effects = this.effects.filter(e => this.time - e.time < 4);
+      if (this.effects.length && this.time - this.effects[0].time >= 4) {
+        this.effects = this.effects.filter(e => this.time - e.time < 4);
+      }
       if (!this.training && this.time + 1e-8 >= this.nextWave) {
         this.spawn();
         this.nextWave += 30;
       }
       for (const u of this.units.values()) {
         u.vx = u.vy = 0;
-        u.slows = u.slows.filter(s => s.until > this.time);
+        if (u.slows.length) u.slows = u.slows.filter(s => s.until > this.time);
       }
       for (const h of this.heroes) if (!h.dummy) this.updateHero(h, dt);
       for (const b of this.buildings) if (b.hp > 0) this.updateBuilding(b, dt);
       for (const c of this.creeps) if (c.hp > 0) this.updateCreep(c, dt);
       this.collide();
-      this.updateProjectiles(dt);
-      this.areas = this.areas.filter(a => {
+      if (this.projectiles.length) this.updateProjectiles(dt);
+      if (this.areas.length) this.areas = this.areas.filter(a => {
         if (this.time + 1e-8 < a.time) return true;
         this.blast(a.from, a.spell, a.x, a.y, a.damage);
         if (--a.hits <= 0) return false;
@@ -921,7 +947,8 @@
       return this.buildings.find(b => b.team === team && b.kind !== 'core' && b.hp > 0);
     }
     nearbyCreeps(center, team, radius) {
-      return this.creeps.filter(c => c.hp > 0 && c.team === team && distance(c, center) < radius);
+      const limit = radius * radius;
+      return this.creeps.filter(c => c.hp > 0 && c.team === team && distanceSquared(c, center) < limit);
     }
     towerTanked(tower, hero) {
       return tower.target !== hero.id && this.nearbyCreeps(tower, hero.team, tower.range).length >= 2;
@@ -1197,11 +1224,11 @@
       if (distance(h, hold) > 50) go(hold);
     }
     snapshot(team, full = false) {
-      const angle = n => Math.round(n * 100) / 100;
-      const base = ({ id, type, kind, team, x, y, r, hp, maxHp, windup, stunUntil }) =>
-        ({ id, type, kind, team, x, y, r, hp, maxHp, attack: !!windup, stunned: stunUntil > this.time });
+      return Object.assign(this.snapshotWorld(), this.snapshotView(team, full));
+    }
+    snapshotView(team, full = false) {
       const heroes = this.heroes.map(h => {
-        const common = { ...base(h), hero: h.hero, name: h.name, level: h.level, respawn: h.respawn,
+        const common = { ...unitSnapshot(h, this.time), hero: h.hero, name: h.name, level: h.level, respawn: h.respawn,
           channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
           facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot,
           ...(h.heat != null && { heat:h.heat }),
@@ -1215,10 +1242,14 @@
           recallReady: h.recallReady, tomeReady: h.tomeReady, pots: h.pots, stats: h.stats, potionUntil: h.potionUntil,
           canShop: this.canShop(h) };
       });
+      return { heroes, effects: this.effects.filter(e => e.audience == null || team === e.audience || full) };
+    }
+    snapshotWorld() {
+      const angle = n => Math.round(n * 100) / 100;
       const quant = n => Math.round(n * 10) / 10;
       return { time: this.time, mode: this.mode, winner: this.winner, endReason: this.endReason, orb: this.orb, wave: this.wave, kills: this.kills,
         ...(this.training && { training:{ ...this.training } }),
-        heroes, buildings: this.buildings.map(u => ({ ...base(u), protected: this.protected(u),
+        buildings: this.buildings.map(u => ({ ...unitSnapshot(u, this.time), protected: this.protected(u),
           ...(u.kind === 'core' ? {} : { range: u.range, target: u.windup?.target || u.target }) })),
         creeps: this.creeps.map(c => [c.id, c.team, c.kind, quant(c.x), quant(c.y), Math.ceil(c.hp), Math.ceil(c.maxHp), !!c.windup, quant(c.r), angle(c.facing),
           (c.stunUntil > this.time ? CREEP_FLAGS.stunned : 0) | (c.hornUntil > this.time ? CREEP_FLAGS.rallied : 0) |
@@ -1226,8 +1257,7 @@
         projectiles: this.projectiles.map(p => p.kind === 'bolt' ?
           [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero, angle(p.dx), angle(p.dy), p.spell.radius] :
           [p.id, p.team, p.kind, quant(p.x), quant(p.y), p.from.hero || p.from.type]),
-        areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate]),
-        effects: this.effects.filter(e => e.audience == null || team === e.audience || full) };
+        areas: this.areas.map(a => [a.id, a.team, a.radius, a.x, a.y, a.time, a.duration, a.from.hero, a.ultimate]) };
     }
   }
   function validOrder(cmd) {
