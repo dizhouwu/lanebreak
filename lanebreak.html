@@ -12,6 +12,7 @@
 html,body{margin:0;min-height:100%;background:var(--ink);color:var(--white)}
 body.matchMode{overflow:hidden}
 #arena{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#arena.aiming{cursor:crosshair}
 #arena.draggingCamera{cursor:grabbing}
 button,input{font:inherit}
 button{color:var(--white);background:#182426;border:1px solid #394748;border-radius:5px;min-height:36px;padding:7px 12px;cursor:pointer;transition:background .15s,border-color .15s}
@@ -97,6 +98,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 #feed{position:absolute;left:15px;bottom:125px;color:#e7ddd0;font-size:.83rem;text-shadow:0 2px 4px #000}
 #feed div{margin:5px 0}
 #hint{position:absolute;left:50%;bottom:125px;transform:translateX(-50%);background:#10191be8;border:1px solid #5a6152;color:#f5d9a9;border-radius:5px;padding:7px 12px;text-align:center;font-size:.87rem;z-index:2}
+#castPrompt{position:absolute;left:50%;top:65px;transform:translateX(-50%);border:1px solid #c79a60;border-radius:5px;background:#171c1be8;padding:5px 10px;color:#ffe0a2;font-size:.78rem;text-align:center;z-index:2}
 .panel{background:#10191cee;border:1px solid #53615d;border-radius:6px;box-shadow:0 8px 24px #05090b83;color:var(--white)}
 .hud{position:absolute;bottom:6px;left:6px;right:6px;display:flex;justify-content:center}
 .minimapPanel{position:absolute;left:0;bottom:45px;width:clamp(126px,15vw,242px);background:#0a1115ed;border:1px solid #8ca0a44a;border-radius:4px;padding:3px}
@@ -131,6 +133,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .abilities button[data-state=nomana]{background:#283b60;border-color:#5771a3}
 .abilities button[data-state=cooldown],.inventory button[data-state=cooldown]{background:linear-gradient(to top,#090f14 var(--cooldown),#263143 var(--cooldown))}
 .abilities button[data-state=cooldown] span{color:#fff;font-weight:800}
+.abilities button.aiming{border-color:#ffe0a2;box-shadow:inset 0 0 0 1px #ffe0a2,0 0 9px #f0bd7666}
 .inventory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
 .inventory button{height:22px;border-color:#3b4958}
 .inventory kbd{position:absolute;left:2px;top:2px;min-width:0;height:auto;font-size:.62rem;border:0;padding:0}
@@ -272,6 +275,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     </header>
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
+    <div id="castPrompt" role="status" hidden></div>
     <div id="deathNotice" hidden><strong>You died</strong><span id="deathTimer"></span></div>
     <div id="matchOverlay" class="matchOverlay" role="region" aria-labelledby="overlayTitle" hidden><div class="panel overlayPanel"><h2 id="overlayTitle"></h2><p id="overlayText"></p><dl id="matchStats" hidden></dl><div class="overlayActions"><button id="overlaySecondary" hidden>Keep playing</button><button id="overlayAction" class="primary"></button></div></div></div>
     <aside id="shop" class="panel shop" hidden aria-label="Item shop">
@@ -317,7 +321,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
       <dt>Right click</dt><dd>Move or attack. Target an enemy hero to draw nearby creep aggro. Target an allied creep to transfer aggro or deny it below 50% HP.</dd>
       <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>The camera follows your hero by default. Press C to toggle free camera, or Space to recenter it on your hero. In free mode, pan with the screen edges, arrow keys, middle-mouse drag, or minimap.</dd>
-      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Cast at the cursor. Standard abilities unlock at levels 1, 2, 3 and 6.</dd>
+      <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Select an aimed ability, then click the battlefield to cast. Right-click or Esc cancels. Self-casts trigger immediately.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
       <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
@@ -362,7 +366,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       abilities: [
         { name: 'Graviton', kind: 'bolt', mana: 60, cd: 6, range: 850, radius: 26, speed: 1300, damage: 90, growth: 20, slow: .30, slowTime: 1.5, text: 'Fire a bolt that damages and slows the first enemy hit.' },
         { name: 'Collapse', kind: 'blast', mana: 95, cd: 13, range: 750, radius: 170, delay: .9, damage: 100, growth: 22, stun: 1.1, text: 'Collapse gravity at a point, damaging and stunning enemies.' },
-        { name: 'Phase Step', kind: 'blink', mana: 60, cd: 14, range: 600, text: 'Teleport up to 600 units toward the cursor.' },
+        { name: 'Phase Step', kind: 'blink', mana: 60, cd: 14, range: 600, text: 'Teleport up to 600 units toward the selected point.' },
         { name: 'Starfall', kind: 'blast', mana: 200, cd: 80, range: 900, radius: 240, delay: 1.4, damage: 250, growth: 38, text: 'Bring down a star after a 1.4-second delay.' }
       ],
       build: ['boots', 'prism', 'rune', 'arcane', 'void', 'charm', 'locket', 'heartstone', 'gloves', 'frost', 'bulwark']
@@ -408,7 +412,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         QQQ: { name: 'Pin Stitch', kind: 'bolt', mana: 65, cd: 11, range: 720, radius: 29, speed: 1550, damage: 59, growth: 14, stitch: true, text: 'Tag the first enemy hero hit for 4 seconds. Your follow-up hits can briefly stagger them up to three times.' },
         QQW: { name: 'Crosswind', kind: 'bolt', mana: 85, cd: 15, range: 940, radius: 45, speed: 1150, piercing: true, damage: 72, growth: 17, stun:.8, text: 'Send a cutting gust through the lane, damaging and briefly stunning enemies it crosses.' },
         QQE: { name: 'Fray Screen', kind: 'blast', mana: 75, cd: 13, range: 650, radius: 195, delay: .3, hits: 4, interval: .65, damage: 24, growth: 6, slow: .34, slowTime:1, text: 'Leave a tangle on the ground that damages and slows enemies in four pulses.' },
-        QWW: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
+        QWW: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Teleport up to 510 units toward the selected point.' },
         QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 41, speed: 1400, piercing: true, damage: 81, growth: 18, push:115, disarm:1.2, text: 'Fire a piercing shockwave that pushes enemies away. Hero basic attacks are disabled for 1.2 seconds.' },
         QEE: { name: 'Needle Post', kind: 'sentry', mana: 85, cd: 20, range: 610, duration: 10, health:270, shot:30, shotGrowth:3, text: 'Plant a destructible sentry for 10 seconds. It fires at nearby enemy heroes and creeps.' },
         WWW: { name: 'Hollow Seam', kind: 'blast', mana: 90, cd: 17, range: 750, radius: 220, delay: 1.1, damage: 88, growth: 19, drain:80, text: 'Mark an area that bursts after a delay, dealing damage and draining up to 80 mana from enemy heroes inside.' },
@@ -425,9 +429,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       heat: { max:6, attack:3 },
       unlocks: [1, 1, 1, 6],
       abilities: [
-        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 9, range: 235, radius: 130, delay: .22, damage: 75, growth: 18, text: 'Trigger the near blast 235 units toward the cursor.' },
-        { name: 'Flue Burst', kind: 'blast', fixed: true, mana: 65, cd: 9, range: 460, radius: 145, delay: .29, damage: 89, growth: 20, text: 'Trigger the middle blast 460 units toward the cursor.' },
-        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 700, radius: 155, delay: .36, damage: 103, growth: 22, text: 'Trigger the far blast 700 units toward the cursor.' },
+        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 9, range: 235, radius: 130, delay: .22, damage: 75, growth: 18, text: 'Trigger the near blast 235 units toward the selected point.' },
+        { name: 'Flue Burst', kind: 'blast', fixed: true, mana: 65, cd: 9, range: 460, radius: 145, delay: .29, damage: 89, growth: 20, text: 'Trigger the middle blast 460 units toward the selected point.' },
+        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 700, radius: 155, delay: .36, damage: 103, growth: 22, text: 'Trigger the far blast 700 units toward the selected point.' },
         { name: 'Furnace Vent', kind: 'blast', mana: 145, cd: 68, range: 0, radius: 340, delay: .70, damage: 135, growth: 26, heatDamage: 18, text: 'Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack.' }
       ],
       build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'prism', 'arcane', 'void', 'charm', 'heartstone']
@@ -505,6 +509,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     if (i >= 4 && kit.weaves) return kit.weaves[hero.prepared?.[i - 4]] || kit.abilities[i];
     return kit.abilities[i];
   }
+  function abilityNeedsTarget(spell) {
+    return Boolean(spell && (spell.kind === 'blast' ? spell.range > 0 :
+      ['bolt', 'dash', 'blink', 'sentry'].includes(spell.kind)));
+  }
   const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
   function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
     if (!spell) return 'Invalid ability';
@@ -533,6 +541,15 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const factor = clamp(length, min, limit) / length;
     return { x: clamp(unit.x + (x - unit.x) * factor, ground ? 30 : 20, WIDTH - (ground ? 30 : 20)),
       y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, ground ? 860 : HEIGHT - 20) };
+  }
+  function castPoint(hero, spell, x, y) {
+    if (spell.fixed || spell.kind === 'bolt') {
+      const angle = x === hero.x && y === hero.y ? hero.facing : Math.atan2(y - hero.y, x - hero.x);
+      x = hero.x + Math.cos(angle) * spell.range;
+      y = hero.y + Math.sin(angle) * spell.range;
+      if (spell.kind === 'bolt') return { x, y };
+    }
+    return point(hero, x, y, spell.range, spell.kind === 'dash' ? 60 : 0, spell.kind !== 'blast');
   }
   function buyPlan(hero, id, showRecipe = false) {
     if (!owns(ITEMS, id)) return null;
@@ -963,22 +980,20 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate });
       switch (spell.kind) {
         case 'bolt': {
-          const length = Math.hypot(x - h.x, y - h.y) || 1;
-          const dx = (x - h.x) / length, dy = (y - h.y) / length;
+          const dx = Math.cos(h.facing), dy = Math.sin(h.facing);
           this.projectiles.push({ id: this.nextId++, kind: 'bolt', x: h.x + dx * 20, y: h.y + dy * 20,
             from: h, team: h.team, speed: spell.speed, dx, dy, left: spell.range, spell, damage, hit: new Set() });
           break;
         }
         case 'blast': {
-          const target = spell.fixed ? { x:h.x + Math.cos(h.facing) * spell.range, y:h.y + Math.sin(h.facing) * spell.range } : { x, y };
-          this.areas.push({ id: this.nextId++, ...point(h, target.x, target.y, spell.range, 0, false), from: h, team: h.team, radius: spell.radius,
+          this.areas.push({ id: this.nextId++, ...castPoint(h, spell, x, y), from: h, team: h.team, radius: spell.radius,
             time: this.time + spell.delay, duration: spell.delay, ultimate, hits: spell.hits || 1, spell, damage,
             ...(spell.travel && { heading:h.facing }) });
           break;
         }
         case 'sentry': {
           const maxHp = spell.health + (h.level - 1) * 15;
-          this.creeps.push(this.unit({ type:'creep', kind:'ranged', team:h.team, ...point(h, x, y, spell.range),
+          this.creeps.push(this.unit({ type:'creep', kind:'ranged', team:h.team, ...castPoint(h, spell, x, y),
             r:17, hp:maxHp, maxHp, armor:2, range:420, interval:1.05, damage:spell.shot + (h.level - 1) * spell.shotGrowth,
             sentry:true, expires:this.time + spell.duration }));
           break;
@@ -987,10 +1002,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           this.blast(h, spell, h.x, h.y, damage);
           break;
         case 'dash':
-          h.dash = { ...point(h, x, y, spell.range, 60), spell, damage };
+          h.dash = { ...castPoint(h, spell, x, y), spell, damage };
           break;
         case 'blink':
-          this.blink(h, point(h, x, y, spell.range));
+          this.blink(h, castPoint(h, spell, x, y));
           break;
         case 'buff':
           this.buff(h, spell.name, spell.duration, spell.stats);
@@ -1112,6 +1127,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           h.windup = null;
           break;
         case 'cast':
+          if ((cmd.castMode && (cmd.castMode === 'point') !== abilityNeedsTarget(abilitySpell(h, i))) ||
+            (cmd.recipe && cmd.recipe !== h.prepared?.[i - 4])) return 'Spell changed. Select the ability again.';
           return this.cast(h, i, x, y);
         case 'item':
           return this.useItem(h, i, x, y);
@@ -1703,7 +1720,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       case 'move':
       case 'amove': return pos;
       case 'attack': return Number.isSafeInteger(cmd.id) && cmd.id > 0;
-      case 'cast': return slot(6) && pos;
+      case 'cast': return slot(6) && pos && (cmd.castMode === undefined || ['self', 'point'].includes(cmd.castMode)) &&
+        (cmd.recipe === undefined || (cmd.i >= 4 && typeof cmd.recipe === 'string' && /^[QWE]{3}$/.test(cmd.recipe)));
       case 'item': return slot(6) && pos;
       case 'sell': return slot(6);
       case 'buy': return typeof cmd.id === 'string' && owns(ITEMS, cmd.id);
@@ -1714,7 +1732,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     }
   }
   const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell,
-    abilityError, abilityReadyAt, weaveRecipe, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
+    abilityError, abilityReadyAt, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();
@@ -2007,7 +2025,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const followX = hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18);
       return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
-    frame(s, team, now, mark, dt, pointer, selectedId) {
+    frame(s, team, now, mark, dt, pointer, selectedId, spell) {
       this.resize();
       const g = this.g, w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
@@ -2142,12 +2160,33 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         }
         g.globalAlpha = 1;
       }
-      const target = pointer && Lanebreak.pickTarget(s, team, this.toWorld(pointer.x, pointer.y));
-      if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
+      if (pointer) {
+        const at = this.toWorld(pointer.x, pointer.y);
+        if (spell) this.castPreview(g, player, spell, at);
+        else {
+          const target = Lanebreak.pickTarget(s, team, at);
+          if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
+        }
+      }
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
       g.fillRect(0, 0, w, h);
       this.minimap(s, team, w / this.scale, h / this.scale);
+    }
+    castPreview(g, hero, spell, at) {
+      const end = Lanebreak.castPoint(hero, spell, at.x, at.y);
+      const color = '#ffe0a2';
+      g.save();
+      g.setLineDash([10, 7]);
+      line(g, [[hero.x, hero.y], [end.x, end.y]], color + 'b0', 2);
+      g.setLineDash([]);
+      if (spell.kind !== 'bolt' && spell.radius) {
+        ellipse(g, end.x, end.y, spell.radius, spell.radius, color + '18', color + 'd0', 2.5);
+      }
+      ellipse(g, end.x, end.y, 11, 11, null, color, 2);
+      line(g, [[end.x - 15, end.y], [end.x + 15, end.y]], color, 1.5);
+      line(g, [[end.x, end.y - 15], [end.x, end.y + 15]], color, 1.5);
+      g.restore();
     }
     label(g, text, x, y, size, color) {
       g.font = '700 ' + size + 'px system-ui'; g.textAlign = 'center';
@@ -2315,7 +2354,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT, WEAVE_MARKS } = LanebreakRules;
   const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    weaveRecipe, pickTarget, pickUnit, xpGoal, CREEP_FLAGS } = Lanebreak;
+    abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
@@ -2342,6 +2381,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let cameraDrag = null, resultShown = false;
+  let pendingCast = null;
   let heroPreviewCard = null;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
@@ -2510,7 +2550,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       tile.hidden = i >= 4;
       const button = make('button');
       button.append(make('kbd', key), make('span'));
-      button.addEventListener('click', () => aim('cast', i));
+      button.addEventListener('click', () => chooseAbility(i));
       bindTooltip(button);
       tile.append(make('small', null, 'abilityName'), button);
       $('abilities').append(tile);
@@ -2522,7 +2562,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const button = make('button');
       button.append(make('kbd', i + 1), make('span', '–'));
       button.addEventListener('click', () => {
-        if ($('shop').hidden) aim('item', i);
+        if ($('shop').hidden) useItem(i);
         else issue({ o:'sell', i });
       });
       bindTooltip(button);
@@ -2628,6 +2668,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   }
   function enter() {
     hideHeroGuide();
+    setPendingCast(null);
     $('lobby').hidden = true;
     game.hidden = false;
     document.body.classList.add('matchMode');
@@ -2658,6 +2699,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     wasDead = false;
   }
   function goMenu() {
+    setPendingCast(null);
     if (seat) safeSeat(null);
     disconnect();
     local = null;
@@ -2699,6 +2741,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     enter();
   }
   function overlay(title, text, label, action, { tone = '', cancel } = {}) {
+    setPendingCast(null);
     const panel = $('matchOverlay');
     const primary = $('overlayAction');
     const secondary = $('overlaySecondary');
@@ -2746,6 +2789,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     else $('matchOverlay').hidden = true;
   }
   function help() {
+    setPendingCast(null);
     if (!game.hidden && !remote && !paused && snapshot?.mode !== 'ended') {
       wasPaused = true; paused = true;
     }
@@ -2767,7 +2811,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     } else {
       error = local.order(team, cmd);
       snapshot = local.snapshot(team, demo);
-      if (cmd.o === 'cast' && snapshot.heroes[team].marks) lastUi = -1;
+      if (cmd.o === 'cast') lastUi = -1;
     }
     if (error) {
       if (cmd.o === 'buy' && !$('shop').hidden) shopFeedback(error, true);
@@ -2777,9 +2821,37 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     if (cmd.o === 'sell') beep(600,.10,'sine',.045,.7);
     return true;
   }
-  function aim(o, i) {
+  function useItem(i) {
+    setPendingCast(null);
     const { x, y } = aimPoint();
-    issue({ o, i, x, y });
+    issue({ o:'item', i, x, y });
+  }
+  function setPendingCast(cast) {
+    const tiles = $('abilities').children;
+    if (pendingCast) tiles[pendingCast.i].lastElementChild.classList.remove('aiming');
+    pendingCast = cast;
+    const prompt = $('castPrompt');
+    prompt.hidden = !cast;
+    arena.classList.toggle('aiming', Boolean(cast));
+    if (cast) {
+      prompt.textContent = cast.spell.name + ' · Select a target';
+      tiles[cast.i].lastElementChild.classList.add('aiming');
+    }
+  }
+  function chooseAbility(i) {
+    if (!snapshot || paused || demo || snapshot.mode !== 'match') return;
+    if (pendingCast?.i === i) return setPendingCast(null);
+    setPendingCast(null);
+    const h = snapshot.heroes[team], spell = abilitySpell(h, i);
+    if (!spell || h.hp <= 0) return;
+    const recipe = i >= 4 ? h.prepared?.[i - 4] : undefined;
+    if (abilityNeedsTarget(spell)) {
+      const error = abilityError(h, i, snapshot.time, spell, Boolean(snapshot.training));
+      if (error) return hint(error);
+      setPendingCast({ i, spell, recipe });
+    } else {
+      issue({ o:'cast', i, x:h.x, y:h.y, castMode:'self', recipe });
+    }
   }
   function aimPoint() {
     if (hovered) return renderer.toWorld(hovered.x, hovered.y);
@@ -2869,6 +2941,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
+    setPendingCast(null);
     shopFocus = null;
     $('shop').hidden = !$('shop').hidden;
     $('shopButton').setAttribute('aria-expanded', !$('shop').hidden);
@@ -3008,6 +3081,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   }
   function updateHud(s) {
     const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
+    if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || abilitySpell(h, pendingCast.i) !== pendingCast.spell)) setPendingCast(null);
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
     $('matchClock').textContent = clock;
     if (s.training) {
@@ -3080,6 +3154,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
+        (abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
@@ -3176,6 +3251,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
     const p = aimPoint();
+    if (pendingCast) {
+      const { i, spell, recipe } = pendingCast;
+      setPendingCast(null);
+      if (event.button === 2) return;
+      if (abilitySpell(snapshot.heroes[team], i) !== spell) return hint('Spell changed. Select the ability again.');
+      issue({ o:'cast', i, ...p, castMode:'point', recipe });
+      return;
+    }
     const visible = renderer.displayed || snapshot;
     if (event.button === 0 && event.pointerType !== 'touch') {
       selectUnit(pickUnit(visible, p)?.id ?? null);
@@ -3360,6 +3443,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     }
     const weaver = snapshot && HEROES[snapshot.heroes[team].hero].weaves;
     const spellSlot = keys.indexOf(k.toUpperCase());
+    if (pendingCast && k === 'escape') return setPendingCast(null);
+    if (pendingCast && ['a', 's', 't'].includes(k)) setPendingCast(null);
     if (k === 'c') toggleCamera();
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
@@ -3370,8 +3455,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         const { x, y } = (renderer.displayed || snapshot).heroes[team];
         freeCamera(x,y);
       }
-    } else if (spellSlot >= 0 && (spellSlot < 4 || weaver)) aim('cast', spellSlot);
-    else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
+    } else if (spellSlot >= 0 && (spellSlot < 4 || weaver)) chooseAbility(spellSlot);
+    else if (/^[1-6]$/.test(k)) useItem(+k - 1);
     else if (k === 'b') toggleShop();
     else if (k === (weaver ? 'v' : 'f')) issue({o:'potion'});
     else if (k === 't') issue({o:'recall'});
@@ -3425,6 +3510,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
     const resetCameraInput = () => {
       stopCameraDrag();
+      setPendingCast(null);
       panKeys.clear();
       cursorOnArena = false;
       edgePointer = null;
@@ -3516,7 +3602,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (snapshot) {
         const visible = remote ? interpolate(now) : snapshot;
         panCamera(elapsed);
-        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,inspectedId);
+        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,
+          inspectedId,pendingCast?.spell);
         playEvents(visible);
         if (now - lastUi > 90) {
           updateHud(snapshot);

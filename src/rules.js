@@ -32,7 +32,7 @@
       abilities: [
         { name: 'Graviton', kind: 'bolt', mana: 60, cd: 6, range: 850, radius: 26, speed: 1300, damage: 90, growth: 20, slow: .30, slowTime: 1.5, text: 'Fire a bolt that damages and slows the first enemy hit.' },
         { name: 'Collapse', kind: 'blast', mana: 95, cd: 13, range: 750, radius: 170, delay: .9, damage: 100, growth: 22, stun: 1.1, text: 'Collapse gravity at a point, damaging and stunning enemies.' },
-        { name: 'Phase Step', kind: 'blink', mana: 60, cd: 14, range: 600, text: 'Teleport up to 600 units toward the cursor.' },
+        { name: 'Phase Step', kind: 'blink', mana: 60, cd: 14, range: 600, text: 'Teleport up to 600 units toward the selected point.' },
         { name: 'Starfall', kind: 'blast', mana: 200, cd: 80, range: 900, radius: 240, delay: 1.4, damage: 250, growth: 38, text: 'Bring down a star after a 1.4-second delay.' }
       ],
       build: ['boots', 'prism', 'rune', 'arcane', 'void', 'charm', 'locket', 'heartstone', 'gloves', 'frost', 'bulwark']
@@ -78,7 +78,7 @@
         QQQ: { name: 'Pin Stitch', kind: 'bolt', mana: 65, cd: 11, range: 720, radius: 29, speed: 1550, damage: 59, growth: 14, stitch: true, text: 'Tag the first enemy hero hit for 4 seconds. Your follow-up hits can briefly stagger them up to three times.' },
         QQW: { name: 'Crosswind', kind: 'bolt', mana: 85, cd: 15, range: 940, radius: 45, speed: 1150, piercing: true, damage: 72, growth: 17, stun:.8, text: 'Send a cutting gust through the lane, damaging and briefly stunning enemies it crosses.' },
         QQE: { name: 'Fray Screen', kind: 'blast', mana: 75, cd: 13, range: 650, radius: 195, delay: .3, hits: 4, interval: .65, damage: 24, growth: 6, slow: .34, slowTime:1, text: 'Leave a tangle on the ground that damages and slows enemies in four pulses.' },
-        QWW: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
+        QWW: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Teleport up to 510 units toward the selected point.' },
         QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 41, speed: 1400, piercing: true, damage: 81, growth: 18, push:115, disarm:1.2, text: 'Fire a piercing shockwave that pushes enemies away. Hero basic attacks are disabled for 1.2 seconds.' },
         QEE: { name: 'Needle Post', kind: 'sentry', mana: 85, cd: 20, range: 610, duration: 10, health:270, shot:30, shotGrowth:3, text: 'Plant a destructible sentry for 10 seconds. It fires at nearby enemy heroes and creeps.' },
         WWW: { name: 'Hollow Seam', kind: 'blast', mana: 90, cd: 17, range: 750, radius: 220, delay: 1.1, damage: 88, growth: 19, drain:80, text: 'Mark an area that bursts after a delay, dealing damage and draining up to 80 mana from enemy heroes inside.' },
@@ -95,9 +95,9 @@
       heat: { max:6, attack:3 },
       unlocks: [1, 1, 1, 6],
       abilities: [
-        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 9, range: 235, radius: 130, delay: .22, damage: 75, growth: 18, text: 'Trigger the near blast 235 units toward the cursor.' },
-        { name: 'Flue Burst', kind: 'blast', fixed: true, mana: 65, cd: 9, range: 460, radius: 145, delay: .29, damage: 89, growth: 20, text: 'Trigger the middle blast 460 units toward the cursor.' },
-        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 700, radius: 155, delay: .36, damage: 103, growth: 22, text: 'Trigger the far blast 700 units toward the cursor.' },
+        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 9, range: 235, radius: 130, delay: .22, damage: 75, growth: 18, text: 'Trigger the near blast 235 units toward the selected point.' },
+        { name: 'Flue Burst', kind: 'blast', fixed: true, mana: 65, cd: 9, range: 460, radius: 145, delay: .29, damage: 89, growth: 20, text: 'Trigger the middle blast 460 units toward the selected point.' },
+        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 700, radius: 155, delay: .36, damage: 103, growth: 22, text: 'Trigger the far blast 700 units toward the selected point.' },
         { name: 'Furnace Vent', kind: 'blast', mana: 145, cd: 68, range: 0, radius: 340, delay: .70, damage: 135, growth: 26, heatDamage: 18, text: 'Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack.' }
       ],
       build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'prism', 'arcane', 'void', 'charm', 'heartstone']

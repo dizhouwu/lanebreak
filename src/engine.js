@@ -24,6 +24,10 @@
     if (i >= 4 && kit.weaves) return kit.weaves[hero.prepared?.[i - 4]] || kit.abilities[i];
     return kit.abilities[i];
   }
+  function abilityNeedsTarget(spell) {
+    return Boolean(spell && (spell.kind === 'blast' ? spell.range > 0 :
+      ['bolt', 'dash', 'blink', 'sentry'].includes(spell.kind)));
+  }
   const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
   function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
     if (!spell) return 'Invalid ability';
@@ -52,6 +56,15 @@
     const factor = clamp(length, min, limit) / length;
     return { x: clamp(unit.x + (x - unit.x) * factor, ground ? 30 : 20, WIDTH - (ground ? 30 : 20)),
       y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, ground ? 860 : HEIGHT - 20) };
+  }
+  function castPoint(hero, spell, x, y) {
+    if (spell.fixed || spell.kind === 'bolt') {
+      const angle = x === hero.x && y === hero.y ? hero.facing : Math.atan2(y - hero.y, x - hero.x);
+      x = hero.x + Math.cos(angle) * spell.range;
+      y = hero.y + Math.sin(angle) * spell.range;
+      if (spell.kind === 'bolt') return { x, y };
+    }
+    return point(hero, x, y, spell.range, spell.kind === 'dash' ? 60 : 0, spell.kind !== 'blast');
   }
   function buyPlan(hero, id, showRecipe = false) {
     if (!owns(ITEMS, id)) return null;
@@ -482,22 +495,20 @@
       this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate });
       switch (spell.kind) {
         case 'bolt': {
-          const length = Math.hypot(x - h.x, y - h.y) || 1;
-          const dx = (x - h.x) / length, dy = (y - h.y) / length;
+          const dx = Math.cos(h.facing), dy = Math.sin(h.facing);
           this.projectiles.push({ id: this.nextId++, kind: 'bolt', x: h.x + dx * 20, y: h.y + dy * 20,
             from: h, team: h.team, speed: spell.speed, dx, dy, left: spell.range, spell, damage, hit: new Set() });
           break;
         }
         case 'blast': {
-          const target = spell.fixed ? { x:h.x + Math.cos(h.facing) * spell.range, y:h.y + Math.sin(h.facing) * spell.range } : { x, y };
-          this.areas.push({ id: this.nextId++, ...point(h, target.x, target.y, spell.range, 0, false), from: h, team: h.team, radius: spell.radius,
+          this.areas.push({ id: this.nextId++, ...castPoint(h, spell, x, y), from: h, team: h.team, radius: spell.radius,
             time: this.time + spell.delay, duration: spell.delay, ultimate, hits: spell.hits || 1, spell, damage,
             ...(spell.travel && { heading:h.facing }) });
           break;
         }
         case 'sentry': {
           const maxHp = spell.health + (h.level - 1) * 15;
-          this.creeps.push(this.unit({ type:'creep', kind:'ranged', team:h.team, ...point(h, x, y, spell.range),
+          this.creeps.push(this.unit({ type:'creep', kind:'ranged', team:h.team, ...castPoint(h, spell, x, y),
             r:17, hp:maxHp, maxHp, armor:2, range:420, interval:1.05, damage:spell.shot + (h.level - 1) * spell.shotGrowth,
             sentry:true, expires:this.time + spell.duration }));
           break;
@@ -506,10 +517,10 @@
           this.blast(h, spell, h.x, h.y, damage);
           break;
         case 'dash':
-          h.dash = { ...point(h, x, y, spell.range, 60), spell, damage };
+          h.dash = { ...castPoint(h, spell, x, y), spell, damage };
           break;
         case 'blink':
-          this.blink(h, point(h, x, y, spell.range));
+          this.blink(h, castPoint(h, spell, x, y));
           break;
         case 'buff':
           this.buff(h, spell.name, spell.duration, spell.stats);
@@ -631,6 +642,8 @@
           h.windup = null;
           break;
         case 'cast':
+          if ((cmd.castMode && (cmd.castMode === 'point') !== abilityNeedsTarget(abilitySpell(h, i))) ||
+            (cmd.recipe && cmd.recipe !== h.prepared?.[i - 4])) return 'Spell changed. Select the ability again.';
           return this.cast(h, i, x, y);
         case 'item':
           return this.useItem(h, i, x, y);
@@ -1222,7 +1235,8 @@
       case 'move':
       case 'amove': return pos;
       case 'attack': return Number.isSafeInteger(cmd.id) && cmd.id > 0;
-      case 'cast': return slot(6) && pos;
+      case 'cast': return slot(6) && pos && (cmd.castMode === undefined || ['self', 'point'].includes(cmd.castMode)) &&
+        (cmd.recipe === undefined || (cmd.i >= 4 && typeof cmd.recipe === 'string' && /^[QWE]{3}$/.test(cmd.recipe)));
       case 'item': return slot(6) && pos;
       case 'sell': return slot(6);
       case 'buy': return typeof cmd.id === 'string' && owns(ITEMS, cmd.id);
@@ -1233,7 +1247,7 @@
     }
   }
   const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell,
-    abilityError, abilityReadyAt, weaveRecipe, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
+    abilityError, abilityReadyAt, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();

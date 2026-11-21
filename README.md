@@ -31,7 +31,7 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 | W + E + E | Rolling Stitch, four bursts that advance in the cast direction |
 | E + E + E | Sky Needle, a long-range delayed strike |
 
-Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units away, **W** lands 460 units away, and **E** lands 700 units away. Aim with the cursor and adjust your position to choose which blast will connect. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
+Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units away, **W** lands 460 units away, and **E** lands 700 units away. Select a blast and click to set its direction. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
 
 ## Play solo
 
@@ -43,7 +43,8 @@ Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and cl
 | Inspect unit health and hero items | Left-click |
 | Toggle follow / recenter the free camera on your hero | C / Space |
 | Pan in free camera mode | Arrow keys, middle-mouse drag, click or drag on the minimap, or move the cursor to a screen edge |
-| Cast abilities | Q / W / E / R |
+| Select a targeted ability / confirm it / cancel it | Ability key / left-click / right-click or Esc |
+| Cast a self-targeted ability or prepare Neris's marks | Ability key |
 | Use active items | 1–6 |
 | Attack the target under the cursor or attack-move / stop attacking | A / S |
 | Shop / potion / recall | B / F / T |

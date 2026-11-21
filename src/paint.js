@@ -285,7 +285,7 @@
       const followX = hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18);
       return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
-    frame(s, team, now, mark, dt, pointer, selectedId) {
+    frame(s, team, now, mark, dt, pointer, selectedId, spell) {
       this.resize();
       const g = this.g, w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
@@ -420,12 +420,33 @@
         }
         g.globalAlpha = 1;
       }
-      const target = pointer && Lanebreak.pickTarget(s, team, this.toWorld(pointer.x, pointer.y));
-      if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
+      if (pointer) {
+        const at = this.toWorld(pointer.x, pointer.y);
+        if (spell) this.castPreview(g, player, spell, at);
+        else {
+          const target = Lanebreak.pickTarget(s, team, at);
+          if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
+        }
+      }
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
       g.fillRect(0, 0, w, h);
       this.minimap(s, team, w / this.scale, h / this.scale);
+    }
+    castPreview(g, hero, spell, at) {
+      const end = Lanebreak.castPoint(hero, spell, at.x, at.y);
+      const color = '#ffe0a2';
+      g.save();
+      g.setLineDash([10, 7]);
+      line(g, [[hero.x, hero.y], [end.x, end.y]], color + 'b0', 2);
+      g.setLineDash([]);
+      if (spell.kind !== 'bolt' && spell.radius) {
+        ellipse(g, end.x, end.y, spell.radius, spell.radius, color + '18', color + 'd0', 2.5);
+      }
+      ellipse(g, end.x, end.y, 11, 11, null, color, 2);
+      line(g, [[end.x - 15, end.y], [end.x + 15, end.y]], color, 1.5);
+      line(g, [[end.x, end.y - 15], [end.x, end.y + 15]], color, 1.5);
+      g.restore();
     }
     label(g, text, x, y, size, color) {
       g.font = '700 ' + size + 'px system-ui'; g.textAlign = 'center';

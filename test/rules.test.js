@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Match, buyPlan, sellValue, spellDamage, physical, pickTarget, pickUnit, CREEP_FLAGS } = require('../src/engine.js');
+const { Match, buyPlan, sellValue, spellDamage, physical, pickTarget, pickUnit, abilityNeedsTarget, castPoint, CREEP_FLAGS } = require('../src/engine.js');
 const { HEROES, ITEMS } = require('../src/rules.js');
 
 const advance = (match, elapsed) => {
@@ -232,6 +232,42 @@ test('standard spells respect unlock levels, mana, and cooldowns', () => {
     advance(m, 1);
     assert.match(m.order(0, { o:'cast', i:0, x:650, y:450 }), /cooling/);
   }
+});
+
+test('aimed abilities and instant abilities are classified across the roster', () => {
+  const expected = {
+    vesper:[true, true, false, true], brakk:[true, false, false, false], orrin:[true, true, true, true],
+    sable:[true, true, false, true], mirel:[true, true, false, true], neris:[false, false, false, false],
+    cairn:[true, true, true, false]
+  };
+  for (const [id, kit] of Object.entries(HEROES)) {
+    assert.deepEqual(kit.abilities.slice(0, 4).map(abilityNeedsTarget), expected[id]);
+  }
+  for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
+    assert.equal(abilityNeedsTarget(spell), recipe !== 'WWE');
+  }
+});
+
+test('an aimed cast uses the previewed point and a stale Neris slot cannot cast a different spell', () => {
+  const match = new Match({ heroes:['cairn','brakk'], training:{ dummy:false } });
+  const cairn = match.heroes[0], click = { x:cairn.x + 50, y:cairn.y + 70 };
+  const order = { o:'cast', i:0, ...click };
+  assert.match(match.order(0, { ...order, castMode:'self' }), /Select the ability again/);
+  assert.equal(match.areas.length, 0);
+  assert.equal(match.order(0, { ...order, castMode:'point' }), null);
+  const expected = castPoint(cairn,HEROES.cairn.abilities[0],click.x,click.y);
+  assert.deepEqual({ x:match.areas[0].x, y:match.areas[0].y }, expected);
+
+  const weaver = new Match({ heroes:['neris','brakk'], training:{ dummy:false } });
+  const neris = weaver.heroes[0], destination = { x:neris.x + 365, y:neris.y };
+  for (const i of [0, 1, 1, 3]) {
+    assert.equal(weaver.order(0, { o:'cast', i, ...destination, castMode:'self' }), null);
+  }
+  const blink = { o:'cast', i:4, ...destination };
+  assert.match(weaver.order(0, { ...blink, castMode:'self', recipe:'WWE' }), /Select the ability again/);
+  assert.match(weaver.order(0, { ...blink, castMode:'point', recipe:'EEE' }), /Select the ability again/);
+  assert.equal(weaver.order(0, { ...blink, castMode:'point', recipe:'QWW' }), null);
+  assert.equal(neris.x, destination.x);
 });
 
 test('Neris can prepare and cast all ten recipes at level one in any order', () => {

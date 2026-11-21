@@ -2,7 +2,7 @@
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT, WEAVE_MARKS } = LanebreakRules;
   const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    weaveRecipe, pickTarget, pickUnit, xpGoal, CREEP_FLAGS } = Lanebreak;
+    abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
@@ -29,6 +29,7 @@
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let cameraDrag = null, resultShown = false;
+  let pendingCast = null;
   let heroPreviewCard = null;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
@@ -197,7 +198,7 @@
       tile.hidden = i >= 4;
       const button = make('button');
       button.append(make('kbd', key), make('span'));
-      button.addEventListener('click', () => aim('cast', i));
+      button.addEventListener('click', () => chooseAbility(i));
       bindTooltip(button);
       tile.append(make('small', null, 'abilityName'), button);
       $('abilities').append(tile);
@@ -209,7 +210,7 @@
       const button = make('button');
       button.append(make('kbd', i + 1), make('span', '–'));
       button.addEventListener('click', () => {
-        if ($('shop').hidden) aim('item', i);
+        if ($('shop').hidden) useItem(i);
         else issue({ o:'sell', i });
       });
       bindTooltip(button);
@@ -315,6 +316,7 @@
   }
   function enter() {
     hideHeroGuide();
+    setPendingCast(null);
     $('lobby').hidden = true;
     game.hidden = false;
     document.body.classList.add('matchMode');
@@ -345,6 +347,7 @@
     wasDead = false;
   }
   function goMenu() {
+    setPendingCast(null);
     if (seat) safeSeat(null);
     disconnect();
     local = null;
@@ -386,6 +389,7 @@
     enter();
   }
   function overlay(title, text, label, action, { tone = '', cancel } = {}) {
+    setPendingCast(null);
     const panel = $('matchOverlay');
     const primary = $('overlayAction');
     const secondary = $('overlaySecondary');
@@ -433,6 +437,7 @@
     else $('matchOverlay').hidden = true;
   }
   function help() {
+    setPendingCast(null);
     if (!game.hidden && !remote && !paused && snapshot?.mode !== 'ended') {
       wasPaused = true; paused = true;
     }
@@ -454,7 +459,7 @@
     } else {
       error = local.order(team, cmd);
       snapshot = local.snapshot(team, demo);
-      if (cmd.o === 'cast' && snapshot.heroes[team].marks) lastUi = -1;
+      if (cmd.o === 'cast') lastUi = -1;
     }
     if (error) {
       if (cmd.o === 'buy' && !$('shop').hidden) shopFeedback(error, true);
@@ -464,9 +469,37 @@
     if (cmd.o === 'sell') beep(600,.10,'sine',.045,.7);
     return true;
   }
-  function aim(o, i) {
+  function useItem(i) {
+    setPendingCast(null);
     const { x, y } = aimPoint();
-    issue({ o, i, x, y });
+    issue({ o:'item', i, x, y });
+  }
+  function setPendingCast(cast) {
+    const tiles = $('abilities').children;
+    if (pendingCast) tiles[pendingCast.i].lastElementChild.classList.remove('aiming');
+    pendingCast = cast;
+    const prompt = $('castPrompt');
+    prompt.hidden = !cast;
+    arena.classList.toggle('aiming', Boolean(cast));
+    if (cast) {
+      prompt.textContent = cast.spell.name + ' · Select a target';
+      tiles[cast.i].lastElementChild.classList.add('aiming');
+    }
+  }
+  function chooseAbility(i) {
+    if (!snapshot || paused || demo || snapshot.mode !== 'match') return;
+    if (pendingCast?.i === i) return setPendingCast(null);
+    setPendingCast(null);
+    const h = snapshot.heroes[team], spell = abilitySpell(h, i);
+    if (!spell || h.hp <= 0) return;
+    const recipe = i >= 4 ? h.prepared?.[i - 4] : undefined;
+    if (abilityNeedsTarget(spell)) {
+      const error = abilityError(h, i, snapshot.time, spell, Boolean(snapshot.training));
+      if (error) return hint(error);
+      setPendingCast({ i, spell, recipe });
+    } else {
+      issue({ o:'cast', i, x:h.x, y:h.y, castMode:'self', recipe });
+    }
   }
   function aimPoint() {
     if (hovered) return renderer.toWorld(hovered.x, hovered.y);
@@ -556,6 +589,7 @@
   }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
+    setPendingCast(null);
     shopFocus = null;
     $('shop').hidden = !$('shop').hidden;
     $('shopButton').setAttribute('aria-expanded', !$('shop').hidden);
@@ -695,6 +729,7 @@
   }
   function updateHud(s) {
     const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
+    if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || abilitySpell(h, pendingCast.i) !== pendingCast.spell)) setPendingCast(null);
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
     $('matchClock').textContent = clock;
     if (s.training) {
@@ -767,6 +802,7 @@
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
+        (abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
@@ -863,6 +899,14 @@
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
     const p = aimPoint();
+    if (pendingCast) {
+      const { i, spell, recipe } = pendingCast;
+      setPendingCast(null);
+      if (event.button === 2) return;
+      if (abilitySpell(snapshot.heroes[team], i) !== spell) return hint('Spell changed. Select the ability again.');
+      issue({ o:'cast', i, ...p, castMode:'point', recipe });
+      return;
+    }
     const visible = renderer.displayed || snapshot;
     if (event.button === 0 && event.pointerType !== 'touch') {
       selectUnit(pickUnit(visible, p)?.id ?? null);
@@ -1047,6 +1091,8 @@
     }
     const weaver = snapshot && HEROES[snapshot.heroes[team].hero].weaves;
     const spellSlot = keys.indexOf(k.toUpperCase());
+    if (pendingCast && k === 'escape') return setPendingCast(null);
+    if (pendingCast && ['a', 's', 't'].includes(k)) setPendingCast(null);
     if (k === 'c') toggleCamera();
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
@@ -1057,8 +1103,8 @@
         const { x, y } = (renderer.displayed || snapshot).heroes[team];
         freeCamera(x,y);
       }
-    } else if (spellSlot >= 0 && (spellSlot < 4 || weaver)) aim('cast', spellSlot);
-    else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
+    } else if (spellSlot >= 0 && (spellSlot < 4 || weaver)) chooseAbility(spellSlot);
+    else if (/^[1-6]$/.test(k)) useItem(+k - 1);
     else if (k === 'b') toggleShop();
     else if (k === (weaver ? 'v' : 'f')) issue({o:'potion'});
     else if (k === 't') issue({o:'recall'});
@@ -1112,6 +1158,7 @@
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
     const resetCameraInput = () => {
       stopCameraDrag();
+      setPendingCast(null);
       panKeys.clear();
       cursorOnArena = false;
       edgePointer = null;
@@ -1203,7 +1250,8 @@
       if (snapshot) {
         const visible = remote ? interpolate(now) : snapshot;
         panCamera(elapsed);
-        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,inspectedId);
+        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,
+          inspectedId,pendingCast?.spell);
         playEvents(visible);
         if (now - lastUi > 90) {
           updateHud(snapshot);
