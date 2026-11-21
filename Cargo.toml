@@ -1,3 +1,14 @@
 [workspace]
-members = ["rust/physics", "rust/node"]
+members = ["rust/physics", "rust/engine", "rust/node"]
 resolver = "3"
+
+[profile.release]
+strip = "debuginfo"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

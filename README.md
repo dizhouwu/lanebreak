@@ -82,7 +82,7 @@ npm run build
 npm start
 ```
 
-The build compiles a Node.js add-on for the current operating system and embeds the WebAssembly build in the standalone game HTML. Build again on the destination platform when moving the server to another machine. On Windows, `Start-Lanebreak.cmd` builds and starts the server using the same tools.
+The build compiles the Rust engine as a native add-on for the current operating system and embeds its WebAssembly build in the standalone game HTML. Build again on the destination platform when moving the server to another machine. On Windows, `Start-Lanebreak.cmd` builds and starts the server using the same tools.
 
 For a test on one computer, open `http://127.0.0.1:8377/` in two browser tabs. Under **Online 1v1**, one player clicks **Host match** and the other opens the invite link or enters the four-letter room code and clicks **Join room**. Both players can also click **Find opponent**. To play from two devices on the same LAN, run `node lanebreak_server.js --host=0.0.0.0` and open the host's LAN address on port 8377 from the other device.
 
@@ -99,7 +99,9 @@ Check `/healthz`, then use two devices to host, join, and reconnect after a refr
 
 ## Source and tests
 
-`src/rules.js` defines heroes, items, and difficulty settings. Solo and online modes share `src/engine.js`, which drives ticks, abilities, and AI. The Rust crate in `rust/physics` resolves unit collisions and finds targets intersecting moving skill projectiles. Node uses the native module in `rust/node`, and the browser runs that same physics crate as WebAssembly. Rendering lives in `src/paint.js`, and `src/client.js` handles input and online play. After changing the source, run `npm run build` and restart the server.
+`rust/engine` runs the match, including movement, damage, abilities, items, objectives, creeps, and AI. It uses `rust/physics` for collision and projectile queries and reads the shared hero, item, and difficulty tables from `src/rules.json`. The browser runs that engine through WebAssembly. The server loads the same engine through the native bindings in `rust/node` and handles rooms, reconnections, and WebSockets. JavaScript handles input, previews, and rendering.
+
+The [cross-platform build](https://github.com/dizhouwu/lanebreak/actions/workflows/build.yml) checks Windows, Linux, Apple Silicon, and Intel macOS. After changing source or tuning tables, run `npm run build` and restart the server.
 
 ```sh
 npm test

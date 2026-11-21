@@ -4,8 +4,8 @@ const path = require('node:path');
 const { randomBytes, createHash, timingSafeEqual } = require('node:crypto');
 const { performance } = require('node:perf_hooks');
 const { parseArgs } = require('node:util');
-const { Match, validOrder } = require('./src/engine.js');
-const { HEROES } = require('./src/rules.js');
+const { Match, validOrder } = require('./src/match.js');
+const { HEROES } = require('./src/rules.json');
 
 const limits = { rooms: 20, connections: 80, message: 512, perSecond: 120, waiting: 900_000, empty: 60_000, silent: 45_000 };
 const guid = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -64,7 +64,7 @@ function createServer(options = {}) {
     member.peer = null;
     if (!room.match) rooms.delete(room.code);
     else {
-      room.match.heroes[peer.team].bot = 'normal';
+      room.match.setBot(peer.team, 'normal');
       if (!room.members.some(m => m.peer)) room.emptyAt = performance.now();
     }
   }
@@ -111,9 +111,7 @@ function createServer(options = {}) {
     peer.room = room;
     room.emptyAt = null;
     if (previous) closePeer(previous,1000);
-    const hero = room.match.heroes[team];
-    hero.bot = null;
-    hero.retreat = false;
+    room.match.setBot(team, null);
     room.match.order(team,{ o:'stop' });
     sendStart(room,team);
   }
@@ -226,8 +224,8 @@ function createServer(options = {}) {
       for (const [team,member] of room.members.entries()) {
         if (!member.peer) continue;
         // Both players receive the same world data. Hero details and effects are filtered per seat.
-        publicPrefix ??= '{"t":"s","s":' + JSON.stringify(room.match.snapshotWorld()).slice(0, -1) + ',';
-        const view = JSON.stringify(room.match.snapshotView(team));
+        publicPrefix ??= '{"t":"s","s":' + room.match.snapshotWorldJson().slice(0, -1) + ',';
+        const view = room.match.snapshotViewJson(team);
         send(member.peer,publicPrefix + view.slice(1) + '}',!ended);
       }
       if (ended) {

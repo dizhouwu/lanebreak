@@ -379,6 +379,7 @@
     setPendingCast(null);
     if (seat) safeSeat(null);
     disconnect();
+    local?.dispose();
     local = null;
     remote = false;
     snapshot = null;
@@ -398,9 +399,10 @@
     safeSeat(null);
     remote = false; demo = watch; team = 0;
     const opponents = heroKeys.filter(key => key !== hero);
+    local?.dispose();
     local = new Match({ heroes: [hero, opponents[Math.floor(Math.random() * opponents.length)]],
       names: [$('name').value.trim().slice(0, 20)], bots: [watch ? diff : null, diff] });
-    for (let i = 0; i < seconds * 60 && local.mode === 'match'; i++) local.step(1 / 60);
+    local.step(1 / 60, Math.ceil(seconds * 60));
     snapshot = local.snapshot(0, watch);
     enter();
     if (watch) hint('Spectating · computer vs computer');
@@ -413,6 +415,7 @@
     disconnect();
     safeSeat(null);
     remote = false; demo = false; team = 0;
+    local?.dispose();
     local = new Match({ heroes:[hero, 'brakk'], training:{ dummy } });
     snapshot = local.snapshot(team);
     enter();
@@ -1000,6 +1003,7 @@
         status((data.pub ? 'Finding an opponent · ' : 'Waiting for opponent · Room ') + room);
       } else if (data.t === 'start') {
         const rejoin = !game.hidden && remote;
+        local?.dispose();
         team = data.team; room = data.code; remote = true; demo = false; local = null;
         retry = 0; history.length = 0; snapshot = null; clockOffset = null; renderedTime = 0;
         safeSeat({ code: data.code, token: data.token });
@@ -1287,7 +1291,7 @@
     else {
       if (local && !paused && local.mode === 'match' && !$('controls').open) {
         const frameTime = Math.min(elapsed,.1), steps = Math.max(1, Math.ceil(frameTime * 60 - .05));
-        if (frameTime > 0) for (let i = 0; i < steps; i++) local.step(frameTime / steps);
+        if (frameTime > 0) local.step(frameTime / steps, steps);
         snapshot = local.snapshot(team,demo);
       }
       if (snapshot) {

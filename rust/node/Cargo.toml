@@ -8,6 +8,6 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-lanebreak-physics = { path = "../physics" }
+lanebreak-engine = { path = "../engine" }
 napi = { version = "2", default-features = false, features = ["napi6", "dyn-symbols"] }
 napi-derive = "2"

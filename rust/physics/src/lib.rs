@@ -83,33 +83,6 @@ pub fn sweep_bolt(
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-mod browser {
-    use std::cell::RefCell;
-
-    thread_local! {
-        static ROWS: RefCell<Vec<f64>> = const { RefCell::new(Vec::new()) };
-    }
-
-    #[unsafe(no_mangle)]
-    extern "C" fn physics_rows(length: usize) -> *mut f64 {
-        ROWS.with_borrow_mut(|rows| {
-            rows.resize(length, 0.0);
-            rows.as_mut_ptr()
-        })
-    }
-
-    #[unsafe(no_mangle)]
-    extern "C" fn separate_units(width: f64) {
-        ROWS.with_borrow_mut(|rows| super::separate_units(rows, width));
-    }
-
-    #[unsafe(no_mangle)]
-    extern "C" fn sweep_bolt(x: f64, y: f64, dx: f64, dy: f64, length: f64, radius: f64) {
-        ROWS.with_borrow_mut(|rows| super::sweep_bolt(rows, [x, y], [dx, dy], length, radius));
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,10 +90,8 @@ mod tests {
     #[test]
     fn collision_resolves_in_order_and_preserves_anchored_and_hidden_units() {
         let mut rows = [
-            100.0, 450.0, 10.0, 0.0, 0.0,
-            110.0, 450.0, 10.0, 0.0, 1.0,
-            127.0, 450.0, 10.0, 1.0, 3.0,
-            130.0, 450.0, 10.0, 0.0, 1.0,
+            100.0, 450.0, 10.0, 0.0, 0.0, 110.0, 450.0, 10.0, 0.0, 1.0, 127.0, 450.0, 10.0, 1.0,
+            3.0, 130.0, 450.0, 10.0, 0.0, 1.0,
         ];
         separate_units(&mut rows, 5200.0);
         assert_eq!(rows[0], 100.0);
@@ -131,7 +102,9 @@ mod tests {
 
     #[test]
     fn sweep_checks_grazes_and_skips_targets_outside_the_segment() {
-        let mut rows = [25.0, 20.0, 10.0, 0.0, 70.0, 0.0, 10.0, 0.0, 20.0, 20.1, 10.0, 0.0];
+        let mut rows = [
+            25.0, 20.0, 10.0, 0.0, 70.0, 0.0, 10.0, 0.0, 20.0, 20.1, 10.0, 0.0,
+        ];
         sweep_bolt(&mut rows, [0.0, 0.0], [1.0, 0.0], 50.0, 10.0);
         assert_eq!([rows[3], rows[7], rows[11]], [25.0, 50.0, -1.0]);
     }

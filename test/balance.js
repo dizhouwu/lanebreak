@@ -1,13 +1,13 @@
-const { Match } = require('../src/engine.js');
-const { HEROES } = require('../src/rules.js');
+const { Match } = require('../src/match.js');
+const { HEROES } = require('../src/rules.json');
 
 const ids = Object.keys(HEROES);
 const maxSeconds = 40 * 60;
 const rounds = 4;
 function simulate(heroes, bots, seed) {
   const match = new Match({ heroes, bots, seed });
-  for (let i = 0; i < maxSeconds * 60 && match.mode === 'match'; i++) match.step(1 / 60);
-  return match;
+  match.step(1 / 60, maxSeconds * 60);
+  return match.snapshot(0);
 }
 
 const wins = Object.fromEntries(ids.map(id => [id, 0]));
