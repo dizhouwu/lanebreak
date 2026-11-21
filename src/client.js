@@ -20,7 +20,7 @@
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
-  let placeCameraOnHero = false, cameraDrag = null, resultShown = false;
+  let cameraDrag = null, resultShown = false;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
@@ -238,11 +238,7 @@
     $('hudTooltip').hidden = true;
     shopFocus = shopSelection = tooltipTarget = null;
     selectUnit(null);
-    stopCameraDrag();
-    panKeys.clear();
-    renderer.focus = null;
-    placeCameraOnHero = true;
-    cameraLabel(true);
+    followHero();
     renderer.displayed = null;
     paused = false;
     renderMark = null;
@@ -377,32 +373,33 @@
     const button = $('camera');
     button.setAttribute('aria-pressed', free);
     button.textContent = free ? 'Camera: Free' : 'Camera: Follow';
+    game.dataset.camera = free ? 'free' : 'follow';
   }
   function followHero() {
-    placeCameraOnHero = false;
+    stopCameraDrag();
+    panKeys.clear();
+    edgePointer = null;
     renderer.focus = null;
     cameraLabel(false);
   }
   function freeCamera(x, y) {
     if (!snapshot || paused || snapshot.mode !== 'match') return;
-    placeCameraOnHero = false;
     if (renderer.focus == null) cameraLabel(true);
     renderer.focusAt(x,y);
   }
   function toggleCamera() {
-    stopCameraDrag();
-    if (placeCameraOnHero || renderer.focus != null) followHero();
+    if (renderer.focus != null) followHero();
     else {
       const center = renderer.viewCenter();
       freeCamera(center.x,center.y);
     }
   }
   function cameraInputEnabled() {
-    return !game.hidden && snapshot?.mode === 'match' && !paused &&
+    return renderer.focus != null && !game.hidden && snapshot?.mode === 'match' && !paused &&
       !$('controls').open && $('matchOverlay').hidden && $('shop').hidden;
   }
   function moveCamera(dx, dy) {
-    const center = renderer.focus ?? renderer.viewCenter();
+    const center = renderer.focus;
     freeCamera(center.x + dx, center.y + dy);
   }
   function edgePan(position, size) {
@@ -418,7 +415,7 @@
     if (cameraDrag) return;
     let dx = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
     let dy = Number(panKeys.has('arrowdown')) - Number(panKeys.has('arrowup'));
-    if (!panKeys.size && renderer.focus && edgePointer) {
+    if (!panKeys.size && edgePointer) {
       dx = edgePan(edgePointer.x, arena.clientWidth);
       dy = edgePan(edgePointer.y, arena.clientHeight);
     }
@@ -435,8 +432,8 @@
   }
   function arenaPointerDown(event) {
     if (event.button !== 1) return canvasOrder(event);
+    if (!game.hidden) event.preventDefault();
     if (!cameraInputEnabled()) return;
-    event.preventDefault();
     edgePointer = null;
     cameraDrag = { id: event.pointerId, x: event.clientX, y: event.clientY };
     arena.setPointerCapture(event.pointerId);
@@ -884,7 +881,7 @@
     }
     if (!game.hidden && k.startsWith('arrow')) {
       event.preventDefault();
-      panKeys.add(k);
+      if (cameraInputEnabled()) panKeys.add(k);
       return;
     }
     if (event.repeat) return;
@@ -908,8 +905,10 @@
       stopCameraDrag();
       panKeys.clear();
       edgePointer = null;
-      const { x, y } = (renderer.displayed || snapshot).heroes[team];
-      freeCamera(x,y);
+      if (renderer.focus) {
+        const { x, y } = (renderer.displayed || snapshot).heroes[team];
+        freeCamera(x,y);
+      }
     } else if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
     else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
     else if (k === 'b') toggleShop();
@@ -939,11 +938,12 @@
     });
     const minimap = $('minimap');
     const mapFocus = event => {
+      if (!cameraInputEnabled()) return;
       const rect = minimap.getBoundingClientRect();
       freeCamera((event.clientX-rect.x) / rect.width * WIDTH, (event.clientY-rect.y) / rect.height * HEIGHT);
     };
     minimap.addEventListener('pointerdown', event => {
-      if (event.button !== 0) return;
+      if (event.button !== 0 || !cameraInputEnabled()) return;
       event.preventDefault();
       edgePointer = null;
       minimap.setPointerCapture(event.pointerId);
@@ -954,7 +954,7 @@
     });
     document.addEventListener('pointermove', event => {
       if (event.pointerType === 'mouse') {
-        edgePointer = event.target === arena && !cameraDrag ? hovered : null;
+        edgePointer = event.target === arena && renderer.focus && !cameraDrag ? hovered : null;
       }
     });
     document.addEventListener('pointerout', event => {
@@ -1028,11 +1028,6 @@
       }
       if (snapshot) {
         const visible = remote ? interpolate(now) : snapshot;
-        if (placeCameraOnHero) {
-          const { x, y } = visible.heroes[team];
-          renderer.focusAt(x,y);
-          placeCameraOnHero = false;
-        }
         panCamera(elapsed);
         renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,inspectedId);
         playEvents(visible);

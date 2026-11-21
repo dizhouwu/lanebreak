@@ -10,14 +10,16 @@ Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and cl
 |---|---|
 | Move, attack, transfer creep aggro, or deny | Right-click |
 | Inspect unit health and hero items | Left-click |
-| Toggle follow / center on your hero and resume free camera | C / Space |
-| Pan the camera | Arrow keys, middle-mouse drag, click or drag on the minimap, or move the cursor to a screen edge in free mode |
+| Toggle follow / recenter the free camera on your hero | C / Space |
+| Pan in free camera mode | Arrow keys, middle-mouse drag, click or drag on the minimap, or move the cursor to a screen edge |
 | Cast abilities | Q / W / E / R |
 | Use active items | 1–6 |
 | Attack the target under the cursor or attack-move / stop attacking | A / S |
 | Shop / potion / recall | B / F / T |
 | Pause a solo match | P / Esc |
 | Change graphics / toggle sound | G / M |
+
+The camera follows your hero at the start of each match. Press **C** to switch to free camera.
 
 Order a basic attack on the enemy hero near enemy creeps to draw their aggro. Right-click or press **A** over a nearby allied creep to redirect enemy creeps that are attacking you. You can deny an allied creep when its health bar turns purple.
 
