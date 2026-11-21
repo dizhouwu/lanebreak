@@ -163,6 +163,13 @@ pub struct Difficulty {
 }
 
 #[derive(Deserialize)]
+pub struct TeamMap {
+    pub height: f64,
+    pub fountains: [[f64; 2]; 2],
+    pub lanes: Vec<Vec<[f64; 2]>>,
+}
+
+#[derive(Deserialize)]
 pub struct Rules {
     #[serde(rename = "HEROES")]
     pub heroes: BTreeMap<String, Kit>,
@@ -176,6 +183,8 @@ pub struct Rules {
     pub width: f64,
     #[serde(rename = "HEIGHT")]
     pub height: f64,
+    #[serde(rename = "TEAM_MAP")]
+    pub team_map: TeamMap,
     #[serde(rename = "UNLOCKS")]
     pub unlocks: Vec<u32>,
     #[serde(rename = "TEAM")]

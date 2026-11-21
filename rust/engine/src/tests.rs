@@ -32,6 +32,45 @@ fn view(m: &Match, team: usize) -> Value {
 }
 
 #[test]
+fn team_battle_has_independent_lanes_and_fountain_defense() {
+    let mut m = Match::from_options(
+        &json!({"team_match":true,"bots":[null,null,null,null,null,null,null,null,null,null]})
+            .to_string(),
+    )
+    .unwrap();
+    assert_eq!(m.heroes.len(), 10);
+    assert!(m.home(0).x < m.home(1).x && m.home(0).y > m.home(1).y);
+    assert_eq!(m.buildings.len(), 14);
+    let outer = m.lane_building(0, 0, "outer").unwrap();
+    let inner = m.lane_building(0, 0, "inner").unwrap();
+    assert!(m.protected(inner));
+    m.u_mut(outer).hp = 0.0;
+    assert!(!m.protected(inner));
+    assert!(m.protected(m.lane_building(0, 1, "inner").unwrap()));
+    let core = m.building(0, "core").unwrap();
+    assert!(m.protected(core));
+    m.u_mut(inner).hp = 0.0;
+    assert!(!m.protected(core));
+    m.step(DT, 121);
+    assert_eq!(m.creeps.len(), 24);
+    for lane in 0..3 {
+        assert_eq!(
+            m.creeps.iter().filter(|&&id| m.u(id).lane == lane).count(),
+            8
+        );
+    }
+    let invader = m.heroes[5];
+    let home = m.home(0);
+    let initial = m.u(invader).hp;
+    place(&mut m, invader, home.x, home.y);
+    m.step(DT, 1);
+    assert!(m.u(invader).hp < initial - 300.0);
+    assert!(m.effects.iter().any(|effect| effect["kind"] == "fountain"));
+    m.step(DT, 35);
+    assert_eq!(m.u(invader).hp, 0.0);
+}
+
+#[test]
 fn waves_spawn_symmetrically_and_movement_clears_the_fountain() {
     let mut m = duel(["brakk", "orrin"]);
     m.command(1, Command::Move(Point::new(1700.0, 450.0)))
@@ -319,7 +358,7 @@ fn recall_cancels_on_move_then_completes_on_an_uninterrupted_channel() {
     assert!(m.u(1).pos.x > 1000.0);
     m.command(1, Command::Recall).unwrap();
     m.step(DT, 181);
-    assert_eq!(m.u(1).pos, home(0));
+    assert_eq!(m.u(1).pos, m.home(0));
     assert!(m.h(1).recall_ready > m.time);
 }
 

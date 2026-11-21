@@ -1,6 +1,6 @@
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT, WEAVE_MARKS } = LanebreakRules;
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS } = LanebreakRules;
   const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
     abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
@@ -31,7 +31,7 @@
   let cameraDrag = null, resultShown = false;
   let pendingCast = null;
   let heroPreviewCard = null;
-  let socket, seat, room, waiting = false, retry = 0, networkAction = null;
+  let socket, seat, room, roomTeamMatch = false, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
   const rowIndexes = new WeakMap();
@@ -253,6 +253,8 @@
     fillItemGuide();
     $('name').value = prefs.load('name') || '';
     $('name').addEventListener('input', () => prefs.save('name', $('name').value));
+    $('teamsName').value = $('name').value;
+    $('teamsName').addEventListener('input', () => prefs.save('name', $('teamsName').value));
     pick(selected);
     setDifficulty(difficulty);
     updateSettings();
@@ -269,7 +271,7 @@
   }
   function tab(next) {
     view = next;
-    for (const mode of ['solo', 'online', 'training']) {
+    for (const mode of ['solo', 'online', 'teams', 'training']) {
       $(mode + 'Panel').hidden = next !== mode;
       $(mode + 'Tab').setAttribute('aria-pressed', next === mode);
     }
@@ -343,7 +345,9 @@
       }
     } catch {}
   }
-  function status(text) { $('roomStatus').textContent = text; }
+  function status(text) {
+    $('roomStatus').textContent = $('teamRoomStatus').textContent = text;
+  }
   function hint(text) {
     $('hint').textContent = text;
     $('hint').hidden = false;
@@ -360,11 +364,13 @@
     $('hint').hidden = true;
     $('matchOverlay').hidden = true;
     const training = Boolean(snapshot?.training);
-    game.dataset.mode = training ? 'training' : 'match';
+    syncBattleMode();
     $('trainingTag').hidden = $('trainingAutoRefill').hidden = $('changeTrainingHero').hidden = !training;
     $('playerScore').hidden = $('opponentScore').hidden = training;
-    $('back').textContent = training ? 'End training' : remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
+    $('back').textContent = training ? 'End training' : remote ? (roomTeamMatch ? 'Leave match' : 'Surrender') :
+      demo ? 'Stop watching' : 'End match';
     resultShown = false;
+    showRoster(false);
     $('shop').hidden = true;
     $('shopFeedback').hidden = true;
     $('deathNotice').hidden = true;
@@ -395,7 +401,7 @@
     game.hidden = true;
     document.body.classList.remove('matchMode');
     renderer.dirty = true;
-    if (/^#(?:play|demo|training)=/.test(location.hash)) clearHash();
+    if (/^#(?:play|demo|teams|training)=/.test(location.hash)) clearHash();
   }
   function clearHash() {
     try { historyApi.replaceState(null, '', location.href.split('#')[0]); } catch { location.hash = ''; }
@@ -426,6 +432,80 @@
     local = new Match({ heroes:[hero, 'brakk'], training:{ dummy } });
     snapshot = local.snapshot(team);
     enter();
+  }
+  function startTeamMatch(hero = selected) {
+    disconnect();
+    safeSeat(null);
+    remote = false;
+    demo = false;
+    team = 0;
+    local?.dispose();
+    const allies = [hero, ...heroKeys.filter(key => key !== hero).slice(0, 4)];
+    const enemies = [...heroKeys.slice(4), ...heroKeys.slice(0, 1)];
+    local = new Match({heroes:[...allies, ...enemies], bots:[null, ...Array(9).fill(difficulty)], team_match:true});
+    snapshot = local.snapshot(team);
+    enter();
+  }
+  function syncBattleMode() {
+    const mode = snapshot?.training ? 'training' : snapshot?.teamMatch ? 'teams' : 'match';
+    if (game.dataset.mode === mode) return;
+    game.dataset.mode = mode;
+    const minimap = $('minimap');
+    minimap.width = mode === 'teams' ? 260 : 520;
+    minimap.height = mode === 'teams' ? 210 : 100;
+  }
+  function showRoster(open) {
+    $('matchRoster').hidden = !open;
+    $('rosterButton').setAttribute('aria-expanded', open);
+    if (!open || !snapshot) return;
+    setPendingCast(null);
+    panKeys.clear();
+    edgePointer = null;
+    updateRoster(snapshot);
+  }
+  function updateRoster(s) {
+    const target = $('rosterTeams');
+    const roster = s.heroes.filter(hero => !hero.dummy);
+    const signature = JSON.stringify([s.kills, roster.map(h => [h.id,h.team,h.hero,h.name,h.computer,h.level,h.loadout])]);
+    if (target.dataset.roster === signature) return;
+    target.dataset.roster = signature;
+    target.replaceChildren();
+    for (const [side, name] of TEAM.entries()) {
+      const heroes = roster.filter(hero => hero.team === side);
+      if (!heroes.length) continue;
+      const group = make('section');
+      group.style.setProperty('--team', COLORS[side]);
+      const table = make('table');
+      const labels = table.createTHead().insertRow();
+      for (const label of ['Player', 'Level', 'Items']) {
+        const cell = make('th', label);
+        cell.scope = 'col';
+        labels.append(cell);
+      }
+      const body = table.createTBody();
+      for (const h of heroes) {
+        const row = body.insertRow();
+        const player = make('th', h.name + (h.id === s.heroes[team].id ? ' (You)' : h.computer ? ' (Bot)' : ''));
+        player.scope = 'row';
+        const kit = HEROES[h.hero];
+        const hero = make('span', kit.name, 'rosterHero');
+        hero.style.setProperty('--hero', kit.color);
+        if (h.name === kit.name) player.style.color = kit.color;
+        else player.append(hero);
+        row.append(player);
+        row.insertCell().textContent = h.level;
+        const items = row.insertCell();
+        for (const id of h.loadout || []) {
+          const item = ITEMS[id];
+          const badge = make('span', item.name, 'rosterItem');
+          badge.style.setProperty('--item', item.color);
+          items.append(badge);
+        }
+        if (!items.childElementCount) items.textContent = '–';
+      }
+      group.append(make('h3', name + ' · ' + s.kills[side] + ' kills'), table);
+      target.append(group);
+    }
   }
   function openTrainingHeroPicker() {
     if (!local || !snapshot?.training || snapshot.mode !== 'match' || paused) return;
@@ -478,6 +558,10 @@
       $('back').blur();
     };
     if (remote) {
+      if (snapshot.teamMatch) {
+        overlay('Leave this match?', 'A bot will take over your hero and the match will continue.', 'Leave match', goMenu, { cancel });
+        return;
+      }
       overlay('Surrender this match?', 'Your opponent will win the match.', 'Surrender', () => {
         cancel();
         if (socket?.readyState !== WebSocket.OPEN) return hint('Reconnecting…');
@@ -597,7 +681,7 @@
   }
   function cameraInputEnabled() {
     return renderer.focus != null && !game.hidden && snapshot?.mode === 'match' && !paused &&
-      !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden;
+      !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden && $('matchRoster').hidden;
   }
   function moveCamera(dx, dy) {
     const center = renderer.focus;
@@ -793,7 +877,10 @@
     }) : [make('li', 'No items', 'noEquipment')]));
   }
   function updateHud(s) {
-    const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
+    const h = s.heroes[team], hero = HEROES[h.hero], time = s.time;
+    const side = h.team;
+    const foe = s.heroes.find(other => other.team !== side);
+    if (!$('matchRoster').hidden) updateRoster(s);
     if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || abilitySpell(h, pendingCast.i) !== pendingCast.spell)) setPendingCast(null);
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
     $('matchClock').textContent = clock;
@@ -803,18 +890,22 @@
       $('opponentStatus').textContent = s.training.dummy ? 'Dummy · ∞ HP' +
         (s.training.hits ? ' · Last hit ' + Math.round(s.training.lastHit) : '') : '';
     } else {
-      const corePct = side => Math.ceil(s.buildings.find(b => b.team === side && b.kind === 'core').hp / 30);
+      const corePct = side => {
+        const core = s.buildings.find(b => b.team === side && b.kind === 'core');
+        return Math.ceil(core.hp / core.maxHp * 100);
+      };
       for (const [id, combatant] of [['playerScore', h], ['opponentScore', foe]]) {
         const side = $(id);
         side.style.setProperty('--score-team',COLORS[combatant.team]);
-        side.style.setProperty('--score-hero',HEROES[combatant.hero].color);
+        side.style.setProperty('--score-hero',s.teamMatch ? COLORS[combatant.team] : HEROES[combatant.hero].color);
         side.lastElementChild.textContent = s.kills[combatant.team];
         side.title = TEAM[combatant.team] + ' · Core ' + corePct(combatant.team) + '%';
       }
-      $('scoreboard').setAttribute('aria-label', TEAM[team] + ' ' + s.kills[team] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
+      $('scoreboard').setAttribute('aria-label', TEAM[side] + ' ' + s.kills[side] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
       $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
       const enemyHero = HEROES[foe.hero].name;
-      $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
+      $('opponentStatus').textContent = s.teamMatch ? TEAM[foe.team] + ' core · ' + corePct(foe.team) + '%' :
+        'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
         (foe.heat != null ? ' · Heat ' + foe.heat : '') +
         (foe.concealed ? ' · Hidden' : foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') +
         (remote && foe.computer ? ' · Bot' : '');
@@ -916,7 +1007,7 @@
       $('shop').hidden = true;
       $('shopButton').setAttribute('aria-expanded', 'false');
       $('deathNotice').hidden = true;
-      const won = s.winner === team;
+      const won = s.winner === side;
       const quit = s.endReason === 'quit';
       const title = s.training ? 'Training ended' : quit ? 'Match ended' : demo ? TEAM[s.winner] + ' wins' : won ? 'Victory' : 'Defeat';
       const reason = s.training ? hero.name + ' · ' + (s.training.dummy ? 'Training dummy' : 'Empty arena') :
@@ -926,7 +1017,7 @@
       const stats = $('matchStats');
       const rows = s.training ?
         [['Training time', clock], ['Damage dealt', Math.round(s.training.damage)], ['Hits', s.training.hits]] :
-        [['Match time', clock], ['Level', h.level + ' vs ' + foe.level], ['Kills / deaths', s.kills[team] + ' / ' + h.deaths],
+        [['Match time', clock], ['Level', s.teamMatch ? h.level : h.level + ' vs ' + foe.level], ['Kills / deaths', s.kills[side] + ' / ' + h.deaths],
           ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
       stats.replaceChildren(...rows.flatMap(([name,value]) => [make('dt',name),make('dd',value)]));
       stats.hidden = false;
@@ -936,10 +1027,11 @@
   function playEvents(s) {
     for (const e of s.effects) {
       if (e.id <= lastEffect) continue;
+      if (e.time > s.time) continue;
       lastEffect = e.id;
       if (s.time - e.time > 2) continue;
       if (e.kind === 'notice') hint(e.text);
-      if (e.kind === 'purchase' && e.audience === team) {
+      if (e.kind === 'purchase' && (e.audienceSeat ?? e.audience) === team) {
         const message = 'Bought ' + ITEMS[e.item].name + ' · ' + e.cost + 'g';
         if ($('shop').hidden) hint(message);
         else shopFeedback(message);
@@ -951,7 +1043,7 @@
         parent.prepend(row);
         if (parent.children.length > 6) parent.lastElementChild.remove();
       }
-      if (e.kind === 'level' && e.team === team) beep(660,.25,'triangle',.07,1.5);
+      if (e.kind === 'level' && e.team === s.heroes[team].team) beep(660,.25,'triangle',.07,1.5);
       if (e.kind === 'cast' && e.hero === 'ecarg') violinPhrase(e.spell, e.ultimate);
       else if (e.kind === 'cast') {
         const sound = e.spell === 'blast' ? [e.ultimate ? 240 : 420,.25,'sine',.05,.7] : castSounds[e.spell];
@@ -962,7 +1054,8 @@
     }
   }
   function canvasOrder(event) {
-    if (game.hidden || paused || !snapshot || snapshot.mode !== 'match' || (event.button !== 0 && event.button !== 2)) return;
+    if (game.hidden || paused || !snapshot || snapshot.mode !== 'match' || !$('matchRoster').hidden ||
+        (event.button !== 0 && event.button !== 2)) return;
     event.preventDefault();
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
@@ -996,7 +1089,7 @@
     if (!snapshot) return;
     const target = pickTarget(renderer.displayed || snapshot, team, p, true);
     if (issue(target ? { o:'attack', id:target.id } : { o:fallback, ...p })) {
-      const color = target?.team === team ? '#c9a0ff' : target || fallback === 'amove' ? '#ff6b6b' : '#8dffb0';
+      const color = target?.team === snapshot.heroes[team].team ? '#c9a0ff' : target || fallback === 'amove' ? '#ff6b6b' : '#8dffb0';
       renderMark = { ...(target || p), at:performance.now(), color };
     }
   }
@@ -1014,8 +1107,8 @@
       const closing = socket; socket = null;
       if (closing.readyState < WebSocket.CLOSING) closing.close();
     }
-    waiting = false; room = null;
-    $('waiting').hidden = true;
+    waiting = false; room = null; roomTeamMatch = false;
+    $('waiting').hidden = $('teamWaiting').hidden = true;
     status('');
   }
   function openSocket(message) {
@@ -1030,20 +1123,29 @@
       try { data = JSON.parse(event.data); } catch { return; }
       if (data.t === 'wait') {
         room = data.code; waiting = true;
-        $('waiting').hidden = false;
-        status((data.pub ? 'Finding an opponent · ' : 'Waiting for opponent · Room ') + room);
+        roomTeamMatch = Boolean(data.teamMatch);
+        $('waiting').hidden = roomTeamMatch;
+        $('teamWaiting').hidden = !roomTeamMatch;
+        $('launchTeamRoom').hidden = !data.host;
+        status(roomTeamMatch ? 'Room ' + room + ' · ' + data.players + '/10 · ' + TEAM[data.side] :
+          (data.pub ? 'Finding an opponent · ' : 'Waiting for opponent · Room ') + room);
       } else if (data.t === 'start') {
         const rejoin = !game.hidden && remote;
         local?.dispose();
         team = data.team; room = data.code; remote = true; demo = false; local = null;
+        roomTeamMatch = Boolean(data.teamMatch);
         retry = 0; history.length = 0; snapshot = null; clockOffset = null; renderedTime = 0;
-        safeSeat({ code: data.code, token: data.token });
+        safeSeat({ code: data.code, token: data.token, teamMatch:roomTeamMatch });
         waiting = false;
         if (!rejoin) enter();
         if (rejoin) hint('Reconnected');
       } else if (data.t === 's') {
         const previous = snapshot?.heroes[team];
+        if (data.s.effectsDelta && snapshot) {
+          data.s.effects = [...snapshot.effects.filter(e => data.s.time - e.time < 4), ...data.s.effects];
+        }
         snapshot = data.s;
+        syncBattleMode();
         const current = snapshot.heroes[team];
         if (previous?.marks?.join() !== current.marks?.join() || previous?.prepared?.join() !== current.prepared?.join()) lastUi = -1;
         const sample = snapshot.time - performance.now() / 1000;
@@ -1072,7 +1174,7 @@
       } else if (seat && remote && !game.hidden) {
         overlay('Connection lost','Check your network and reopen the match URL to try again.','Return to lobby',goMenu);
       } else {
-        $('waiting').hidden = true;
+        $('waiting').hidden = $('teamWaiting').hidden = true;
         waiting = false;
         status('Online server unavailable. You can still play solo.');
       }
@@ -1084,17 +1186,20 @@
     disconnect();
     retry = 0;
     safeSeat(null);
-    const code = $('room').value.trim().toUpperCase();
-    if (t === 'join' && !/^[A-Z]{4}$/.test(code)) return status('Enter a four-letter room code.');
+    const teams = t.endsWith('5v5');
+    const code = $(teams ? 'teamRoom' : 'room').value.trim().toUpperCase();
+    if (t.startsWith('join') && !/^[A-Z]{4}$/.test(code)) return status('Enter a four-letter room code.');
     networkAction = t;
     if (!muted) initAudio();
     status('Connecting…');
-    openSocket({ t, code, hero: selected, name: $('name').value.trim().slice(0,20) });
+    const requested = $('joinTeamSide').value;
+    openSocket({ t, code, hero: selected, name: $(teams ? 'teamsName' : 'name').value.trim().slice(0,20),
+      side: teams && requested !== '' ? Number(requested) : undefined });
   }
   async function copyInvite() {
     if (!room) return;
     const url = new URL(location.href);
-    url.hash = 'room=' + room;
+    url.hash = 'room=' + room + (roomTeamMatch ? '&mode=5v5' : '');
     try {
       await navigator.clipboard.writeText(url.href);
       status('Copied invite link · Room ' + room);
@@ -1141,6 +1246,15 @@
   function hotkey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]') || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
+    if (!game.hidden && snapshot && k === 'tab' && !event.shiftKey) {
+      event.preventDefault();
+      if (!event.repeat) showRoster($('matchRoster').hidden);
+      return;
+    }
+    if (!$('matchRoster').hidden && k === 'escape') {
+      showRoster(false);
+      return;
+    }
     if (!game.hidden && !$('matchOverlay').hidden) {
       const primary = $('overlayAction');
       const secondary = $('overlaySecondary');
@@ -1170,6 +1284,7 @@
       if (k === 'enter' && event.target.tagName !== 'BUTTON') {
         if (view === 'training') startTraining();
         else if (view === 'solo') solo();
+        else if (view === 'teams') startTeamMatch();
       }
       if (k === 'n') { tab('online'); $('name').focus(); }
       return;
@@ -1219,7 +1334,7 @@
     const mapFocus = event => {
       if (!cameraInputEnabled()) return;
       const rect = minimap.getBoundingClientRect();
-      freeCamera((event.clientX-rect.x) / rect.width * WIDTH, (event.clientY-rect.y) / rect.height * HEIGHT);
+      freeCamera((event.clientX-rect.x) / rect.width * WIDTH, (event.clientY-rect.y) / rect.height * renderer.height);
     };
     minimap.addEventListener('pointerdown', event => {
       if (event.button !== 0 || !cameraInputEnabled()) return;
@@ -1252,17 +1367,28 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
     $('start').onclick = () => solo();
     $('startTraining').onclick = () => startTraining();
+    $('startTeamMatch').onclick = () => startTeamMatch();
     $('changeTrainingHero').onclick = openTrainingHeroPicker;
     $('closeTrainingHeroPicker').onclick = () => $('trainingHeroPicker').close();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
+    $('teamsTab').onclick = () => tab('teams');
     $('trainingTab').onclick = () => tab('training');
     $('host').onclick = () => network('host');
     $('find').onclick = () => network('find');
     $('join').onclick = () => network('join');
+    $('hostTeamMatch').onclick = () => network('host5v5');
+    $('joinTeamMatch').onclick = () => network('join5v5');
+    $('copyTeamInvite').onclick = copyInvite;
+    $('leaveTeamRoom').onclick = disconnect;
+    $('launchTeamRoom').onclick = () => {
+      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({t:'start5v5'}));
+    };
     $('copy').onclick = copyInvite;
     $('cancelWait').onclick = disconnect;
     $('back').onclick = confirmEndMatch;
+    $('rosterButton').onclick = () => showRoster($('matchRoster').hidden);
+    $('closeRoster').onclick = () => showRoster(false);
     $('audio').onclick = changeAudio;
     $('camera').onclick = toggleCamera;
     $('quality').onclick = changeQuality;
@@ -1296,6 +1422,12 @@
       startTraining(heroKeys.includes(hero) ? hero : selected, options.get('dummy') !== 'off');
       return;
     }
+    if (options.has('teams')) {
+      const hero = options.get('teams');
+      tab('teams');
+      startTeamMatch(heroKeys.includes(hero) ? hero : selected);
+      return;
+    }
     const play = options.get('play'), spectate = options.get('demo');
     if (play || spectate) {
       const [hero, diff, t] = (play || spectate).split(',');
@@ -1304,14 +1436,15 @@
       return;
     }
     if (code && /^[A-Z]{4}$/.test(code)) {
-      tab('online');
-      $('room').value = code;
+      const teams = options.get('mode') === '5v5';
+      tab(teams ? 'teams' : 'online');
+      $(teams ? 'teamRoom' : 'room').value = code;
       if (hosted) status('Invited to room ' + code + '. Choose a hero, then join.');
     }
     try {
       const saved = JSON.parse(sessionStorage.getItem('lanebreak:seat'));
       if (hosted && saved && (!code || saved.code === code)) {
-        safeSeat(saved); tab('online'); status('Reconnecting to your match…');
+        safeSeat(saved); tab(saved.teamMatch ? 'teams' : 'online'); status('Reconnecting to your match…');
         openSocket({t:'rejoin',...saved});
       }
     } catch {}

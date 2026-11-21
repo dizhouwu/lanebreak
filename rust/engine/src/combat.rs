@@ -275,14 +275,22 @@ impl Match {
         self.u_mut(id).hp = 0.0;
         let u = self.u(id);
         let (team, pos) = (u.team, u.pos);
-        let hero = HEROES[1 - team];
+        let enemy_team = 1 - team;
+        let killer = if self.u(source).role == Role::Hero && self.u(source).team == enemy_team {
+            Some(source)
+        } else if !self.team_match {
+            Some(self.heroes[enemy_team])
+        } else {
+            None
+        };
         match u.role {
             Role::Creep => {
                 if u.sentry {
                     return;
                 }
                 let (gold, xp) = (u.gold, u.xp);
-                if source == hero && !deny {
+                if killer == Some(source) && !deny {
+                    let hero = source;
                     let alive = self.u(hero).hp > 0.0;
                     let h = self.h_mut(hero);
                     h.gold += gold;
@@ -304,9 +312,18 @@ impl Match {
                         json!({"audience": self.u(source).team, "text": "Denied"}),
                     );
                 }
-                let enemy = self.u(hero);
-                if enemy.hp > 0.0 && enemy.pos.dist(pos) <= 1200.0 {
-                    self.gain_xp(hero, xp * if deny { 0.4 } else { 1.0 });
+                let nearby: Vec<_> = self
+                    .heroes
+                    .iter()
+                    .copied()
+                    .filter(|&hero| {
+                        let u = self.u(hero);
+                        u.team == enemy_team && u.hp > 0.0 && u.pos.dist(pos) <= 1200.0
+                    })
+                    .collect();
+                let share = xp * if deny { 0.4 } else { 1.0 } / nearby.len().max(1) as f64;
+                for hero in nearby {
+                    self.gain_xp(hero, share);
                 }
             }
             Role::Hero => {
@@ -333,14 +350,22 @@ impl Match {
                 let lv = h.level;
                 self.effect("fall", pos, json!({"unit": "hero"}));
                 let gold = 180 + 12 * lv;
-                self.h_mut(hero).gold += f64::from(gold);
-                self.gain_xp(hero, f64::from(100 + 35 * lv));
-                self.kills[1 - team] += 1;
-                let text = format!(
-                    "{} killed {} (+{gold} gold)",
-                    self.h(hero).name,
-                    self.h(id).name
-                );
+                let text = if let Some(hero) = killer {
+                    self.h_mut(hero).gold += f64::from(gold);
+                    self.gain_xp(hero, f64::from(100 + 35 * lv));
+                    format!(
+                        "{} killed {} (+{gold} gold)",
+                        self.h(hero).name,
+                        self.h(id).name
+                    )
+                } else {
+                    format!(
+                        "{} was killed by {}",
+                        self.h(id).name,
+                        rules().teams[enemy_team]
+                    )
+                };
+                self.kills[enemy_team] += 1;
                 self.effect("feed", pos, json!({"team": 1 - team, "text": text}));
             }
             Role::Building => {
@@ -348,7 +373,9 @@ impl Match {
                     self.finish(Some(1 - team), "core".into());
                 } else {
                     let text = format!("{} {} tower destroyed", rules().teams[team], u.kind);
-                    self.h_mut(hero).gold += 180.0;
+                    if let Some(hero) = killer {
+                        self.h_mut(hero).gold += 180.0;
+                    }
                     self.effect("fall", pos, json!({"unit": "tower"}));
                     self.effect("feed", pos, json!({"team": team, "text": text}));
                 }
@@ -551,6 +578,7 @@ impl Match {
         } else {
             spell.stun
         };
+        let height = self.height();
         let b = self.u_mut(target);
         if disable > 0.0 {
             b.stun_until = b.stun_until.max(time + disable);
@@ -627,9 +655,13 @@ impl Match {
             && !b.dummy
             && !b.sentry
         {
-            b.pos = b
-                .pos
-                .towards(b.pos.projected(dir, spell.push), f64::INFINITY, 0.0, true);
+            b.pos = b.pos.towards(
+                b.pos.projected(dir, spell.push),
+                f64::INFINITY,
+                0.0,
+                true,
+                height,
+            );
             if let Some(h) = &mut b.hero {
                 h.jump += 1;
             }

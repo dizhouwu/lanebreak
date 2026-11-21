@@ -1,5 +1,6 @@
 mod ai;
 mod combat;
+mod map;
 mod orders;
 mod rules;
 mod snapshot;
@@ -16,7 +17,6 @@ mod tests;
 mod web;
 
 pub type Id = u32;
-const HEROES: [Id; 2] = [1, 2];
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
 struct Point {
@@ -47,7 +47,7 @@ impl Point {
         let y = d.y / max;
         (x * x + y * y).sqrt() * max
     }
-    fn towards(self, to: Self, limit: f64, min: f64, ground: bool) -> Self {
+    fn towards(self, to: Self, limit: f64, min: f64, ground: bool, height: f64) -> Self {
         let mut length = self.dist(to);
         if length == 0.0 {
             length = 1.0;
@@ -57,22 +57,12 @@ impl Point {
         Self::new(
             result.x.clamp(inset, rules().width - inset),
             if ground {
-                result.y.clamp(70.0, 860.0)
+                result.y.clamp(70.0, height - 140.0)
             } else {
-                result.y.clamp(20.0, rules().height - 20.0)
+                result.y.clamp(20.0, height - 20.0)
             },
         )
     }
-}
-fn home(team: usize) -> Point {
-    Point::new(
-        if team == 0 {
-            110.0
-        } else {
-            rules().width - 110.0
-        },
-        450.0,
-    )
 }
 fn training_start() -> Point {
     Point::new(rules().width / 2.0 - 420.0, 450.0)
@@ -317,6 +307,7 @@ struct Unit {
     sentry: bool,
     expires: f64,
     lane_y: f64,
+    lane: usize,
     gold: f64,
     xp: f64,
     roll: [f64; 2],
@@ -404,9 +395,10 @@ struct TrainingOptions {
 #[derive(Default, Deserialize)]
 #[serde(default)]
 struct Options {
-    heroes: Option<[String; 2]>,
+    heroes: Option<Vec<String>>,
     names: Vec<String>,
-    bots: Option<[Option<String>; 2]>,
+    bots: Option<Vec<Option<String>>>,
+    team_match: bool,
     seed: f64,
     training: Option<TrainingOptions>,
 }
@@ -418,8 +410,11 @@ pub struct Match {
     wave: u32,
     next_wave: f64,
     next_orb: f64,
+    fountain_ready: [f64; 2],
     orb: Option<Orb>,
     units: BTreeMap<Id, Unit>,
+    heroes: Vec<Id>,
+    team_match: bool,
     buildings: Vec<Id>,
     creeps: Vec<Id>,
     projectiles: Vec<Projectile>,
@@ -445,8 +440,11 @@ impl Match {
             wave: 0,
             next_wave: 2.0,
             next_orb: 60.0,
+            fountain_ready: [0.0; 2],
             orb: None,
             units: BTreeMap::new(),
+            heroes: Vec::new(),
+            team_match: options.team_match && options.training.is_none(),
             buildings: Vec::new(),
             creeps: Vec::new(),
             projectiles: Vec::new(),
@@ -462,17 +460,28 @@ impl Match {
             collision_rows: Vec::new(),
             collision_ids: Vec::new(),
         };
-        let keys = options.heroes.unwrap_or(["brakk".into(), "orrin".into()]);
-        let bots = options.bots.unwrap_or([None, Some("normal".into())]);
-        for (team, (key, bot)) in keys.into_iter().zip(bots).enumerate() {
-            let key = if rules().heroes.contains_key(&key) {
-                key
-            } else {
-                "brakk".into()
-            };
+        let team_size = if m.team_match { 5 } else { 1 };
+        let defaults = [
+            "brakk", "orrin", "sable", "mirel", "neris", "vesper", "cairn", "ecarg",
+        ];
+        let keys = options.heroes.unwrap_or_default();
+        let bots = options.bots.unwrap_or_default();
+        for seat in 0..2 * team_size {
+            let team = seat / team_size;
+            let slot = seat % team_size;
+            let lane = [1, 0, 0, 2, 2][slot];
+            let key = keys
+                .get(seat)
+                .filter(|key| rules().heroes.contains_key(*key))
+                .cloned()
+                .unwrap_or_else(|| defaults[seat % defaults.len()].into());
+            let bot = bots
+                .get(seat)
+                .cloned()
+                .unwrap_or_else(|| (seat > 0).then(|| "normal".into()));
             let name = options
                 .names
-                .get(team)
+                .get(seat)
                 .filter(|n| !n.is_empty())
                 .cloned()
                 .unwrap_or_else(|| rules().heroes[&key].name.clone());
@@ -480,11 +489,13 @@ impl Match {
             let id = m.insert(Unit {
                 role: Role::Hero,
                 team,
-                pos: home(team),
+                pos: m.spawn_point(team, slot),
+                lane,
                 r: 26.0,
                 hero: Some(Hero::new(key, name, bot, think)),
                 ..Unit::default()
             });
+            m.heroes.push(id);
             m.refresh(id);
             m.u_mut(id).hp = m.u(id).max_hp;
             m.h_mut(id).mana = m.h(id).max_mana;
@@ -508,6 +519,10 @@ impl Match {
             hero.name = "Training dummy".into();
             hero.bot = None;
             m.refill_training(1);
+            return m;
+        }
+        if m.team_match {
+            m.create_team_buildings();
             return m;
         }
         for team in 0..=1 {
@@ -572,6 +587,18 @@ impl Match {
     }
     fn protected(&self, id: Id) -> bool {
         let u = self.u(id);
+        if self.team_match && u.role == Role::Building {
+            return match u.kind {
+                "core" => !self.buildings.iter().any(|&id| {
+                    let b = self.u(id);
+                    b.team == u.team && b.kind == "inner" && b.hp <= 0.0
+                }),
+                "inner" => self
+                    .lane_building(u.team, u.lane, "outer")
+                    .is_some_and(|id| self.u(id).hp > 0.0),
+                _ => false,
+            };
+        }
         u.role == Role::Building
             && u.kind != "outer"
             && self
@@ -596,7 +623,7 @@ impl Match {
         self.end_reason = Some(reason);
     }
     pub fn set_bot(&mut self, team: usize, bot: Option<String>) {
-        if let Some(&id) = HEROES.get(team) {
+        if let Some(&id) = self.heroes.get(team) {
             let h = self.h_mut(id);
             h.bot = bot;
             if h.bot.is_none() {
@@ -614,11 +641,11 @@ impl Match {
         }
         self.effects.push(item);
     }
-    pub fn notice(&mut self, team: usize, text: &str) {
+    pub fn notice(&mut self, seat: usize, text: &str) {
         self.effect(
             "notice",
             Point::default(),
-            json!({"audience": team, "text": text}),
+            json!({"audienceSeat": seat, "text": text}),
         );
     }
     fn spell_damage(&self, id: Id, spell: &Spell) -> f64 {
@@ -654,6 +681,7 @@ impl Match {
             spell.range,
             if spell.kind == Kind::Dash { 60.0 } else { 0.0 },
             spell.kind != Kind::Blast,
+            self.height(),
         )
     }
     fn targetable_hero(&self, from: Id, target: Id, spell: &Spell) -> bool {

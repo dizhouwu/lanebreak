@@ -139,7 +139,7 @@ impl Match {
         !matches!(Command::parse(input), None | Some(Command::TrainingHero(_)))
     }
     pub fn order_json(&mut self, team: usize, input: &str) -> Option<String> {
-        let Some(&id) = HEROES.get(team) else {
+        let Some(&id) = self.heroes.get(team) else {
             return Some("Invalid order".into());
         };
         let Some(cmd) = Command::parse(input) else {
@@ -150,7 +150,7 @@ impl Match {
 
     pub(super) fn can_shop(&self, id: Id) -> bool {
         let u = self.u(id);
-        self.training.is_some() || u.hp <= 0.0 || u.pos.dist(home(u.team)) <= 430.0
+        self.training.is_some() || u.hp <= 0.0 || u.pos.dist(self.home(u.team)) <= 430.0
     }
 
     fn recalculate_item_stats(&mut self, id: Id) {
@@ -261,7 +261,7 @@ impl Match {
                 if self.time - h.last_threat < 2.5 {
                     return Err("Rift Stone is disabled in combat".into());
                 }
-                self.blink(id, u.pos.towards(at, 520.0, 0.0, true));
+                self.blink(id, u.pos.towards(at, 520.0, 0.0, true, self.height()));
                 self.h_mut(id).channel = 0.0;
                 self.u_mut(id).windup = None;
             }
@@ -308,7 +308,8 @@ impl Match {
             Command::Buy(key) => {
                 let before = self.h(id).gold;
                 self.buy(id, key)?;
-                self.effect("purchase", self.u(id).pos, json!({"audience": team, "item": key, "cost": js_round(before - self.h(id).gold)}));
+                let seat = self.heroes.iter().position(|&hero| hero == id);
+                self.effect("purchase", self.u(id).pos, json!({"audienceSeat": seat, "item": key, "cost": js_round(before - self.h(id).gold)}));
                 return Ok(());
             }
             Command::Sell(slot) => return self.sell(id, *slot),
@@ -320,7 +321,10 @@ impl Match {
         let time = self.time;
         match cmd {
             Command::Move(at) | Command::Advance(at) => {
-                let p = self.u(id).pos.towards(at, f64::INFINITY, 0.0, true);
+                let p = self
+                    .u(id)
+                    .pos
+                    .towards(at, f64::INFINITY, 0.0, true, self.height());
                 let walking = matches!(cmd, Command::Move(_));
                 let u = self.u_mut(id);
                 let h = u.hero.as_mut().unwrap();
@@ -351,7 +355,13 @@ impl Match {
                     } else if transferred {
                         Order::Stop
                     } else {
-                        Order::Move(self.u(id).pos.towards(b.pos, f64::INFINITY, 0.0, true))
+                        Order::Move(self.u(id).pos.towards(
+                            b.pos,
+                            f64::INFINITY,
+                            0.0,
+                            true,
+                            self.height(),
+                        ))
                     }
                 } else {
                     if b.role == Role::Hero && !self.u(id).veiled(time) {
@@ -455,7 +465,7 @@ impl Match {
         self.areas.clear();
         self.projectiles.clear();
         self.effects.clear();
-        let dummy = self.u_mut(HEROES[1]);
+        let dummy = self.u_mut(self.heroes[1]);
         dummy.stun_until = 0.0;
         dummy.disarmed_until = 0.0;
         dummy.lift_until = 0.0;
@@ -554,7 +564,7 @@ impl Match {
         self.effect(
             "cast",
             origin,
-            json!({"team": team, "hero": self.h(id).key, "spell": spell.kind.name(),
+            json!({"team": team, "caster": id, "hero": self.h(id).key, "spell": spell.kind.name(),
             "ability": spell.name,
             "ultimate": ultimate, "audience": recast.then_some(team)}),
         );

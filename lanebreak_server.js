@@ -13,11 +13,12 @@ const codeChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const decoder = new TextDecoder('utf-8', { fatal: true });
 
 function serverFrame(opcode, payload = Buffer.alloc(0)) {
-  const marker = payload.length < 126 ? payload.length : 126;
-  const header = Buffer.alloc(marker === 126 ? 4 : 2);
+  const marker = payload.length < 126 ? payload.length : payload.length <= 65535 ? 126 : 127;
+  const header = Buffer.alloc(marker === 127 ? 10 : marker === 126 ? 4 : 2);
   header[0] = 0x80 | opcode;
   header[1] = marker;
   if (marker === 126) header.writeUInt16BE(payload.length, 2);
+  if (marker === 127) header.writeBigUInt64BE(BigInt(payload.length), 2);
   return Buffer.concat([header, payload]);
 }
 function createServer(options = {}) {
@@ -38,11 +39,15 @@ function createServer(options = {}) {
   };
   const server = http.createServer(request);
   function send(peer, message, snapshot = false) {
-    if (!peer || peer.closed || peer.socket.destroyed) return;
-    if (peer.socket.writableLength > 256 * 1024) return closePeer(peer, 1013);
-    if (snapshot && peer.socket.writableLength > 32 * 1024) return;
+    if (!peer || peer.closed || peer.socket.destroyed) return false;
+    if (peer.socket.writableLength > 256 * 1024) {
+      closePeer(peer, 1013);
+      return false;
+    }
+    if (snapshot && peer.socket.writableLength > 32 * 1024) return false;
     const json = typeof message === 'string' ? message : JSON.stringify(message);
     peer.socket.write(serverFrame(1, Buffer.from(json)));
+    return true;
   }
   function error(peer, msg, recoverable = false) { send(peer, { t:'err',msg,recoverable }); }
   function closePeer(peer, code = 1000) {
@@ -60,22 +65,35 @@ function createServer(options = {}) {
     const room = peer.room;
     if (!room) return;
     const member = room.members[peer.team];
-    if (member.peer !== peer) return;
+    if (member?.peer !== peer) return;
     member.peer = null;
-    if (!room.match) rooms.delete(room.code);
-    else {
+    if (!room.match) {
+      if (peer.team === 0) {
+        rooms.delete(room.code);
+        for (const guest of room.members) {
+          if (!guest?.peer) continue;
+          error(guest.peer, 'The host closed the room.');
+          closePeer(guest.peer);
+        }
+      } else {
+        room.members[peer.team] = null;
+        notifyTeamRoom(room);
+      }
+    } else {
       room.match.setBot(peer.team, 'normal');
-      if (!room.members.some(m => m.peer)) room.emptyAt = performance.now();
+      if (!room.members.some(m => m?.peer)) room.emptyAt = performance.now();
     }
   }
-  function createRoom(peer, hero, name, pub) {
+  function createRoom(peer, hero, name, pub, teamMatch = false) {
     if (rooms.size >= limits.rooms) return error(peer,'All match slots are currently in use.');
     let code;
     do { code = Array.from(randomBytes(4), b => codeChars[b % 26]).join(''); } while (rooms.has(code));
-    const room = { code, pub, created: performance.now(), members: [], match: null, nextSnapshot: 0 };
+    const room = { code, pub, teamMatch, created: performance.now(), members: Array(teamMatch ? 10 : 2).fill(null),
+      match: null, nextSnapshot: 0 };
     rooms.set(code, room);
     seat(peer, room, 0, hero, name);
-    send(peer, { t:'wait',code,pub });
+    if (teamMatch) notifyTeamRoom(room);
+    else send(peer, { t:'wait',code,pub });
   }
   function seat(peer, room, team, hero, name) {
     const token = randomBytes(24).toString('hex');
@@ -85,16 +103,50 @@ function createServer(options = {}) {
   }
   function sendStart(room, team) {
     const member = room.members[team];
-    send(member.peer, { t:'start',team,code:room.code,token:member.token });
+    send(member.peer, { t:'start',team,code:room.code,token:member.token,teamMatch:room.teamMatch });
     send(member.peer, { t:'s',s:room.match.snapshot(team) });
+    member.effectCursor = room.match.effectCursor();
   }
-  function join(peer, room, hero, name) {
-    if (!room || room.match || room.members[0]?.peer?.closed) return error(peer,'This room is unavailable.');
-    seat(peer, room, 1, hero, name);
-    room.match = new Match({ heroes:room.members.map(m => m.hero), names:room.members.map(m => m.name), bots:[null,null] });
+  function notifyTeamRoom(room) {
+    const players = room.members.filter(Boolean).length;
+    for (const [index, member] of room.members.entries()) {
+      if (member?.peer) send(member.peer,{t:'wait',code:room.code,teamMatch:true,host:index === 0,players,
+        side:index < 5 ? 0 : 1});
+    }
+  }
+  function startRoom(room) {
+    const roster = Object.keys(HEROES);
+    const teamSize = room.teamMatch ? 5 : 1;
+    const used = [new Set(), new Set()];
+    room.members.forEach((m,i) => { if (m) used[Math.floor(i / teamSize)].add(m.hero); });
+    const heroes = room.members.map((m,i) => {
+      if (m) return m.hero;
+      const picks = used[Math.floor(i / teamSize)];
+      const hero = roster.find((key,index) => index >= i % roster.length && !picks.has(key)) ||
+        roster.find(key => !picks.has(key)) || roster[0];
+      picks.add(hero);
+      return hero;
+    });
+    room.match = new Match({heroes,names:room.members.map(m => m?.name || ''),
+      bots:room.members.map(m => m ? null : 'normal'), team_match:room.teamMatch});
     room.nextSnapshot = performance.now() + 1000 / 30;
-    sendStart(room,0);
-    sendStart(room,1);
+    room.members.forEach((member, index) => { if (member?.peer) sendStart(room,index); });
+  }
+  function join(peer, room, hero, name, teamMatch = false, side) {
+    if (!room || room.teamMatch !== teamMatch || room.match || room.members[0]?.peer?.closed) {
+      return error(peer,'This room is unavailable for this mode.');
+    }
+    if (!teamMatch) {
+      seat(peer, room, 1, hero, name);
+      startRoom(room);
+      return;
+    }
+    const sides = [room.members.slice(0, 5), room.members.slice(5)];
+    const chosen = side === 0 || side === 1 ? side : sides[0].filter(Boolean).length > sides[1].filter(Boolean).length ? 1 : 0;
+    const slot = sides[chosen].indexOf(null);
+    if (slot < 0) return error(peer,'That team is full.');
+    seat(peer, room, chosen * 5 + slot, hero, name);
+    notifyTeamRoom(room);
   }
   function rejoin(peer, data) {
     const room = rooms.get(data.code);
@@ -102,7 +154,7 @@ function createServer(options = {}) {
       return error(peer,'The match seat has expired.');
     }
     const token = Buffer.from(data.token,'hex');
-    const team = room.members.findIndex(m => timingSafeEqual(token,Buffer.from(m.token,'hex')));
+    const team = room.members.findIndex(m => m && timingSafeEqual(token,Buffer.from(m.token,'hex')));
     if (team < 0) return error(peer,'The match seat has expired.');
     const member = room.members[team];
     const previous = member.peer;
@@ -122,7 +174,14 @@ function createServer(options = {}) {
     if (data.t === 'surrender') {
       const room = peer.room;
       if (!room?.match || room.members[peer.team]?.peer !== peer) return error(peer,'No active match to surrender.');
+      if (room.teamMatch) return error(peer,'Use Leave match to leave a team game.');
       room.match.finish(1 - peer.team, 'surrender');
+      return;
+    }
+    if (data.t === 'start5v5') {
+      const room = peer.room;
+      if (!room?.teamMatch || room.match || room.members[0]?.peer !== peer) return error(peer,'Only the host can start this room.');
+      startRoom(room);
       return;
     }
     if (data.t === 'o') {
@@ -142,6 +201,8 @@ function createServer(options = {}) {
     const name = typeof data.name === 'string' ? data.name.replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,20) : '';
     if (data.t === 'join') join(peer,rooms.get(data.code),hero,name);
     else if (data.t === 'host') createRoom(peer,hero,name,false);
+    else if (data.t === 'host5v5') createRoom(peer,hero,name,false,true);
+    else if (data.t === 'join5v5') join(peer,rooms.get(data.code),hero,name,true,data.side);
     else if (data.t === 'find') {
       const available = Array.from(rooms.values()).find(r => r.pub && !r.match && !r.members[0]?.peer?.closed);
       if (available) join(peer,available,hero,name);
@@ -222,11 +283,13 @@ function createServer(options = {}) {
       const ended = room.match.mode === 'ended';
       let publicPrefix;
       for (const [team,member] of room.members.entries()) {
-        if (!member.peer) continue;
-        // Both players receive the same world data. Hero details and effects are filtered per seat.
+        if (!member?.peer) continue;
+        // Share world serialization across seats and filter hero details and effects for each player.
         publicPrefix ??= '{"t":"s","s":' + room.match.snapshotWorldJson().slice(0, -1) + ',';
-        const view = room.match.snapshotViewJson(team);
-        send(member.peer,publicPrefix + view.slice(1) + '}',!ended);
+        const view = room.match.snapshotViewJson(team, room.teamMatch ? member.effectCursor : undefined);
+        if (send(member.peer,publicPrefix + view.slice(1) + '}',!ended) && room.teamMatch) {
+          member.effectCursor = room.match.effectCursor();
+        }
       }
       if (ended) {
         room.endedAt = now;
@@ -248,7 +311,7 @@ function createServer(options = {}) {
         (room.emptyAt && now - room.emptyAt > (options.emptyMs ?? limits.empty)) ||
         (room.endedAt && now - room.endedAt > limits.waiting)) {
         rooms.delete(code);
-        for (const m of room.members) if (m.peer) closePeer(m.peer,1001);
+        for (const m of room.members) if (m?.peer) closePeer(m.peer,1001);
       }
     }
   }, 1000);

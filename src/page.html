@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1214">
-  <title>Lanebreak — One-lane strategy duels</title>
+  <title>Lanebreak — Lane strategy battles</title>
   <!-- STYLE -->
 </head>
 <body>
@@ -15,7 +15,6 @@
       <div class="mastActions"><button class="iconButton" id="openItemGuide">Item guide</button><button class="iconButton" id="help">Controls <kbd>?</kbd></button></div>
     </header>
     <section class="titleBlock">
-      <div class="eyebrow"><span></span> ONE-LANE STRATEGY DUELS</div>
       <h1>LANE<span>BREAK</span></h1>
       <p>Win the lane. Break the core.</p>
     </section>
@@ -26,7 +25,7 @@
         <div id="heroPreview" class="panel heroPreview" role="tooltip" hidden></div>
       </section>
       <section class="deploy">
-        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button><button id="trainingTab" aria-pressed="false">Training</button></nav>
+        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo 1v1</button><button id="onlineTab" aria-pressed="false">Online 1v1</button><button id="teamsTab" aria-pressed="false">5v5</button><button id="trainingTab" aria-pressed="false">Training</button></nav>
         <div id="soloPanel">
           <div class="fieldLabel" id="difficultyLabel">Bot difficulty</div>
           <div id="difficulties" class="segments" role="group" aria-labelledby="difficultyLabel">
@@ -41,6 +40,17 @@
           <div id="roomStatus" role="status"></div>
           <div id="waiting" class="onlineRow" hidden><button id="copy" class="primary">Copy invite link</button><button id="cancelWait">Cancel</button></div>
         </div>
+        <div id="teamsPanel" hidden>
+          <button id="startTeamMatch" class="primary">Play with bots <kbd>Enter</kbd></button>
+          <label class="fieldLabel" for="teamsName">Online player name</label><input id="teamsName" maxlength="20" autocomplete="off" placeholder="Your name">
+          <div class="onlineRow"><button id="hostTeamMatch">Host 5v5</button><select id="joinTeamSide" aria-label="Preferred team"><option value="">Auto balance</option><option value="0">Azure</option><option value="1">Crimson</option></select></div>
+          <div class="onlineRow"><input id="teamRoom" maxlength="4" autocomplete="off" aria-label="5v5 room code" placeholder="Room code"><button id="joinTeamMatch">Join 5v5</button></div>
+          <div id="teamRoomStatus" role="status"></div>
+          <div id="teamWaiting" hidden>
+            <div class="onlineRow"><button id="copyTeamInvite">Copy invite</button><button id="leaveTeamRoom">Leave room</button></div>
+            <button id="launchTeamRoom" class="primary" hidden>Start with bots in open seats</button>
+          </div>
+        </div>
         <div id="trainingPanel" hidden>
           <p class="fieldLabel">Abilities have no mana cost or cooldown. Resources refill automatically.</p>
           <label class="trainingOption"><input id="trainingDummy" type="checkbox" checked> Include a training dummy</label>
@@ -53,13 +63,17 @@
     <header class="matchTop">
       <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><div id="trainingAutoRefill" hidden>Auto-refill active</div><button id="changeTrainingHero" class="iconButton" aria-haspopup="dialog" hidden>Change hero</button></div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="trainingTag" hidden>Training</span><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
-      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">End match</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · C Toggle camera</small></div>
+      <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">End match</button><button id="rosterButton" class="iconButton" aria-controls="matchRoster" aria-expanded="false">Teams <kbd>Tab</kbd></button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · C Toggle camera</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
     <div id="castPrompt" role="status" hidden></div>
     <div id="deathNotice" hidden><strong>You died</strong><span id="deathTimer"></span></div>
     <div id="matchOverlay" class="matchOverlay" role="region" aria-labelledby="overlayTitle" hidden><div class="panel overlayPanel"><h2 id="overlayTitle"></h2><p id="overlayText"></p><dl id="matchStats" hidden></dl><div class="overlayActions"><button id="overlaySecondary" hidden>Keep playing</button><button id="overlayAction" class="primary"></button></div></div></div>
+    <section id="matchRoster" class="panel matchRoster" aria-labelledby="rosterTitle" hidden>
+      <header><h2 id="rosterTitle">Teams</h2><button id="closeRoster" type="button">Close</button></header>
+      <div id="rosterTeams"></div>
+    </section>
     <aside id="shop" class="panel shop" hidden aria-label="Item shop">
       <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
       <div id="shopFeedback" role="status" hidden></div>
@@ -112,6 +126,7 @@
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
       <dt><kbd>B</kbd> <kbd>F</kbd> <kbd>T</kbd></dt><dd>Shop, drink a potion, or recall to your fountain.</dd>
       <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>
+      <dt><kbd>Tab</kbd></dt><dd>Show or hide both teams, including hero levels and equipment.</dd>
       <dt><kbd>G</kbd> / <kbd>M</kbd></dt><dd>Cycle graphics quality / toggle sound.</dd>
     </dl>
     <details><summary>Neris spell recipes</summary><p>Choose three marks with Q, W, or E in any order. Press R to prepare the spell, then D or F to cast. Neris uses V for potions.</p><dl id="weaveRecipes"></dl></details>

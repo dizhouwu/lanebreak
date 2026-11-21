@@ -313,8 +313,11 @@ impl Match {
         let u = self.u(id);
         let team = u.team;
         let enemy_team = 1 - team;
-        let enemy = HEROES[enemy_team];
-        let (own, enemy_home) = (home(team), home(enemy_team));
+        if self.team_match {
+            return self.think_team(id, d);
+        }
+        let enemy = self.heroes[enemy_team];
+        let (own, enemy_home) = (self.home(team), self.home(enemy_team));
         let b = self.u(enemy);
         let enemy_alive = b.hp > 0.0 && !b.veiled(t);
         let enemy_dist = if enemy_alive {
@@ -566,5 +569,65 @@ impl Match {
         if pos.dist(hold) > 50.0 {
             let _ = self.command(id, Command::Move(hold));
         }
+    }
+
+    fn think_team(&mut self, id: Id, difficulty: Difficulty) {
+        let u = self.u(id);
+        let (team, lane, pos) = (u.team, u.lane, u.pos);
+        let home = self.home(team);
+        let health = u.hp / u.max_hp;
+        if pos.dist(home) < 400.0 || u.hp <= 0.0 {
+            let h = self.h(id);
+            if let Some(key) = h.kit().build.get(h.build_index)
+                && self.buy(id, key).is_ok()
+            {
+                self.h_mut(id).build_index += 1;
+            }
+        }
+        let u = self.u(id);
+        if u.hp <= 0.0 || u.windup.is_some() || u.dash.is_some() || u.stun_until > self.time {
+            return;
+        }
+        if health < 0.30 || (self.h(id).retreat && health < 0.9) {
+            self.h_mut(id).retreat = true;
+            let _ = self.command(id, Command::Move(home));
+            return;
+        }
+        self.h_mut(id).retreat = false;
+        let progress = self.lane_progress(team, lane, pos);
+        let next = self.lane_point(team, lane, progress + 245.0);
+        let enemy_tower = ["outer", "inner"]
+            .into_iter()
+            .filter_map(|kind| self.lane_building(1 - team, lane, kind))
+            .find(|&tower| self.u(tower).hp > 0.0);
+        if let Some(tower) = enemy_tower {
+            let b = self.u(tower);
+            if pos.dist(b.pos) <= b.range + 100.0 && !self.tower_tanked(tower, id) {
+                let retreat = self.lane_point(team, lane, (progress - 300.0).max(0.0));
+                let _ = self.command(id, Command::Move(retreat));
+                return;
+            }
+        }
+        if let Some(enemy) = self.nearest(id, 750.0, |b| b.role == Role::Hero) {
+            if self.ai_cast(id, enemy, Tactic::Trade, difficulty) {
+                return;
+            }
+            if self.u(id).reach(self.u(enemy)) <= self.u(id).attack_range() + 140.0 {
+                let _ = self.command(id, Command::Attack(enemy));
+                return;
+            }
+        }
+        if let Some(creep) = self.nearest(id, 550.0, |b| b.role == Role::Creep) {
+            let _ = self.command(id, Command::Attack(creep));
+            return;
+        }
+        if let Some(target) = enemy_tower.or_else(|| self.building(1 - team, "core"))
+            && !self.protected(target)
+            && self.u(id).reach(self.u(target)) < self.u(id).attack_range() + 130.0
+        {
+            let _ = self.command(id, Command::Attack(target));
+            return;
+        }
+        let _ = self.command(id, Command::Advance(next));
     }
 }

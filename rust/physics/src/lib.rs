@@ -6,6 +6,10 @@ const VEILED: u32 = 2;
 // Unit rows hold x, y, radius, team, and flags. Resolve pairs in spawn order:
 // a nudge from one pair affects the next pair in the same tick.
 pub fn separate_units(units: &mut [f64], width: f64) {
+    separate_units_in_map(units, width, 1000.0);
+}
+
+pub fn separate_units_in_map(units: &mut [f64], width: f64, height: f64) {
     for i in (0..units.len()).step_by(UNIT_STRIDE) {
         let (first, rest) = units.split_at_mut(i + UNIT_STRIDE);
         let a = &mut first[i..];
@@ -46,11 +50,11 @@ pub fn separate_units(units: &mut [f64], width: f64) {
             };
             if a_moves {
                 a[0] = (a[0] - px).clamp(30.0, width - 30.0);
-                a[1] = (a[1] - py).clamp(70.0, 860.0);
+                a[1] = (a[1] - py).clamp(70.0, height - 140.0);
             }
             if b_moves {
                 b[0] = (b[0] + px).clamp(30.0, width - 30.0);
-                b[1] = (b[1] + py).clamp(70.0, 860.0);
+                b[1] = (b[1] + py).clamp(70.0, height - 140.0);
             }
         }
     }

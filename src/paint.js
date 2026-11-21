@@ -1,5 +1,5 @@
 (function () {
-  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT } = LanebreakRules;
+  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT, TEAM_MAP } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
   const SPRITE_SCALE = 2;
@@ -270,6 +270,38 @@
     }
     return c;
   }
+  function teamTerrain() {
+    const canvas = document.createElement('canvas');
+    canvas.width = WIDTH / 2;
+    canvas.height = TEAM_MAP.height / 2;
+    const g = canvas.getContext('2d');
+    g.scale(.5, .5);
+    g.fillStyle = '#202f28';
+    g.fillRect(0, 0, WIDTH, TEAM_MAP.height);
+    g.lineJoin = 'round';
+    const random = seeded(941);
+    for (let i = 0; i < 2050; i++) {
+      const x = random() * WIDTH, y = random() * TEAM_MAP.height;
+      const radius = 12 + random() * 45;
+      ellipse(g, x + 6, y + 14, radius, radius * .66, '#121f209e');
+      ellipse(g, x, y, radius, radius * .79, random() > .4 ? '#2b4034' : '#304537');
+    }
+    const river = [[-100,200],[1050,620],[1860,1380],[2600,2100],[3420,2800],[4250,3590],[5300,4020]];
+    line(g, river, '#263e39', 318);
+    line(g, river, '#35585c', 254);
+    line(g, river, '#4c7277', 3);
+    for (const path of TEAM_MAP.lanes) {
+      line(g, path, '#121f20', 176);
+      line(g, path, '#626554', 150);
+      line(g, path, '#4e5447', 122);
+      line(g, path, '#aaa38a45', 2);
+    }
+    TEAM_MAP.fountains.forEach(([x,y], side) => {
+      ellipse(g, x, y, 300, 260, '#18282ceb', COLORS[side] + '65', 6);
+      ellipse(g, x, y, 205, 165, '#294249aa', '#8ea59799', 3);
+    });
+    return canvas;
+  }
   class Renderer {
     constructor(canvas, minimap) {
       this.canvas = canvas;
@@ -277,6 +309,8 @@
       this.g = canvas.getContext('2d', { alpha: false });
       this.miniContext = minimap.getContext('2d');
       this.map = null;
+      this.teamMap = null;
+      this.height = HEIGHT;
       this.vignette = null;
       this.buildingSprites = new Map();
       this.creepSprites = new Map();
@@ -322,7 +356,7 @@
       const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
       const halfWidth = Math.min(WIDTH, FREE_VIEW_HEIGHT * aspect) / 2;
       const halfHeight = FREE_VIEW_HEIGHT / 2;
-      this.focus = { x: clamp(x, halfWidth, WIDTH - halfWidth), y: clamp(y, halfHeight, HEIGHT - halfHeight) };
+      this.focus = { x: clamp(x, halfWidth, WIDTH - halfWidth), y: clamp(y, halfHeight, this.height - halfHeight) };
     }
     camera(hero) {
       const view = this.canvas.width / this.scale;
@@ -333,7 +367,8 @@
       this.resize();
       const g = this.g, w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
-      if (!this.map) this.map = terrain();
+      this.height = s.teamMatch ? TEAM_MAP.height : HEIGHT;
+      const map = s.teamMatch ? (this.teamMap ||= teamTerrain()) : (this.map ||= terrain());
       if (dt > 0 && dt <= .25) {
         this.measure ||= { frames: 0, time: 0, fps: 0, settle: 0 };
         const m = this.measure;
@@ -357,26 +392,32 @@
           }
         }
       }
-      this.cam = this.camera(s.heroes[team]);
-      this.camY = this.focus ? clamp(this.focus.y - FREE_VIEW_HEIGHT / 2, 0, HEIGHT - FREE_VIEW_HEIGHT) : 0;
-      this.displayed = s;
+      const player = s.heroes[team];
+      const side = player.team;
+      this.cam = this.camera(player);
       const viewWidth = w / this.scale, viewHeight = h / this.scale;
+      this.camY = clamp((this.focus?.y ?? player.y) - viewHeight / 2, 0, this.height - viewHeight);
+      this.displayed = s;
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
       g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
-      g.drawImage(this.map, 0, 0);
+      const crop = map.width / WIDTH;
+      const drawWidth = Math.min(viewWidth, WIDTH - this.cam);
+      g.drawImage(map, this.cam * crop, this.camY * crop, drawWidth * crop, viewHeight * crop,
+        this.cam, this.camY, drawWidth, viewHeight);
       const left = this.cam - 175, right = this.cam + viewWidth + 175;
-      const visible = u => u.x >= left && u.x <= right;
-      const player = s.heroes[team];
+      const top = this.camY - 175, bottom = this.camY + viewHeight + 175;
+      const visible = u => u.x >= left && u.x <= right && u.y >= top && u.y <= bottom;
       const fighters = [];
       for (const [id, team, kind, x, y, hp, maxHp, attack, r, facing, flags] of s.creeps) {
-        if (hp <= 0 || x < left || x > right) continue;
+        if (hp <= 0 || x < left || x > right || y < top || y > bottom) continue;
         fighters.push({ id, type:'creep', team, kind, x, y, hp, maxHp, attack, r:r ?? CREEPS[kind].r, facing, flags });
       }
       for (const hero of s.heroes) if (hero.hp > 0 && visible(hero)) fighters.push(hero);
       for (const b of s.buildings) {
         if (b.hp <= 0 || !b.range) continue;
-        if (b.team !== team && !b.protected && b.x + b.range > this.cam && b.x - b.range < this.cam + viewWidth) {
+        if (b.team !== side && !b.protected && b.x + b.range > this.cam && b.x - b.range < this.cam + viewWidth &&
+            b.y + b.range > this.camY && b.y - b.range < this.camY + viewHeight) {
           g.setLineDash([11, 9]);
           ellipse(g, b.x, b.y, b.range, b.range, null, '#ff636eaa', 2);
           g.setLineDash([]);
@@ -407,16 +448,21 @@
           g.restore();
         }
       }
-      for (const b of s.buildings) if (visible(b)) this.building(g, b, team);
+      for (const b of s.buildings) if (visible(b)) this.building(g, b, side);
       for (const t of s.training ? [] : [0, 1]) {
-        const x = t ? 5090 : 110;
-        if (!visible({x})) continue;
+        const [x,y] = s.teamMatch ? TEAM_MAP.fountains[t] : [t ? 5090 : 110, 450];
+        if (!visible({x,y})) continue;
         const color = COLORS[t];
-        ellipse(g, x, 450, 72, 41, '#152b31', color + '9e', 3);
-        ellipse(g, x, 450, 58, 30, '#2c5158', color + '77', 2);
+        if (t !== side) {
+          g.setLineDash([8, 12]);
+          ellipse(g, x, y, 420, 420, null, color + '76', 2.5);
+          g.setLineDash([]);
+        }
+        ellipse(g, x, y, 72, 41, '#152b31', color + '9e', 3);
+        ellipse(g, x, y, 58, 30, '#2c5158', color + '77', 2);
         const pulse = 14 + (now * 100 % 30);
-        ellipse(g, x, 447, pulse, pulse * .59, null, color + '90', 2);
-        this.crystal(g, x, 438, 31, color);
+        ellipse(g, x, y-3, pulse, pulse * .59, null, color + '90', 2);
+        this.crystal(g, x, y-12, 31, color);
       }
       if (s.orb && visible(s.orb)) {
         const { x, y, kind } = s.orb, color = ORBS[kind], u = y - 11 + Math.sin(now * 4) * 6;
@@ -434,10 +480,10 @@
         this.groundSpell(g, x, y, rad, hero, ability, color, progress, false);
         if (style === 'meteor') this.meteor(g, x, y, 1, 0, now, (1 - progress) ** 2 * 240);
       }
-      const casts = [];
+      const casts = new Map();
       for (const e of s.effects) {
         const age = now - e.time;
-        if (e.kind === 'cast' && age >= 0 && age < .38) casts[e.team] = e;
+        if (e.kind === 'cast' && age >= 0 && age < .38) casts.set(e.caster, e);
       }
       fighters.sort((a, b) => a.y - b.y);
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
@@ -445,11 +491,11 @@
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
       for (const u of fighters) {
         if (u.dummy) this.dummy(g, u);
-        else if (u.type === 'hero') this.hero(g, u, team, now, casts[u.team]);
+        else if (u.type === 'hero') this.hero(g, u, side, now, casts.get(u.id));
         else this.creep(g, u);
       }
       for (const u of fighters) if (u.type === 'creep') {
-        const hpColor = u.team !== team ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
+        const hpColor = u.team !== side ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
         this.bar(g,u,u.y-u.r-11,34,hpColor,5);
       }
       for (const [, side, kind, x, y, source, dx, dy, width, trail, ability] of s.projectiles) {
@@ -488,6 +534,14 @@
       }
       for (const e of s.effects) {
         const age = now - e.time;
+        if (e.kind === 'fountain' && age >= 0 && age < .17 && (inView(e.x,e.y,0) || inView(e.toX,e.toY,30))) {
+          g.globalAlpha = 1 - age / .17;
+          line(g, [[e.x,e.y-29],[e.toX,e.toY-14]], COLORS[e.team], 20);
+          line(g, [[e.x,e.y-29],[e.toX,e.toY-14]], '#fff6d9', 5);
+          ellipse(g, e.toX, e.toY-14, 12 + age * 110, 8 + age * 70, null, '#fff6d9', 3);
+          g.globalAlpha = 1;
+          continue;
+        }
         if (age < 0 || age > 1.08 || !inView(e.x, e.y, (e.radius || 65) + 100)) continue;
         if (e.kind === 'burst' || e.kind === 'impact' || e.kind === 'cast') {
           this.spellEffect(g, e, age);
@@ -509,14 +563,14 @@
         } else if (spell) this.castPreview(g, player, spell, at);
         else {
           const target = Lanebreak.pickTarget(s, team, at);
-          if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === team ? '#c9a0ff' : '#ff6b6b', 2.5);
+          if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === side ? '#c9a0ff' : '#ff6b6b', 2.5);
         }
       }
       g.setTransform(1, 0, 0, 1, 0, 0);
       this.vignette ||= gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
       g.fillStyle = this.vignette;
       g.fillRect(0, 0, w, h);
-      this.minimap(s, team, viewWidth, viewHeight);
+      this.minimap(s, side, viewWidth, viewHeight);
     }
     groundSpell(g, x, y, radius, hero, ability, color, progress, impact) {
       g.save();
@@ -705,7 +759,7 @@
       g.restore();
     }
     castPreview(g, hero, spell, at) {
-      const end = Lanebreak.castPoint(hero, spell, at.x, at.y);
+      const end = Lanebreak.castPoint(hero, spell, at.x, at.y, this.height);
       const color = '#ffe0a2';
       g.save();
       g.setLineDash([10, 7]);
@@ -925,10 +979,15 @@
     }
     minimap(s, team, viewWidth, viewHeight) {
       const g = this.miniContext, w = this.mini.width, h = this.mini.height;
-      const x = n => n / WIDTH * w, y = n => n / HEIGHT * h;
+      const x = n => n / WIDTH * w, y = n => n / this.height * h;
       g.fillStyle = '#141c1e'; g.fillRect(0,0,w,h);
-      g.fillStyle='#444331';g.fillRect(0,y(320),w,y(260));
-      g.fillStyle='#315363'; g.fillRect(x(2510),0,x(180),h);
+      if (s.teamMatch) {
+        for (const path of TEAM_MAP.lanes) line(g, path.map(([px,py]) => [x(px),y(py)]), '#566552', 9);
+        TEAM_MAP.fountains.forEach(([px,py], team) => ellipse(g, x(px), y(py), 10, 8, COLORS[team]));
+      } else {
+        g.fillStyle='#444331';g.fillRect(0,y(320),w,y(260));
+        g.fillStyle='#315363'; g.fillRect(x(2510),0,x(180),h);
+      }
       for (const b of s.buildings) if (b.hp > 0) {
         g.fillStyle = COLORS[b.team]; const r = b.kind === 'core' ? 7 : 4;
         g.fillRect(x(b.x)-r,y(b.y)-r,r*2,r*2);

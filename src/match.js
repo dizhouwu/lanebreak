@@ -49,7 +49,8 @@
     setBot(team, bot) { this.backend.setBot(team, bot); }
     snapshot(team, full = false) { return JSON.parse(this.backend.snapshot(team, full)); }
     snapshotWorldJson() { return this.backend.snapshotWorld(); }
-    snapshotViewJson(team) { return this.backend.snapshotView(team, false); }
+    snapshotViewJson(team, after) { return this.backend.snapshotView(team, false, after); }
+    effectCursor() { return this.backend.effectCursor(); }
     dispose() { this.backend.close?.(); }
   }
   const api = { Match, validOrder };

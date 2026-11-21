@@ -58,8 +58,14 @@ impl RustMatch {
     }
 
     #[napi]
-    pub fn snapshot_view(&self, team: u32, full: bool) -> String {
-        self.inner.snapshot_view(team as usize, full)
+    pub fn effect_cursor(&self) -> f64 {
+        self.inner.effect_cursor() as f64
+    }
+
+    #[napi]
+    pub fn snapshot_view(&self, team: u32, full: bool, after: Option<f64>) -> String {
+        self.inner
+            .snapshot_view(team as usize, full, after.map(|id| id as u64))
     }
 }
 

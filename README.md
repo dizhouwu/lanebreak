@@ -1,6 +1,6 @@
 # Lanebreak
 
-A one-lane 1v1 strategy game inspired by Dota 2's laning. Last-hit creeps, contest river runes, and build items as you take down the outer tower, inner tower, and enemy core. Play solo at one of three difficulty levels, invite a friend, or queue for an online match.
+A browser strategy game with a one-lane 1v1 duel and a separate three-lane 5v5 battlefield. Last-hit creeps, contest river runes, and build items as you take down towers and the enemy core.
 
 ## Heroes
 
@@ -54,6 +54,7 @@ Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and cl
 | Attack the target under the cursor or attack-move / stop attacking | A / S |
 | Shop / potion / recall | B / F / T |
 | Pause a solo match | P / Esc |
+| Show or hide teams, hero levels, and equipment | Tab |
 | Change graphics / toggle sound | G / M |
 
 The camera follows your hero at the start of each match. Press **C** to switch to free camera.
@@ -65,6 +66,12 @@ Click **End match** in a solo game to end your run early and see your stats. In 
 Click an item name in the shop to expand its recipe and buy components individually. The recipe highlights components you own and deducts their value from the finished item's price. Use the gold button to buy an item or click an item in your inventory to sell it. After pausing a solo match, press **P** or **Esc**, or click the overlay to resume.
 
 Append `#play=brakk,hard` to the URL to start a match immediately, or append `#demo=brakk,normal,300` to spectate a bot match starting at the five-minute mark.
+
+## Play 5v5
+
+Choose **5v5** and select **Play with bots**, or host a private 5v5 room on a running server. Share the room code or invite link. The host can start at any time, and bots fill the remaining seats. Players can join either side or let the lobby balance the teams. A bot takes over an online player who disconnects.
+
+Azure starts in the southwest and Crimson in the northeast. Each lane has its own outer and inner towers. Destroy both towers in any one lane to expose the enemy core. Enemy fountains fire high-damage beams at intruders. Press **Tab** to compare hero levels and items across both teams.
 
 ## Training
 

@@ -56,7 +56,7 @@ h2{font-size:1rem;margin:0}
 .heroTrait{margin-top:8px;padding-top:8px;border-top:1px solid #55605b;color:var(--gold)}
 .deploy{align-self:end;background:#10191bf5;border:1px solid #3d4a46;border-radius:7px;padding:13px}
 .tabs{display:flex;gap:6px;margin-bottom:15px;border-bottom:1px solid #33403d}
-.tabs button{flex:1;border:0;border-bottom:2px solid transparent;background:transparent;border-radius:0;color:#b7c2b8;font-weight:700;min-height:36px}
+.tabs button{flex:1;border:0;border-bottom:2px solid transparent;background:transparent;border-radius:0;color:#b7c2b8;font-weight:700;min-height:36px;padding:4px}
 .tabs button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}
 .fieldLabel{display:block;font-size:.82rem;color:#b5c2b8;margin-bottom:7px}
 .segments{display:flex;gap:5px;margin-bottom:13px}
@@ -68,7 +68,9 @@ h2{font-size:1rem;margin:0}
 input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px solid #3b4949;border-radius:5px;padding:7px 9px}
 .onlineRow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}
 .onlineRow button{font-size:.86rem;min-height:36px}
-#roomStatus{color:#e9be80;font-size:.83rem;margin-top:8px;overflow-wrap:anywhere}
+#roomStatus,#teamRoomStatus{color:#e9be80;font-size:.83rem;margin-top:8px;overflow-wrap:anywhere}
+#teamsPanel>label{margin-top:12px}
+#joinTeamSide{max-width:100%;min-width:0;border:1px solid #394748;border-radius:5px;background:#182426;color:var(--white);padding:4px}
 #game{position:fixed;inset:0;pointer-events:none}
 #game button,#shop,#inspectPanel,#matchOverlay,#minimap{pointer-events:auto}
 .matchTop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;padding:7px 12px;gap:8px}
@@ -76,6 +78,18 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 #opponentStatus{color:#ff9393}
 #game[data-mode=training] #opponentStatus{color:var(--gold)}
 #trainingAutoRefill{margin-top:4px;color:#a9c4b4}
+#game[data-mode=teams] .minimapPanel{width:clamp(110px,14vw,188px)}
+.matchRoster{pointer-events:auto;position:absolute;z-index:5;left:50%;top:clamp(66px,12vh,114px);transform:translateX(-50%);width:min(880px,calc(100vw - 24px));max-height:calc(100dvh - 140px);overflow:auto;padding:14px}
+.matchRoster header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.matchRoster h2,.matchRoster h3{margin:0;padding:4px 0}
+.matchRoster h3{color:var(--team);font-size:.88rem}
+.matchRoster table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:.77rem;margin-bottom:8px}
+.matchRoster th,.matchRoster td{padding:6px;text-align:left;border-bottom:1px solid #3c4c48;overflow-wrap:anywhere}
+.matchRoster thead th{color:var(--muted)}
+.matchRoster th:first-child{width:28%}
+.matchRoster th:nth-child(2){width:11%}
+.matchRoster .rosterItem{display:inline-block;margin:1px 3px 1px 0;padding:2px 5px;border:1px solid var(--item);border-radius:3px;color:#dce6dd}
+.matchRoster .rosterHero{display:block;color:var(--hero);font-weight:400}
 #changeTrainingHero{margin-top:5px;min-height:26px;padding:3px 8px;font-size:.75rem}
 .matchTools{text-align:right}
 .matchTools small{display:block;margin-top:3px;color:#c1ccc4}

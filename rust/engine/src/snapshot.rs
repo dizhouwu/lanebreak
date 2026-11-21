@@ -54,6 +54,7 @@ struct Identity<'a> {
     name: &'a str,
     level: u32,
     computer: bool,
+    loadout: Vec<&'a str>,
 }
 
 #[derive(Serialize)]
@@ -215,6 +216,8 @@ struct World<'a> {
     orb: Option<Orb>,
     wave: u32,
     kills: [u32; 2],
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    team_match: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     training: Option<&'a Training>,
     buildings: Vec<Building>,
@@ -223,87 +226,110 @@ struct World<'a> {
     areas: Vec<AreaRow<'a>>,
 }
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct View<'a> {
-    heroes: [HeroView<'a>; 2],
+    heroes: Vec<HeroView<'a>>,
     effects: Vec<&'a Value>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    effects_delta: bool,
 }
 
 impl Match {
-    fn view(&self, team: usize, full: bool) -> View<'_> {
-        let heroes = HEROES.map(|id| {
-            let u = self.u(id);
-            let h = self.h(id);
-            let time = self.time;
-            let veiled = u.veiled(time);
-            if veiled && u.team != team && !full {
-                return HeroView::Hidden {
-                    identity: Identity {
-                        id,
-                        role: "hero",
-                        team: u.team,
-                        hero: &h.key,
-                        name: &h.name,
-                        level: h.level,
-                        computer: h.bot.is_some(),
-                    },
-                    concealed: true,
-                };
-            }
-            let kit = h.kit();
-            let public = PublicHero {
-                hero: &h.key,
-                name: &h.name,
-                level: h.level,
-                computer: h.bot.is_some(),
-                channel: h.channel,
-                mana: h.mana,
-                max_mana: h.max_mana,
-                deaths: h.deaths,
-                last_hits: h.last_hits,
-                denies: h.denies,
-                jump: h.jump,
-                facing: u.facing,
-                buffs: h.buffs.iter().map(|b| b.id.as_str()).collect(),
-                potion_active: h.potion_until > time,
-                loadout: h.inventory.iter().map(|i| i.id.as_str()).collect(),
-                respawn: (h.deaths > 0).then_some(h.respawn),
-                heat: kit.heat.as_ref().map(|_| h.heat),
-                dummy: u.dummy,
-                veiled,
-                lifted: u.lift_until > time,
-                burning: u.burn.is_some(),
-                stitched: u.stitch.is_some_and(|m| m.until > time),
-                resonating: u.resonance.is_some_and(|m| m.until > time),
-                disarmed: u.disarmed_until > time,
-            };
-            let private = (u.team == team || full).then(|| PrivateHero {
-                gold: h.gold,
-                xp: h.xp,
-                cd: &h.cd,
-                inventory: &h.inventory,
-                items_ready: &h.items_ready,
-                recall_ready: h.recall_ready,
-                tome_ready: h.tome_ready,
-                pots: h.pots,
-                stats: &h.stats,
-                potion_until: h.potion_until,
-                can_shop: self.can_shop(id),
-                marks: kit.weaves.as_ref().map(|_| h.marks.as_slice()),
-                prepared: kit.weaves.as_ref().map(|_| h.prepared.as_slice()),
-                weave_ready: kit.weaves.as_ref().map(|_| &h.weave_ready),
-            });
-            HeroView::Visible {
-                unit: Basic::new(u, time),
-                public,
-                private,
-            }
-        });
-        let effects = self
-            .effects
+    fn view(&self, seat: usize, full: bool, after: Option<u64>) -> View<'_> {
+        let player = self.heroes.get(seat).copied().unwrap_or(self.heroes[0]);
+        let team = self.u(player).team;
+        let heroes = self
+            .heroes
             .iter()
-            .filter(|e| full || e["audience"].as_u64().is_none_or(|id| id == team as u64))
+            .copied()
+            .map(|id| {
+                let u = self.u(id);
+                let h = self.h(id);
+                let time = self.time;
+                let veiled = u.veiled(time);
+                if veiled && u.team != team && !full {
+                    return HeroView::Hidden {
+                        identity: Identity {
+                            id,
+                            role: "hero",
+                            team: u.team,
+                            hero: &h.key,
+                            name: &h.name,
+                            level: h.level,
+                            computer: h.bot.is_some(),
+                            loadout: h.inventory.iter().map(|item| item.id.as_str()).collect(),
+                        },
+                        concealed: true,
+                    };
+                }
+                let kit = h.kit();
+                let public = PublicHero {
+                    hero: &h.key,
+                    name: &h.name,
+                    level: h.level,
+                    computer: h.bot.is_some(),
+                    channel: h.channel,
+                    mana: h.mana,
+                    max_mana: h.max_mana,
+                    deaths: h.deaths,
+                    last_hits: h.last_hits,
+                    denies: h.denies,
+                    jump: h.jump,
+                    facing: u.facing,
+                    buffs: h.buffs.iter().map(|b| b.id.as_str()).collect(),
+                    potion_active: h.potion_until > time,
+                    loadout: h.inventory.iter().map(|i| i.id.as_str()).collect(),
+                    respawn: (h.deaths > 0).then_some(h.respawn),
+                    heat: kit.heat.as_ref().map(|_| h.heat),
+                    dummy: u.dummy,
+                    veiled,
+                    lifted: u.lift_until > time,
+                    burning: u.burn.is_some(),
+                    stitched: u.stitch.is_some_and(|m| m.until > time),
+                    resonating: u.resonance.is_some_and(|m| m.until > time),
+                    disarmed: u.disarmed_until > time,
+                };
+                let private = (id == player || full).then(|| PrivateHero {
+                    gold: h.gold,
+                    xp: h.xp,
+                    cd: &h.cd,
+                    inventory: &h.inventory,
+                    items_ready: &h.items_ready,
+                    recall_ready: h.recall_ready,
+                    tome_ready: h.tome_ready,
+                    pots: h.pots,
+                    stats: &h.stats,
+                    potion_until: h.potion_until,
+                    can_shop: self.can_shop(id),
+                    marks: kit.weaves.as_ref().map(|_| h.marks.as_slice()),
+                    prepared: kit.weaves.as_ref().map(|_| h.prepared.as_slice()),
+                    weave_ready: kit.weaves.as_ref().map(|_| &h.weave_ready),
+                });
+                HeroView::Visible {
+                    unit: Basic::new(u, time),
+                    public,
+                    private,
+                }
+            })
             .collect();
-        View { heroes, effects }
+        let start = after.map_or(0, |id| {
+            self.effects
+                .partition_point(|e| e["id"].as_u64().unwrap_or(0) <= id)
+        });
+        let effects = self.effects[start..]
+            .iter()
+            .filter(|e| {
+                full || (e["audience"].as_u64().is_none_or(|id| id == team as u64)
+                    && e["audienceSeat"]
+                        .as_u64()
+                        .is_none_or(|id| id == seat as u64))
+            })
+            .collect();
+        View {
+            heroes,
+            effects,
+            effects_delta: after.is_some(),
+        }
     }
 
     fn world(&self) -> World<'_> {
@@ -316,6 +342,7 @@ impl Match {
             orb: self.orb,
             wave: self.wave,
             kills: self.kills,
+            team_match: self.team_match,
             training: self.training.as_ref(),
             buildings: self
                 .buildings
@@ -374,8 +401,11 @@ impl Match {
     pub fn snapshot_world(&self) -> String {
         serde_json::to_string(&self.world()).expect("serializing world")
     }
-    pub fn snapshot_view(&self, team: usize, full: bool) -> String {
-        serde_json::to_string(&self.view(team, full)).expect("serializing seat")
+    pub fn effect_cursor(&self) -> u64 {
+        self.next_effect
+    }
+    pub fn snapshot_view(&self, seat: usize, full: bool, after: Option<u64>) -> String {
+        serde_json::to_string(&self.view(seat, full, after)).expect("serializing seat")
     }
     pub fn snapshot(&self, team: usize, full: bool) -> String {
         #[derive(Serialize)]
@@ -387,7 +417,7 @@ impl Match {
         }
         serde_json::to_string(&Snapshot {
             world: self.world(),
-            view: self.view(team, full),
+            view: self.view(team, full, None),
         })
         .expect("serializing match")
     }

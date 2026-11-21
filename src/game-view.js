@@ -40,20 +40,20 @@
     if (!free && hero.mana < spell.mana) return 'Not enough mana';
     return null;
   }
-  function point(unit, x, y, limit = Infinity, min = 0, ground = true) {
+  function point(unit, x, y, limit = Infinity, min = 0, ground = true, height = HEIGHT) {
     const length = Math.hypot(x - unit.x, y - unit.y) || 1;
     const factor = clamp(length, min, limit) / length;
     return { x: clamp(unit.x + (x - unit.x) * factor, ground ? 30 : 20, WIDTH - (ground ? 30 : 20)),
-      y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, ground ? 860 : HEIGHT - 20) };
+      y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, height - (ground ? 140 : 20)) };
   }
-  function castPoint(hero, spell, x, y) {
+  function castPoint(hero, spell, x, y, height = HEIGHT) {
     if (spell.fixed || spell.kind === 'bolt') {
       const angle = spell.fixed || (x === hero.x && y === hero.y) ? hero.facing : Math.atan2(y - hero.y, x - hero.x);
       x = hero.x + Math.cos(angle) * spell.range;
       y = hero.y + Math.sin(angle) * spell.range;
       if (spell.kind === 'bolt') return { x, y };
     }
-    return point(hero, x, y, spell.range, spell.kind === 'dash' ? 60 : 0, spell.kind !== 'blast');
+    return point(hero, x, y, spell.range, spell.kind === 'dash' ? 60 : 0, spell.kind !== 'blast', height);
   }
   function buyPlan(hero, id, showRecipe = false) {
     if (!owns(ITEMS, id)) return null;
@@ -90,7 +90,7 @@
   }
   function pickTarget(snapshot, team, point, includeAlliedCreeps = false) {
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
-    return pickUnit(snapshot, point, team, includeAlliedCreeps);
+    return pickUnit(snapshot, point, snapshot.heroes[team].team, includeAlliedCreeps);
   }
   const targetableHero = (caster, target, spell, time) => target?.type === 'hero' && target.team !== caster.team &&
     target.hp > 0 && !isVeiled(target, time) && range(caster, target) <= spell.range;

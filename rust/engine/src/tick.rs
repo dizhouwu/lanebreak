@@ -13,7 +13,12 @@ impl Match {
             .collect()
     }
 
-    fn nearest(&self, id: Id, radius: f64, filter: impl Fn(&Unit) -> bool) -> Option<Id> {
+    pub(super) fn nearest(
+        &self,
+        id: Id,
+        radius: f64,
+        filter: impl Fn(&Unit) -> bool,
+    ) -> Option<Id> {
         let u = self.u(id);
         let mut best = None;
         let mut closest = radius;
@@ -40,7 +45,7 @@ impl Match {
     fn walk(&mut self, id: Id, target: Point, speed: f64, dt: f64) {
         let u = self.u(id);
         let origin = u.pos;
-        let mut pos = origin.towards(target, speed * dt, 0.0, true);
+        let mut pos = origin.towards(target, speed * dt, 0.0, true, self.height());
         for &building in &self.buildings {
             let b = self.u(building);
             let clearance = b.r + u.r;
@@ -72,7 +77,7 @@ impl Match {
                 origin.x + (0.18 * nx - dir * ny) * speed * dt,
                 origin.y + (0.18 * ny + dir * nx) * speed * dt,
             );
-            pos = origin.towards(avoid, f64::INFINITY, 0.0, true);
+            pos = origin.towards(avoid, f64::INFINITY, 0.0, true, self.height());
         }
         let delta = pos.delta(origin);
         let u = self.u_mut(id);
@@ -95,25 +100,27 @@ impl Match {
                 5
             });
         for team in 0..=1 {
-            let boost = if self
-                .building(1 - team, "inner")
-                .is_some_and(|id| self.u(id).hp <= 0.0)
-            {
-                1.5
-            } else {
-                1.0
-            };
-            let rows: &[f64] = if wave < 24 {
-                &[-60.0, 0.0, 60.0]
-            } else {
-                &[-75.0, -25.0, 25.0, 75.0]
-            };
-            for &dy in rows {
-                self.spawn_creep(wave, team, boost, "melee", 0.0, dy);
-            }
-            self.spawn_creep(wave, team, boost, "ranged", 90.0, -40.0);
-            if siege {
-                self.spawn_creep(wave, team, boost, "siege", 150.0, 40.0);
+            for lane in 0..if self.team_match { 3 } else { 1 } {
+                let boost = if self
+                    .lane_building(1 - team, lane, "inner")
+                    .is_some_and(|id| self.u(id).hp <= 0.0)
+                {
+                    1.5
+                } else {
+                    1.0
+                };
+                let rows: &[f64] = if wave < 24 {
+                    &[-60.0, 0.0, 60.0]
+                } else {
+                    &[-75.0, -25.0, 25.0, 75.0]
+                };
+                for &dy in rows {
+                    self.spawn_creep(wave, team, lane, boost, "melee", (0.0, dy));
+                }
+                self.spawn_creep(wave, team, lane, boost, "ranged", (90.0, -40.0));
+                if siege {
+                    self.spawn_creep(wave, team, lane, boost, "siege", (150.0, 40.0));
+                }
             }
         }
     }
@@ -122,23 +129,30 @@ impl Match {
         &mut self,
         wave: u32,
         team: usize,
+        lane: usize,
         boost: f64,
         kind: &'static str,
-        back: f64,
-        dy: f64,
+        (back, dy): (f64, f64),
     ) {
         let base = &rules().creeps[kind];
         let n = f64::from(wave);
         let hp = base.hp * (1.0 + 0.035 * n) * boost;
         let x = 650.0 - back;
         let lane_y = 450.0 + dy;
+        let pos = if self.team_match {
+            self.lane_point(team, lane, 165.0 - back)
+                .projected(Point::new(1.0, 1.0), dy * 0.65)
+        } else {
+            Point::new(if team == 0 { x } else { rules().width - x }, lane_y)
+        };
         let roll = [self.random(), self.random()];
         let attack_ready = self.time + self.random() * 0.5;
         let id = self.insert(Unit {
             kind,
             team,
-            pos: Point::new(if team == 0 { x } else { rules().width - x }, lane_y),
+            pos,
             lane_y,
+            lane,
             hp,
             max_hp: hp,
             r: base.r * if boost > 1.0 { 1.15 } else { 1.0 },
@@ -174,7 +188,7 @@ impl Match {
             }
             if time >= self.h(id).respawn {
                 let team = self.u(id).team;
-                self.u_mut(id).pos = home(team);
+                self.u_mut(id).pos = self.home(team);
                 self.h_mut(id).jump += 1;
                 self.refresh(id);
                 self.u_mut(id).hp = self.u(id).max_hp;
@@ -192,6 +206,7 @@ impl Match {
             self.refill_training(id);
         } else {
             self.refresh_if_changed(id);
+            let home = self.home(self.u(id).team);
             let u = self.u_mut(id);
             let h = u.hero.as_mut().unwrap();
             let regen = stat(&h.stats, "regen")
@@ -201,22 +216,11 @@ impl Match {
                 } else {
                     0.0
                 };
-            let fountain = if u.pos.dist(home(u.team)) <= 400.0 {
-                0.15
-            } else {
-                0.0
-            };
+            let fountain = if u.pos.dist(home) <= 400.0 { 0.15 } else { 0.0 };
             u.hp = u.max_hp.min(u.hp + dt * (regen + u.max_hp * fountain));
             h.mana = h
                 .max_mana
                 .min(h.mana + dt * (stat(&h.stats, "manaRegen") + h.max_mana * fountain));
-            let enemy = 1 - u.team;
-            if u.pos.dist(home(enemy)) <= 420.0 {
-                u.hp = (u.hp - 300.0 * dt).max(0.0);
-                if u.hp == 0.0 {
-                    self.kill(id, self.building(enemy, "core").unwrap(), false);
-                }
-            }
         }
         if self.u(id).hp <= 0.0 {
             return;
@@ -255,7 +259,7 @@ impl Match {
                     if self.training.is_some() {
                         training_start()
                     } else {
-                        home(self.u(id).team)
+                        self.home(self.u(id).team)
                     },
                 );
             }
@@ -351,10 +355,18 @@ impl Match {
         self.u_mut(id).target = target;
         if !self.attack(id, target) {
             let u = self.u(id);
-            let march = Point::new(
-                if u.team == 0 { 4680.0 } else { 520.0 },
-                u.pos.y + (u.lane_y - u.pos.y).clamp(-40.0, 40.0),
-            );
+            let march = if self.team_match {
+                self.lane_point(
+                    u.team,
+                    u.lane,
+                    self.lane_progress(u.team, u.lane, u.pos) + 125.0,
+                )
+            } else {
+                Point::new(
+                    if u.team == 0 { 4680.0 } else { 520.0 },
+                    u.pos.y + (u.lane_y - u.pos.y).clamp(-40.0, 40.0),
+                )
+            };
             self.walk(
                 id,
                 target.map_or(march, |target| self.u(target).pos),
@@ -370,17 +382,19 @@ impl Match {
             self.u_mut(id).hp = u.max_hp.min(u.hp + 3.0 * dt);
             return;
         }
-        let enemy = HEROES[1 - u.team];
-        let h = self.u(enemy);
-        let danger = h.hp > 0.0
-            && !h.veiled(self.time)
-            && u.reach(h) <= u.range
-            && self.time - self.h(enemy).recent_aggro <= 2.5;
+        let danger = self.heroes.iter().copied().find(|&enemy| {
+            let h = self.u(enemy);
+            h.team != u.team
+                && h.hp > 0.0
+                && !h.veiled(self.time)
+                && u.reach(h) <= u.range
+                && self.time - self.h(enemy).recent_aggro <= 2.5
+        });
         self.finish_attack(id);
         let u = self.u(id);
         let mut target = u.target;
-        if danger {
-            target = Some(enemy);
+        if danger.is_some() {
+            target = danger;
         } else if !target
             .and_then(|target| self.units.get(&target))
             .is_some_and(|b| b.hp > 0.0 && !b.veiled(self.time) && u.reach(b) <= u.range)
@@ -407,7 +421,8 @@ impl Match {
             self.collision_rows
                 .extend([u.pos.x, u.pos.y, u.r, u.team as f64, f64::from(flags)]);
         }
-        lanebreak_physics::separate_units(&mut self.collision_rows, rules().width);
+        let height = self.height();
+        lanebreak_physics::separate_units_in_map(&mut self.collision_rows, rules().width, height);
         for (&id, row) in self.collision_ids.iter().zip(
             self.collision_rows
                 .chunks_exact(lanebreak_physics::UNIT_STRIDE),
@@ -478,7 +493,7 @@ impl Match {
                 p.pos = p.pos.projected(*dir, length);
                 *left > 0.0
                     && (0.0..=rules().width).contains(&p.pos.x)
-                    && (0.0..=rules().height).contains(&p.pos.y)
+                    && (0.0..=self.height()).contains(&p.pos.y)
             }
         }
     }
@@ -525,7 +540,14 @@ impl Match {
             let y = if self.random() < 0.5 { 170.0 } else { 730.0 };
             let kinds = ["Haste", "Might", "Renewal", "Wealth"];
             let kind = kinds[(self.random() * kinds.len() as f64).floor() as usize];
-            let pos = Point::new(2600.0, y);
+            let pos = Point::new(
+                2600.0,
+                if self.team_match {
+                    self.height() / 2.0 + y - 450.0
+                } else {
+                    y
+                },
+            );
             self.orb = Some(Orb { pos, kind });
             self.effect(
                 "feed",
@@ -536,8 +558,10 @@ impl Match {
         let Some(Orb { pos, kind }) = self.orb else {
             return;
         };
-        let Some(id) = HEROES
-            .into_iter()
+        let Some(id) = self
+            .heroes
+            .iter()
+            .copied()
             .find(|&id| self.u(id).hp > 0.0 && self.u(id).pos.dist(pos) <= 50.0)
         else {
             return;
@@ -564,6 +588,36 @@ impl Match {
         );
         self.orb = None;
         self.next_orb = self.time + 75.0;
+    }
+
+    fn update_fountains(&mut self) {
+        for team in 0..=1 {
+            if self.fountain_ready[team] > self.time {
+                continue;
+            }
+            let home = self.home(team);
+            let target = self
+                .units
+                .values()
+                .filter(|u| {
+                    u.team != team
+                        && u.hp > 0.0
+                        && u.role != Role::Building
+                        && home.dist(u.pos) <= 420.0
+                })
+                .min_by(|a, b| home.squared(a.pos).total_cmp(&home.squared(b.pos)));
+            if let Some(target) = target {
+                let (id, pos) = (target.id, target.pos);
+                let core = self.building(team, "core").unwrap();
+                self.fountain_ready[team] = self.time + 0.18;
+                self.effect(
+                    "fountain",
+                    home,
+                    json!({"team": team, "toX": pos.x, "toY": pos.y}),
+                );
+                self.hurt(id, 580.0, core, false, false);
+            }
+        }
     }
 
     pub fn step(&mut self, dt: f64, count: u32) {
@@ -607,10 +661,14 @@ impl Match {
                 self.hurt(id, burn.damage, burn.source, true, false);
             }
         }
-        for id in HEROES {
+        for seat in 0..self.heroes.len() {
+            let id = self.heroes[seat];
             if !self.u(id).dummy {
                 self.update_hero(id, dt);
             }
+        }
+        if self.training.is_none() {
+            self.update_fountains();
         }
         for i in 0..self.buildings.len() {
             let id = self.buildings[i];

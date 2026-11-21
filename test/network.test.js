@@ -118,6 +118,49 @@ test('public queue pairs two players and refuses cross-origin browser upgrades',
   assert.equal(first.code,waiting.code);
 });
 
+test('a 5v5 lobby seats ten players on a separate map and keeps orders private per seat', async t => {
+  const url = await setup(t);
+  const players = Array.from({length:10}, () => connect(url.ws));
+  await Promise.all(players.map(p => p.opened));
+  players[0].send({t:'host5v5',hero:'vesper',name:'Captain'});
+  const waiting = await players[0].get(m => m.t === 'wait');
+  assert.equal(waiting.teamMatch, true);
+  for (const [index, player] of players.slice(1).entries()) {
+    player.send({t:'join5v5',code:waiting.code,hero:'mirel',name:'Player ' + index});
+    await player.get(m => m.t === 'wait');
+  }
+  players[1].send({t:'start5v5'});
+  assert.match((await players[1].get(m => m.t === 'err')).msg,/host/);
+  players[0].send({t:'start5v5'});
+  const seats = await Promise.all(players.map(p => p.get(m => m.t === 'start')));
+  assert.equal(new Set(seats.map(s => s.team)).size, 10);
+  const [{s:host}, {s:guest}] = await Promise.all(players.slice(0,2).map(p => p.get(m => m.t === 's')));
+  assert.equal(host.teamMatch, true);
+  assert.equal(host.heroes.length, 10);
+  assert.equal(host.buildings.length, 14);
+  const seat = seats[1].team;
+  assert.equal(guest.heroes[seat].team, 1);
+  assert.equal(guest.heroes[seat].gold, 600);
+  assert.equal(host.heroes[seat].gold, undefined);
+  players[1].send({t:'o',o:'buy',id:'boots'});
+  const own = await players[1].get(m => m.s?.heroes[seat].loadout.includes('boots'));
+  const other = await players[0].get(m => m.s?.heroes[seat].loadout.includes('boots'));
+  assert.ok(own.s.effects.some(e => e.kind === 'purchase'));
+  assert.ok(!other.s.effects.some(e => e.kind === 'purchase'));
+  const next = await players[1].get(m => m.s?.time > own.s.time);
+  assert.equal(next.s.effectsDelta, true);
+  assert.ok(!next.s.effects.some(e => e.kind === 'purchase'));
+  const closed = once(players[1].ws, 'close');
+  players[1].ws.close();
+  await closed;
+  await players[0].get(m => m.s?.heroes[seat].computer);
+  const replacement = connect(url.ws);
+  await replacement.opened;
+  replacement.send({t:'rejoin',code:waiting.code,token:seats[1].token});
+  assert.equal((await replacement.get(m => m.t === 'start')).team, seat);
+  assert.equal((await replacement.get(m => m.t === 's')).s.heroes[seat].computer, false);
+});
+
 test('only a seated player can surrender and both players receive the same final result', async t => {
   const url = await setup(t);
   const a = connect(url.ws), b = connect(url.ws);
