@@ -74,11 +74,15 @@ Append `#training=neris` to jump straight into training with Neris. Add `&dummy=
 
 ## Run a two-player server
 
-Install Node.js 22 or newer and run this command in the project directory.
+The build runs on Windows, macOS (Apple Silicon or Intel), and Linux. Install Node.js 22 or newer, stable Rust through [rustup](https://rustup.rs/), and the platform linker. Use the Visual Studio C++ build tools on Windows, the Xcode Command Line Tools on macOS, or your distribution's C compiler and build tools on Linux.
 
 ```sh
+rustup target add wasm32-unknown-unknown
+npm run build
 npm start
 ```
+
+The build compiles a Node.js add-on for the current operating system and embeds the WebAssembly build in the standalone game HTML. Build again on the destination platform when moving the server to another machine. On Windows, `Start-Lanebreak.cmd` builds and starts the server using the same tools.
 
 For a test on one computer, open `http://127.0.0.1:8377/` in two browser tabs. Under **Online 1v1**, one player clicks **Host match** and the other opens the invite link or enters the four-letter room code and clicks **Join room**. Both players can also click **Find opponent**. To play from two devices on the same LAN, run `node lanebreak_server.js --host=0.0.0.0` and open the host's LAN address on port 8377 from the other device.
 
@@ -95,7 +99,7 @@ Check `/healthz`, then use two devices to host, join, and reconnect after a refr
 
 ## Source and tests
 
-`src/rules.js` defines heroes, items, and difficulty settings. Solo and online modes share `src/engine.js`. Rendering lives in `src/paint.js`, and `src/client.js` handles input and online play. After changing the source, run `npm run build` to regenerate the standalone HTML, then restart the server.
+`src/rules.js` defines heroes, items, and difficulty settings. Solo and online modes share `src/engine.js`, which drives ticks, abilities, and AI. The Rust crate in `rust/physics` resolves unit collisions and finds targets intersecting moving skill projectiles. Node uses the native module in `rust/node`, and the browser runs that same physics crate as WebAssembly. Rendering lives in `src/paint.js`, and `src/client.js` handles input and online play. After changing the source, run `npm run build` and restart the server.
 
 ```sh
 npm test

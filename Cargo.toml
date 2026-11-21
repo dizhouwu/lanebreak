@@ -1,0 +1,3 @@
+[workspace]
+members = ["rust/physics", "rust/node"]
+resolver = "3"

@@ -1,5 +1,6 @@
 (function () {
   const rules = typeof module === 'object' ? require('./rules.js') : globalThis.LanebreakRules;
+  const physics = typeof module === 'object' ? require('./physics.js') : globalThis.LanebreakPhysics;
   const { HEROES, ITEMS, CREEPS, DIFF, WIDTH, HEIGHT, ORBS, UNLOCKS, WEAVE_MARKS, TEAM } = rules;
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -193,6 +194,9 @@
       this.nextOrb = 60;
       this.orb = null;
       this.units = new Map();
+      this.collisionUnits = [];
+      this.projectileCandidates = [];
+      this.physicsValues = new Float64Array(0);
       this.creeps = [];
       this.buildings = [];
       this.projectiles = [];
@@ -899,27 +903,31 @@
       b.target = target?.id;
       if (!b.windup) this.attack(b, target);
     }
+    physicsRows(length) {
+      if (this.physicsValues.length < length) this.physicsValues = new Float64Array(Math.max(128, length * 2));
+      return this.physicsValues.subarray(0, length);
+    }
     collide() {
-      const units = [];
+      const units = this.collisionUnits;
+      units.length = 0;
       for (const unit of this.units.values()) if (unit.hp > 0) units.push(unit);
+      if (units.length < 2) return;
+      const rows = this.physicsRows(units.length * 5);
       for (let i = 0; i < units.length; i++) {
-        const a = units[i];
-        for (let j = i + 1; j < units.length; j++) {
-          const b = units[j], required = a.r + b.r;
-          const dx = b.x - a.x, dy = b.y - a.y;
-          if (Math.abs(dx) >= required || Math.abs(dy) >= required) continue;
-          if (a.team !== b.team && (isVeiled(a, this.time) || isVeiled(b, this.time))) continue;
-          const d = Math.hypot(dx, dy);
-          if (d >= required) continue;
-          const am = a.type === 'building' || a.dash || a.dummy || a.sentry ? 0 : 1;
-          const bm = b.type === 'building' || b.dash || b.dummy || b.sentry ? 0 : 1;
-          if (!am && !bm) continue;
-          const push = (required - d) * (am && bm ? .35 : 1);
-          const px = d > .01 ? dx / d * push : push, py = d > .01 ? dy / d * push : 0;
-          if (am) Object.assign(a, point(a, a.x - px, a.y - py));
-          if (bm) Object.assign(b, point(b, b.x + px, b.y + py));
-        }
+        const u = units[i], offset = i * 5;
+        const movable = !(u.type === 'building' || u.dash || u.dummy || u.sentry);
+        rows[offset] = u.x;
+        rows[offset + 1] = u.y;
+        rows[offset + 2] = u.r;
+        rows[offset + 3] = u.team;
+        rows[offset + 4] = (movable ? 1 : 0) | (isVeiled(u, this.time) ? 2 : 0);
       }
+      physics.separateUnits(rows, WIDTH);
+      for (let i = 0; i < units.length; i++) {
+        units[i].x = rows[i * 5];
+        units[i].y = rows[i * 5 + 1];
+      }
+      units.length = 0;
     }
     updateProjectiles(dt) {
       this.projectiles = this.projectiles.filter(p => {
@@ -935,13 +943,27 @@
           return true;
         }
         const length = Math.min(p.left, p.speed * dt);
-        const targets = [];
+        const candidates = this.projectileCandidates;
+        candidates.length = 0;
         for (const u of this.units.values()) {
           if (u.hp <= 0 || u.team === p.team || u.type === 'building' || p.hit.has(u.id)) continue;
-          const x = u.x - p.x, y = u.y - p.y, reach = p.spell.radius + u.r;
-          if (Math.abs(x) > length + reach || Math.abs(y) > length + reach) continue;
-          const t = clamp(x * p.dx + y * p.dy, 0, length);
-          if ((x - p.dx * t) ** 2 + (y - p.dy * t) ** 2 <= reach * reach) targets.push({ u, t });
+          candidates.push(u);
+        }
+        const targets = [];
+        if (candidates.length) {
+          const rows = this.physicsRows(candidates.length * 4);
+          for (let i = 0; i < candidates.length; i++) {
+            const u = candidates[i], offset = i * 4;
+            rows[offset] = u.x;
+            rows[offset + 1] = u.y;
+            rows[offset + 2] = u.r;
+          }
+          physics.sweepBolt(rows, p.x, p.y, p.dx, p.dy, length, p.spell.radius);
+          for (let i = 0; i < candidates.length; i++) {
+            const t = rows[i * 4 + 3];
+            if (t >= 0) targets.push({ u:candidates[i], t });
+          }
+          candidates.length = 0;
         }
         targets.sort((a, b) => a.t - b.t);
         for (const { u } of targets) {

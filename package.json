@@ -10,7 +10,7 @@
     "build": "node build.js",
     "dev": "node build.js && node lanebreak_server.js",
     "start": "node lanebreak_server.js",
-    "test": "node --test test/*.test.js",
+    "test": "cargo test --locked -p lanebreak-physics && node --test test/*.test.js",
     "balance": "node test/balance.js"
   }
 }

@@ -1,0 +1,13 @@
+[package]
+name = "lanebreak-node"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+lanebreak-physics = { path = "../physics" }
+napi = { version = "2", default-features = false, features = ["napi6", "dyn-symbols"] }
+napi-derive = "2"

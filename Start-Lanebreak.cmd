@@ -23,5 +23,10 @@ echo Starting Lanebreak on http://127.0.0.1:8377
 echo Leave this window open while playing.
 echo If port 8377 is in use, stop the old Lanebreak Node window and try again.
 echo You can leave the Cloudflare Tunnel window open.
+"%LANEBREAK_NODE%" build.js
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
 "%LANEBREAK_NODE%" lanebreak_server.js --host=127.0.0.1 --port=8377
 if errorlevel 1 pause
