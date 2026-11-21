@@ -5,6 +5,17 @@
   const SPRITE_SCALE = 2;
   const BUILDING_SPRITE = { left:108, top:124, width:216, height:200 };
   const CREEP_SPRITE = { left:48, top:30, width:96, height:56 };
+  const CAIRN_JETS = { Flashpan:1, 'Flue Burst':2, 'Chimney Shot':3, 'Furnace Vent':5 };
+  const CAST_POSES = {
+    vesper: { lean:-.13, step:-7, lift:3 },
+    brakk: { lean:.23, step:11, lift:5 },
+    orrin: { lean:-.08, step:0, lift:8 },
+    sable: { lean:.3, step:9, lift:1 },
+    mirel: { lean:-.08, step:0, lift:5 },
+    neris: { lean:-.1, step:0, lift:8 },
+    cairn: { lean:-.2, step:-7, lift:2 },
+    ecarg: { lean:.12, step:0, lift:2 }
+  };
   function makeSprite(bounds, paint) {
     const canvas = document.createElement('canvas');
     canvas.width = bounds.width * SPRITE_SCALE;
@@ -45,7 +56,7 @@
     g.addColorStop(0, color); g.addColorStop(1, '#0000');
     ellipse(ctx, x, y, radius, radius, g);
   }
-  function weapon(g, key, x, y, scale, color) {
+  function weapon(g, key, x, y, scale, color, bowStroke = 0) {
     g.save();
     g.translate(x,y);
     g.scale(scale,scale);
@@ -71,8 +82,8 @@
       g.closePath(); g.fillStyle='#ab613c'; g.fill(); g.strokeStyle='#ffcb91'; g.lineWidth=2.3; g.stroke();
       line(g,[[-7,6],[7,6]],'#f2c486',2.2);
       for (const offset of [-2.4,-.8,.8,2.4]) line(g,[[offset,-32],[offset,17]],'#ffe0b6',.75);
-      line(g,[[-17,22],[25,-20]],'#d8b391',2.5);
-      line(g,[[-17,22],[23,-23]],color,1);
+      line(g,[[-17 + bowStroke,22],[25 + bowStroke,-20]],'#d8b391',2.5);
+      line(g,[[-17 + bowStroke,22],[23 + bowStroke,-23]],color,1);
     } else if (key === 'cairn') {
       const size = 17;
       line(g,[[-6,29],[1,-4],[9,-22]],'#815a43',5);
@@ -413,13 +424,20 @@
         this.crystal(g, x, u, 21, color);
         this.label(g, kind.toUpperCase(), x, y + 43, 13, color);
       }
-      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style] of s.areas) {
-        if (!visible({x})) continue;
+      const inView = (x, y, radius) => x + radius >= this.cam && x - radius <= this.cam + viewWidth &&
+        y + radius >= this.camY && y - radius <= this.camY + viewHeight;
+      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style, ability] of s.areas) {
+        if (!inView(x, y, rad + 150)) continue;
         const color = style === 'meteor' ? '#ff9d56' : HEROES[hero]?.color || COLORS[side];
         const progress = clamp(1 - (strike - now) / (duration || 1), 0, 1);
-        ellipse(g, x, y, rad, rad, color + '22', color + '9d', 3);
-        ellipse(g, x, y, rad * progress, rad * progress, null, color + 'b8', ultimate ? 4 : 2);
+        ellipse(g, x, y, rad, rad, color + '16', color + '9d', ultimate ? 3.5 : 2);
+        this.groundSpell(g, x, y, rad, hero, ability, color, progress, false);
         if (style === 'meteor') this.meteor(g, x, y, 1, 0, now, (1 - progress) ** 2 * 240);
+      }
+      const casts = [];
+      for (const e of s.effects) {
+        const age = now - e.time;
+        if (e.kind === 'cast' && age >= 0 && age < .38) casts[e.team] = e;
       }
       fighters.sort((a, b) => a.y - b.y);
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
@@ -427,15 +445,15 @@
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
       for (const u of fighters) {
         if (u.dummy) this.dummy(g, u);
-        else if (u.type === 'hero') this.hero(g, u, team, now);
+        else if (u.type === 'hero') this.hero(g, u, team, now, casts[u.team]);
         else this.creep(g, u);
       }
       for (const u of fighters) if (u.type === 'creep') {
         const hpColor = u.team !== team ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
         this.bar(g,u,u.y-u.r-11,34,hpColor,5);
       }
-      for (const [, side, kind, x, y, source, dx, dy, width, trail] of s.projectiles) {
-        if (!visible({x})) continue;
+      for (const [, side, kind, x, y, source, dx, dy, width, trail, ability] of s.projectiles) {
+        if (!inView(x, y, 220)) continue;
         const color = source === 'building' ? '#fff0b0' : HEROES[source]?.color || COLORS[side];
         if (trail === 'wind') {
           ellipse(g, x, y + 3, 30, 12, '#101f3273');
@@ -455,10 +473,7 @@
           g.strokeStyle = '#eee1ff'; g.lineWidth = 3; g.stroke();
           g.restore();
         } else if (kind === 'bolt') {
-          g.lineCap = 'round';
-          line(g, [[x - dx * 70, y - dy * 70], [x, y]], color + '78', width * .5);
-          line(g, [[x - dx * 30, y - dy * 30], [x, y]], '#f5f1ee', 4);
-          g.lineCap = 'butt';
+          this.spellBolt(g, x, y, dx, dy, width, source, ability, color, now);
         } else {
           const r = source === 'creep' ? 4 : 6;
           ellipse(g, x, y, r, r, color);
@@ -473,20 +488,13 @@
       }
       for (const e of s.effects) {
         const age = now - e.time;
-        if (age < -.06 || age > 1.08 || !visible(e)) continue;
+        if (age < 0 || age > 1.08 || !inView(e.x, e.y, (e.radius || 65) + 100)) continue;
+        if (e.kind === 'burst' || e.kind === 'impact' || e.kind === 'cast') {
+          this.spellEffect(g, e, age);
+          continue;
+        }
         g.globalAlpha = clamp((1 - age) * 1.3, 0, 1);
-        if (e.kind === 'burst' || e.kind === 'cast') {
-          const color = e.spell === 'meteor' ? '#ff9d56' : HEROES[e.hero]?.color || COLORS[e.team];
-          const r = (e.radius || 45) * clamp(.25 + age * 3, .25, 1);
-          ellipse(g, e.x, e.y, r, r, color + '24', color + 'cc', 4);
-          if (e.kind === 'burst') {
-            for (let i = 0; i < 9; i++) {
-              const a = i * Math.PI * 2 / 9 + e.id;
-              const x = e.x + Math.cos(a) * r, y = e.y + Math.sin(a) * r;
-              ellipse(g, x, y, 5, 2, color);
-            }
-          }
-        } else if (['gold','hit','level'].includes(e.kind)) {
+        if (['gold','hit','level'].includes(e.kind)) {
           this.label(g, e.text, e.x + (e.id % 3 - 1) * 13, e.y - 31 - age * 30,
             e.kind === 'hit' ? 15 : 19, e.text === 'Denied' ? '#c9a0ff' : e.kind === 'hit' ? '#f1ded0' : '#ffd48b');
         }
@@ -509,6 +517,192 @@
       g.fillStyle = this.vignette;
       g.fillRect(0, 0, w, h);
       this.minimap(s, team, viewWidth, viewHeight);
+    }
+    groundSpell(g, x, y, radius, hero, ability, color, progress, impact) {
+      g.save();
+      g.translate(x, y);
+      g.scale(radius / 100, radius / 100);
+      const ink = impact ? '#fff1cf' : color;
+      const travel = 27 + progress * 67;
+      switch (hero) {
+        case 'vesper':
+          if (ability === 'Piercing Shot') {
+            for (const angle of [-.55, 0, .55]) {
+              line(g, [[-travel*.23,0],[Math.cos(angle)*travel,Math.sin(angle)*travel]], ink, 2.5);
+            }
+          } else if (ability === 'Arrow Storm') {
+            for (let i = 0; i < 7; i++) {
+              const px = (i * 47 % 151) - 75, py = (i * 59 % 110) - 50;
+              const drop = impact ? -10 * progress : -74 * (1 - progress);
+              line(g, [[px - 22, py + drop - 30], [px, py + drop]], ink, 2.2);
+              poly(g, [[px, py + drop], [px - 2, py + drop - 10], [px - 8, py + drop - 5]], ink);
+            }
+          } else {
+            g.rotate(Math.PI / 4);
+            const span = impact ? 60 : 34 + 26 * progress;
+            for (const offset of [-36, 0, 36]) {
+              line(g, [[-span, offset], [span, offset]], ink, 1.8);
+              line(g, [[offset, -span], [offset, span]], ink, 1.8);
+            }
+          }
+          break;
+        case 'brakk':
+          for (let i = 0; i < 6; i++) {
+            g.rotate(Math.PI / 3);
+            line(g, [[12, 0], [travel * .48, -9], [travel * .67, 6], [travel, -5]], '#301d1c', 6);
+            line(g, [[12, 0], [travel * .48, -9], [travel * .67, 6], [travel, -5]], ink, 2.4);
+          }
+          break;
+        case 'orrin': {
+          const r = ability === 'Collapse' && !impact ? 93 - progress * 71 : travel;
+          g.rotate(progress * Math.PI / 3);
+          poly(g, [[0,-r],[r,0],[0,r],[-r,0]], '#37235955', ink, 1.8);
+          poly(g, [[0,-r*.48],[r*.48,0],[0,r*.48],[-r*.48,0]], color + '7d', '#ded7ff', 1.4);
+          if (ability === 'Starfall' && !impact) {
+            const fall = -112 * (1 - progress);
+            poly(g, [[0,fall-23],[9,fall],[0,fall+16],[-9,fall]], '#fcf0ff', color, 3);
+            line(g, [[0,fall-70],[0,fall-23]], color, 4);
+          }
+          break;
+        }
+        case 'sable':
+          for (const dir of [-1, 1]) {
+            g.save();
+            g.scale(dir, 1);
+            poly(g, [[-travel,-travel*.58],[travel*.75,travel*.44],[travel,travel*.72],[-5,4]], '#ed88b46e', ink, 2);
+            g.restore();
+          }
+          break;
+        case 'mirel':
+          for (let i = 0; i < 5; i++) {
+            g.rotate(2 * Math.PI / 5);
+            g.beginPath();
+            g.moveTo(6, 7);
+            g.quadraticCurveTo(travel * .43, -34, travel, 3);
+            g.strokeStyle = i % 2 ? '#d6f090' : color;
+            g.lineWidth = 3;
+            g.stroke();
+            poly(g, [[travel*.48,-12],[travel*.62,-33],[travel*.72,-14]], color, ink, 1);
+            if (ability === 'Briar Crown') poly(g, [[travel*.71,-8],[travel*.86,-26],[travel*.9,-1]], '#ddefa9');
+          }
+          break;
+        case 'neris':
+          if (ability === 'Emberfall') {
+            for (let i = 0; i < 6; i++) {
+              g.rotate(Math.PI / 3);
+              poly(g, [[17,5],[travel*.82,-9],[travel,0],[travel*.62,7]], '#ff7c3a99', '#ffcd7c', 1.6);
+            }
+          } else if (ability === 'Sky Needle' || ability === 'Pin Stitch') {
+            const h = impact ? 55 - progress * 24 : 140 * (1 - progress);
+            poly(g, [[-8,-h-19],[9,-h-19],[3,9],[0,18]], '#ffecc4', color, 1.8);
+            line(g, [[-travel*.56,-12],[travel*.56,12]], color, 2.5);
+          } else if (ability === 'Crosswind') {
+            ellipse(g, 0, -15 - progress * 26, travel * .8, travel * .29, '#aefef834', '#b7feef', 4);
+            ellipse(g, 0, -38 - progress * 26, travel, travel * .41, null, '#d1f9fd', 2);
+          } else if (ability === 'Spool Break') {
+            for (const offset of [-20, 16]) {
+              line(g, [[-travel,-offset],[0,offset],[travel,-offset]], '#dfc5fa', 4);
+            }
+          } else {
+            const r = ability === 'Hollow Seam' && !impact ? 87 - progress * 50 : travel;
+            line(g, [[-r,0],[r*.56,-r*.59],[-r*.26,r*.72],[-r*.26,-r*.72],[r*.56,r*.59],[-r,0]], ink, 2.2);
+          }
+          break;
+        case 'cairn': {
+          const jets = CAIRN_JETS[ability] || 1;
+          ellipse(g, 0, 0, travel, travel * .48, '#441d22a6', '#ff8a57', 2.4);
+          for (let i = 0; i < jets; i++) {
+            const px = (i - (jets - 1) / 2) * Math.min(45, 140 / jets);
+            const height = impact ? (67 + 27 * progress) - 13 * (i % 2) : 8 + progress * 21;
+            poly(g, [[px-16,5],[px-11,-height*.57],[px+5,-height],[px+15,-height*.3],[px+18,8]], '#f25b36bb', '#ffae69', 1.8);
+            poly(g, [[px-6,4],[px+1,-height*.68],[px+8,2]], '#ffdc8e');
+          }
+          break;
+        }
+        case 'ecarg':
+          for (const band of [-2, -1, 0, 1, 2]) {
+            g.beginPath();
+            g.moveTo(-travel, band * 12);
+            g.quadraticCurveTo(0, band * 12 - 24 + progress * 48, travel, band * 12);
+            g.strokeStyle = band === 0 ? '#e2f1ff' : color;
+            g.lineWidth = band === 0 ? 3 : 1.7;
+            g.stroke();
+          }
+          for (const note of ability === 'Grand Cadence' ? [-1, 0, 1] : [-.55, .55]) {
+            const px = note * travel, py = -8 + Math.sin(note * 6 + progress * 3) * 19;
+            ellipse(g, px, py, 6, 4, '#eff6ff');
+            line(g, [[px+5,py],[px+5,py-20],[px+12,py-15]], '#eff6ff', 2);
+          }
+          break;
+        default:
+          ellipse(g, 0, 0, travel, travel, color + '20', ink, 2.5);
+      }
+      g.restore();
+    }
+    spellEffect(g, e, age) {
+      const { x, y, hero, ability } = e;
+      const color = e.spell === 'meteor' ? '#ff9d56' : HEROES[hero]?.color || COLORS[e.team] || '#fff0b0';
+      const duration = e.kind === 'cast' ? .29 : e.kind === 'impact' ? .34 : .55;
+      if (age >= duration) return;
+      // For aimed spells the pose and the projectile or destination show the cast.
+      if (e.kind === 'cast' && e.spell !== 'buff' && e.spell !== 'veil') return;
+      const progress = age / duration;
+      g.globalAlpha = (1 - progress) ** .72;
+      const radius = e.radius || (e.ultimate ? 70 : 48);
+      if (e.kind === 'impact' && ability !== 'Pin Stitch') {
+        ellipse(g, x, y - 10, radius * (.55 + progress * .45), radius * (.4 + progress * .45), null, color, 3);
+      }
+      this.groundSpell(g, x, y, radius, hero, ability, e.accent ? '#e8f4ff' : color, progress, true);
+      g.globalAlpha = 1;
+    }
+    spellBolt(g, x, y, dx, dy, width, hero, ability, color, now) {
+      g.save();
+      g.translate(x, y);
+      g.rotate(Math.atan2(dy, dx));
+      switch (hero) {
+        case 'vesper':
+          line(g, [[-125,0],[-18,0]], '#9cefd377', 4);
+          line(g, [[-57,0],[3,0]], '#edfff0', 3);
+          poly(g, [[7,0],[-10,-7],[-10,7]], '#e4fff1');
+          line(g, [[-55,-8],[-45,0],[-55,8]], color, 2.4);
+          break;
+        case 'orrin':
+          ellipse(g, -24, 0, 41, 9, '#6c43af70');
+          ellipse(g, 0, 0, 13, 13, '#251641', '#dfc8ff', 3);
+          g.rotate(now * 10);
+          ellipse(g, 0, 0, 24, 9, null, color, 3);
+          break;
+        case 'sable': {
+          const size = ability === 'Shatterline' ? 1.5 : 1;
+          g.scale(size, size);
+          poly(g, [[17,0],[-10,-12],[-65,1],[-29,11]], '#e999cbae', '#ffe7f2', 2);
+          line(g, [[-85,10],[-63,7]], color, 2);
+          line(g, [[-70,-8],[-50,-6]], '#fce0ed', 2);
+          break;
+        }
+        case 'mirel':
+          poly(g, [[12,0],[-13,-7],[-57,-3],[-42,4],[-15,7]], '#bce877', '#edf7c6', 1.8);
+          for (let i = 1; i <= 3; i++) {
+            const px = -40 - i * 13, py = Math.sin(now * 20 + i * 2) * 10;
+            ellipse(g, px, py, 6, 2.5, color);
+          }
+          break;
+        case 'ecarg':
+          for (let i = 0; i < 3; i++) {
+            const offset = -14 - i * 26;
+            const spread = width * (.62 + i * .21);
+            g.beginPath();
+            g.ellipse(offset, 0, 26, spread, 0, -1.16, 1.16);
+            g.strokeStyle = i === 0 ? '#edf4ff' : color + 'a4';
+            g.lineWidth = i === 0 ? 3.5 : 2.5;
+            g.stroke();
+          }
+          break;
+        default:
+          line(g, [[-70,0],[0,0]], color + '78', width * .5);
+          line(g, [[-30,0],[0,0]], '#f5f1ee', 4);
+      }
+      g.restore();
     }
     castPreview(g, hero, spell, at) {
       const end = Lanebreak.castPoint(hero, spell, at.x, at.y);
@@ -614,7 +808,7 @@
       if (u.resonating) ellipse(g,x,y-15,32,29,null,HEROES.ecarg.color,3);
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
     }
-    hero(g, u, team, now) {
+    hero(g, u, team, now, cast) {
       const {x} = u, y = u.y - (u.lifted ? 22 : 0), color = COLORS[u.team], armor = HEROES[u.hero].color;
       ellipse(g,x+7,u.y+10,30,16,'#102125a5');
       ellipse(g,x,y+4,u.r+9,u.r+5,null,color,4);
@@ -630,10 +824,27 @@
       }
       const facing = u.facing ?? (u.team ? Math.PI : 0);
       const lunge = u.attack && HEROES[u.hero].range < 200 ? 8 : 0;
+      const progress = cast ? clamp((now - cast.time) / .38, 0, 1) : 1;
+      const pose = CAST_POSES[u.hero];
+      const effort = cast ? Math.sin(Math.PI * progress) : 0;
+      if (cast?.spell === 'dash') {
+        g.globalAlpha = 1 - progress;
+        if (u.hero === 'sable') {
+          for (const offset of [-13, 11]) line(g, [[cast.x, cast.y + offset], [x, y - offset]], armor, 3);
+        } else {
+          line(g, [[cast.x,cast.y+7],[x,y+7]], '#60433285', 26);
+          for (const fraction of [.35, .65, .9]) {
+            ellipse(g, cast.x+(x-cast.x)*fraction, cast.y+(y-cast.y)*fraction+7, 13, 8, '#cda4758c');
+          }
+        }
+        g.globalAlpha = 1;
+      }
       g.save();
       if (u.veiled) g.globalAlpha = .44;
-      g.translate(x + Math.cos(facing)*lunge,y + Math.sin(facing)*lunge);
+      const step = lunge + pose.step * effort;
+      g.translate(x + Math.cos(facing)*step,y + Math.sin(facing)*step - pose.lift * effort);
       g.scale(Math.cos(facing) < 0 ? -1 : 1,1);
+      g.rotate(pose.lean * effort);
       g.translate(-x,-y);
       poly(g, [[x-25,y+10],[x-18,y-23],[x-5,y-31],[x+12,y-27],[x+23,y-17],[x+25,y+10],[x+7,y+22],[x-12,y+20]], '#1d333b', armor, 2.7);
       poly(g, [[x-22,y],[x-15,y-19],[x+6,y-20],[x+18,y-7],[x+14,y+13],[x-5,y+18]], armor + '95');
@@ -650,9 +861,17 @@
         line(g,[[x+24,y+16],[x+27,y-35]],'#9b83c4',3);
         this.crystal(g,x+27,y-38,11,'#b494f7');
       } else {
-        weapon(g,u.hero,x+23,y-9,.8,armor);
+        const bowStroke = cast && u.hero === 'ecarg' ? 15 * Math.sin(progress * 2 * Math.PI) * effort : 0;
+        weapon(g,u.hero,x+23,y-9,.8,armor,bowStroke);
       }
       g.restore();
+      if (u.marks?.length) {
+        const colors = ['#c0eaff','#b4efac','#ffb585'];
+        for (const [index, mark] of u.marks.entries()) {
+          const angle = now * 2.5 + index * Math.PI * 2 / 3;
+          this.crystal(g, x + Math.cos(angle) * 39, y - 20 + Math.sin(angle) * 14, 5, colors[mark]);
+        }
+      }
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);

@@ -156,15 +156,17 @@ impl Serialize for ProjectileRow<'_> {
             row.serialize_element(&quant(dir.x, 100.0))?;
             row.serialize_element(&quant(dir.y, 100.0))?;
             row.serialize_element(&spell.radius)?;
-            if spell.lift > 0.0 {
-                row.serialize_element("wind")?;
-            }
-            if spell.push > 0.0 {
-                row.serialize_element("shockwave")?;
-            }
-            if spell.roll > 0.0 {
-                row.serialize_element("meteor")?;
-            }
+            let trail = if spell.lift > 0.0 {
+                Some("wind")
+            } else if spell.push > 0.0 {
+                Some("shockwave")
+            } else if spell.roll > 0.0 {
+                Some("meteor")
+            } else {
+                None
+            };
+            row.serialize_element(&trail)?;
+            row.serialize_element(&spell.name)?;
         }
         row.end()
     }
@@ -184,9 +186,8 @@ impl Serialize for AreaRow<'_> {
         row.serialize_element(&a.duration)?;
         row.serialize_element(self.1)?;
         row.serialize_element(&a.ultimate)?;
-        if a.spell.roll > 0.0 {
-            row.serialize_element("meteor")?;
-        }
+        row.serialize_element(&(a.spell.roll > 0.0).then_some("meteor"))?;
+        row.serialize_element(&a.spell.name)?;
         row.end()
     }
 }

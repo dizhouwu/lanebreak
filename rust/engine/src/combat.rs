@@ -219,7 +219,7 @@ impl Match {
             self.effect(
                 "burst",
                 pos,
-                json!({"team": team, "radius": 42, "hero": self.u(source).source_name(),
+                json!({"team": team, "radius": 42, "hero": self.u(source).source_name(), "ability": "Pin Stitch",
                 "audience": veiled.then_some(target_team)}),
             );
         }
@@ -536,7 +536,7 @@ impl Match {
         dir: Option<Point>,
     ) {
         let b = self.u(target);
-        let (team, pos, role) = (b.team, b.pos, b.role);
+        let (team, pos, role, radius) = (b.team, b.pos, b.role, b.r);
         let a_team = self.u(from).team;
         if team == a_team || b.hp <= 0.0 || role == Role::Building {
             return;
@@ -570,6 +570,7 @@ impl Match {
                     "burst",
                     pos,
                     json!({"team": a_team, "radius": 70, "hero": self.u(from).source_name(),
+                    "ability": spell.name, "accent": true,
                     "audience": hidden.then_some(team)}),
                 );
             }
@@ -582,6 +583,14 @@ impl Match {
                 b.disarmed_until = b.disarmed_until.max(time + spell.disarm);
                 b.windup = None;
             }
+        }
+        if role == Role::Hero && matches!(spell.kind, Kind::Bolt | Kind::Unit) {
+            self.effect(
+                "impact",
+                pos,
+                json!({"team": a_team, "radius": radius + 13.0, "hero": self.u(from).source_name(),
+                "ability": spell.name, "audience": hidden.then_some(team)}),
+            );
         }
         self.hurt(target, damage, from, true, false);
         let b = self.u_mut(target);
@@ -633,7 +642,7 @@ impl Match {
         self.effect(
             "burst",
             pos,
-            json!({"team": team, "radius": spell.radius, "hero": a.source_name()}),
+            json!({"team": team, "radius": spell.radius, "hero": a.source_name(), "ability": spell.name}),
         );
         let targets: Vec<_> = self
             .units

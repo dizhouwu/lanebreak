@@ -504,6 +504,7 @@ impl Match {
             "cast",
             origin,
             json!({"team": team, "hero": self.h(id).key, "spell": spell.kind.name(),
+            "ability": spell.name,
             "ultimate": ultimate, "audience": recast.then_some(team)}),
         );
         match spell.kind {
@@ -545,6 +546,11 @@ impl Match {
                 let level = f64::from(self.h(id).level - 1);
                 let hp = spell.health + level * 15.0;
                 let pos = self.cast_point(id, spell, at);
+                self.effect(
+                    "burst",
+                    pos,
+                    json!({"team": team, "hero": self.h(id).key, "ability": spell.name, "radius": 55}),
+                );
                 let sentry = self.insert(Unit {
                     kind: "ranged",
                     team,

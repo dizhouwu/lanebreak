@@ -506,7 +506,7 @@ impl Match {
                 "burst",
                 a.pos,
                 json!({"team": a.team, "radius": a.spell.radius,
-                "hero": self.u(a.from).source_name(), "spell": "meteor"}),
+                "hero": self.u(a.from).source_name(), "spell": "meteor", "ability": a.spell.name}),
             );
             return false;
         }
