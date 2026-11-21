@@ -1,8 +1,8 @@
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT } = LanebreakRules;
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT, WEAVE_MARKS } = LanebreakRules;
   const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    weaveRecipe, pickTarget, pickUnit, xpGoal } = Lanebreak;
+    weaveRecipe, pickTarget, pickUnit, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
@@ -37,7 +37,7 @@
   const game = $('game');
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
-    blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5]
+    blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5], sentry: [370,.16,'triangle',.052,1.3]
   };
 
   function make(tag, text, className) {
@@ -673,7 +673,8 @@
     const unit = hero || building || { team: creep[1], kind: creep[2], hp: creep[5], maxHp: creep[6] };
     const name = hero?.dummy ? hero.name : hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
     $('inspectPanel').hidden = false;
-    $('inspectName').textContent = hero && hero.name !== name ? hero.name + ' · ' + name : name;
+    $('inspectName').textContent = creep && (creep[10] & CREEP_FLAGS.sentry) ? 'Needle Post' :
+      hero && hero.name !== name ? hero.name + ' · ' + name : name;
     $('inspectSide').textContent = hero?.dummy ? 'Stationary target' :
       TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
     meter('inspectHealth', unit.hp, unit.maxHp, true);
@@ -738,7 +739,8 @@
     let resourceText = '';
     if (hero.weaves) {
       const marks = (h.marks || []).map(mark => keys[mark]);
-      resourceText = marks.length ? 'Marks · ' + [marks[0], marks[1] || '…'].join(' + ') : 'Choose two marks with Q, W, or E';
+      const queue = Array.from({ length:WEAVE_MARKS }, (_, i) => marks[i] || '…');
+      resourceText = marks.length ? 'Marks · ' + queue.join(' + ') : 'Choose three marks with Q, W, or E';
       if (recipe) resourceText += ' → ' + hero.weaves[recipe].name;
     } else if (hero.heat) {
       resourceText = 'Heat ' + h.heat + '/' + hero.heat.max + ' · +' + h.heat * hero.heat.attack + ' attack damage';
@@ -759,7 +761,7 @@
       button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
-        awaitingMarks ? '2 marks' : empty ? '–' : spell.mana || '';
+        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : spell.mana || '';
       const cooldown = +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (spell.mana ? ' · ' + spell.mana + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +

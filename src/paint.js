@@ -482,6 +482,7 @@
       ellipse(g,x,y-15,14,13,null,'#d2775b',3);
       ellipse(g,x,y-15,6,6,'#ead29d');
       this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
+      if (u.stitched) ellipse(g,x,y-15,29,27,null,'#d5bfea',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
     }
     hero(g, u, team, now) {
@@ -524,6 +525,8 @@
       g.restore();
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
+      if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
+      if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
       this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);
       g.fillStyle = '#0008';
@@ -537,7 +540,11 @@
       const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
       const direction = Math.cos(facing) < 0 ? -1 : 1;
       g.save(); g.translate(Math.cos(facing)*lunge,Math.sin(facing)*lunge);
-      if (u.kind === 'siege') {
+      if (flags & Lanebreak.CREEP_FLAGS.sentry) {
+        poly(g,[[x-16,y+8],[x-9,y-9],[x+9,y-9],[x+16,y+8]],'#3c3025',color,2);
+        line(g,[[x,y+5],[x,y-20]],'#eac98b',2.5);
+        this.crystal(g,x,y-16,9,'#f0c865');
+      } else if (u.kind === 'siege') {
         poly(g,[[x-r,y-9],[x-r*.4,y-15],[x+r,y-10],[x+r,y+10],[x-r,y+10]],'#374d4c',color,2);
         ellipse(g,x-r*.64,y+7,7,7,'#18282b',color+'a9',1.4);
         ellipse(g,x+r*.61,y+7,7,7,'#18282b',color+'a9',1.4);

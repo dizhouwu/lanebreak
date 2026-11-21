@@ -226,7 +226,7 @@ test('standard spells respect unlock levels, mana, and cooldowns', () => {
     if (HEROES[hero].weaves) continue;
     const m = new Match({ heroes:[hero,'brakk'], bots:[null,null] });
     const h = m.heroes[0];
-    assert.match(m.order(0, { o:'cast', i:1, x:650, y:450 }), /level 2/);
+    if (!HEROES[hero].unlocks) assert.match(m.order(0, { o:'cast', i:1, x:650, y:450 }), /level 2/);
     assert.equal(m.order(0, { o:'cast', i:0, x:650, y:450 }), null);
     assert.equal(h.mana, h.maxMana - HEROES[hero].abilities[0].mana);
     advance(m, 1);
@@ -234,12 +234,13 @@ test('standard spells respect unlock levels, mana, and cooldowns', () => {
   }
 });
 
-test('Neris can prepare and cast all six recipes at level one in either order', () => {
+test('Neris can prepare and cast all ten recipes at level one in any order', () => {
+  assert.equal(Object.keys(HEROES.neris.weaves).length, 10);
   for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
     const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
     const hero = match.heroes[0];
     const cast = i => match.order(0, { o:'cast', i, x:600, y:450 });
-    assert.match(cast(3), /Queue two marks/);
+    assert.match(cast(3), /Queue three marks/);
     assert.match(cast(4), /Prepare a spell/);
     for (const key of [...recipe].reverse()) assert.equal(cast('QWE'.indexOf(key)), null);
     assert.equal(hero.mana, hero.maxMana);
@@ -254,6 +255,7 @@ test('Neris can prepare and cast all six recipes at level one in either order', 
     if (spell.kind === 'blast') assert.equal(match.areas[0].spell, spell);
     else if (spell.kind === 'bolt') assert.equal(match.projectiles[0].spell, spell);
     else if (spell.kind === 'blink') assert.equal(hero.x, 600);
+    else if (spell.kind === 'sentry') assert.equal(match.creeps[0].sentry, true);
     else assert.equal(hero.buffs[0].id, spell.name);
   }
 });
@@ -263,42 +265,109 @@ test('Neris preserves spell cooldowns when spells swap slots or are prepared aga
   const hero = match.heroes[0];
   const cast = i => match.order(0, { o:'cast', i, x:600, y:450 });
   cast(0);
-  cast(2);
+  cast(1);
+  cast(1);
   assert.equal(cast(3), null);
   assert.equal(cast(4), null);
-  cast(0);
   cast(1);
+  cast(1);
+  cast(0);
   cast(2);
-  assert.deepEqual(hero.marks, [1, 2]);
+  assert.deepEqual(hero.marks, [1, 0, 2]);
   assert.match(cast(3), /cooling down/);
   match.time = hero.cd[3];
   hero.mana = 0;
   assert.equal(cast(3), null);
-  assert.deepEqual(hero.prepared, ['WE', 'QE']);
+  assert.deepEqual(hero.prepared, ['QWE', 'QWW']);
   assert.match(cast(4), /Not enough mana/);
   assert.match(cast(5), /cooling down/);
   hero.mana = hero.maxMana;
   assert.equal(cast(4), null);
-  assert.equal(match.areas[0].spell.name, 'Anchor Stitch');
+  assert.equal(match.projectiles[0].spell.name, 'Spool Break');
   match.time = hero.cd[3];
-  cast(2); cast(2);
+  cast(2); cast(2); cast(2);
   assert.equal(cast(3), null);
   match.time = hero.cd[3];
-  cast(2); cast(0);
+  cast(1); cast(1); cast(0);
   assert.equal(cast(3), null);
-  assert.deepEqual(match.snapshot(0).heroes[0].prepared, ['QE', 'EE']);
+  assert.deepEqual(match.snapshot(0).heroes[0].prepared, ['QWW', 'EEE']);
   assert.equal(match.snapshot(1).heroes[0].prepared, undefined);
   assert.match(cast(4), /cooling down/);
   assert.equal(cast(5), null);
 });
 
-test('Cairn uses fixed blast distances, banks Heat from last hits, and spends it on Furnace Vent', () => {
+test('Neris marks and drains enemies, and Spool Break cancels attacks without moving the dummy', () => {
+  const match = new Match({ heroes:['neris','brakk'], training:{ dummy:true } });
+  const [hero, dummy] = match.heroes, spells = HEROES.neris.weaves;
+  match.magic(dummy,hero,spells.QQQ,30);
+  assert.equal(dummy.stitch.hits, 3);
+  advance(match, .3);
+  match.hurt(dummy,30,hero,{ attack:true });
+  assert.ok(dummy.stunUntil > match.time);
+  assert.equal(dummy.stitch.hits, 2);
+  match.hurt(dummy,30,hero,{ attack:true });
+  assert.equal(dummy.stitch.hits, 2);
+  dummy.mana = 20;
+  match.magic(dummy,hero,spells.WWW,40);
+  assert.equal(dummy.mana, 0);
+  const x = dummy.x;
+  dummy.windup = { target:hero.id, time:match.time + 1 };
+  match.magic(dummy,hero,spells.QWE,35);
+  assert.equal(dummy.x, x);
+  assert.equal(dummy.windup, null);
+  assert.ok(dummy.disarmedUntil > match.time);
+});
+
+test('Needle Post fires and expires, and Rolling Stitch advances after each pulse', () => {
+  const match = new Match({ heroes:['neris','brakk'], training:{ dummy:true } });
+  const [, dummy] = match.heroes;
+  const cast = (i, x) => match.order(0, { o:'cast', i, x, y:dummy.y });
+  const prepare = marks => {
+    for (const mark of marks) assert.equal(cast('QWE'.indexOf(mark), dummy.x), null);
+    assert.equal(cast(3, dummy.x), null);
+  };
+  prepare('QEE');
+  assert.equal(cast(4, dummy.x - 100), null);
+  const post = match.creeps[0];
+  assert.ok(match.snapshot(0).creeps[0][10] & CREEP_FLAGS.sentry);
+  const x = post.x;
+  advance(match, 1.5);
+  assert.equal(post.x, x);
+  assert.ok(match.training.hits > 0);
+  advance(match, 10);
+  assert.equal(match.units.has(post.id), false);
+  prepare('WEE');
+  assert.equal(cast(4, dummy.x), null);
+  const area = match.areas[0], first = area.x, previousHits = match.training.hits;
+  advance(match, .63);
+  assert.equal(area.x, first + HEROES.neris.weaves.WEE.travel);
+  assert.ok(match.training.hits > previousHits);
+});
+
+test('bots can finish a weakened enemy Needle Post without treating it as a lane creep', () => {
+  const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
+  const [neris, brakk] = match.heroes;
+  neris.x = 2000;
+  brakk.x = 2670;
+  const cast = i => match.order(0, { o:'cast', i, x:2600, y:450 });
+  cast(0); cast(2); cast(2); cast(3);
+  assert.equal(cast(4), null);
+  const post = match.creeps[0];
+  post.hp = 1;
+  match.think(brakk);
+  assert.deepEqual(brakk.order, { o:'attack', id:post.id });
+});
+
+test('Cairn uses three fixed blast distances from level one and spends banked Heat on Furnace Vent', () => {
   const match = new Match({ heroes:['cairn','brakk'], bots:[null,null] });
   const hero = match.heroes[0], kit = HEROES.cairn;
-  Object.assign(hero, { x:1000, y:500, level:6 });
+  Object.assign(hero, { x:1000, y:500 });
   assert.equal(match.order(0, { o:'cast', i:0, x:1050, y:500 }), null);
   assert.equal(match.order(0, { o:'cast', i:1, x:1150, y:500 }), null);
-  assert.deepEqual(match.areas.map(area => area.x), [1245, 1570]);
+  assert.equal(match.order(0, { o:'cast', i:2, x:1100, y:500 }), null);
+  assert.deepEqual(match.areas.map(area => area.x), [1235, 1460, 1700]);
+  assert.ok(hero.cd.slice(0,3).every(cd => cd > match.time));
+  hero.level = 6;
   match.spawn();
   match.spawn();
   match.spawn();
@@ -358,14 +427,14 @@ test('empty training lets Neris refill and practice without adding a target', ()
   assert.equal(match.units.size, 1);
   assert.equal(pickTarget(match.snapshot(0), 0, dummy), null);
   assert.equal(match.canShop(hero), true);
-  cast(0); cast(2);
+  cast(0); cast(1); cast(1);
   assert.equal(cast(3), null);
   assert.equal(cast(4), null);
   assert.ok(hero.mana < hero.maxMana);
-  assert.ok(hero.weaveReady.QE > match.time);
+  assert.ok(hero.weaveReady.QWW > match.time);
   match.refillTraining();
   assert.equal(hero.mana, hero.maxMana);
-  assert.deepEqual(hero.prepared, ['QE']);
+  assert.deepEqual(hero.prepared, ['QWW']);
   assert.equal(cast(4), null);
   assert.equal(match.training.hits, 0);
 });

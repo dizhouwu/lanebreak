@@ -11,23 +11,27 @@ A one-lane 1v1 strategy game inspired by Dota 2's laning. Last-hit creeps, conte
 | Orrin, Gravity Sage | Burst caster with delayed impacts and a blink |
 | Sable, Glass Duelist | Mobile melee pressure with a dash and a piercing finisher |
 | Mirel, Fen Warden | Ranged lane control with persistent zones and defensive sustain |
-| Neris, Loomkeeper | Prepares spells from pairs of marks and casts them from two slots |
+| Neris, Loomkeeper | Weaves ten spells from three-mark combinations and casts them from two slots |
 | Cairn, Kiln Keeper | Ranged burst carry who builds Heat by last-hitting creeps |
 
 Hover over a hero on the home screen to read their kit. Select a hero and open **Abilities** for the same reference on touchscreens. Open **Item guide** to search shop items by name, effect, or recipe component and compare their full prices.
 
-Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest two count, in either order. **R** prepares the recipe in **D** and moves the previous spell to **F**. **D** and **F** cast the prepared spells and spend their mana. Each spell keeps its own cooldown when it changes slots or is prepared again. Neris uses **V** for potions.
+Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest three count, in any order. **R** prepares the recipe in **D** and moves the previous spell to **F**. **D** and **F** cast the prepared spells and spend their mana. Each spell keeps its own cooldown when it changes slots or is prepared again. Neris uses **V** for potions.
 
 | Marks | Spell |
 |---|---|
-| Q + Q | Running Stitch, a piercing projectile |
-| Q + W | Hemline, an area slow |
-| Q + E | Loose End, a blink |
-| W + W | Pincushion, three focused area hits |
-| W + E | Anchor Stitch, a delayed area stun |
-| E + E | Double Knot, temporary armor and healing |
+| Q + Q + Q | Pin Stitch, a tag that lets follow-up hits briefly stagger a hero |
+| Q + Q + W | Crosswind, a piercing line stun |
+| Q + Q + E | Fray Screen, a persistent slow zone |
+| Q + W + W | Loose End, a short teleport |
+| Q + W + E | Spool Break, a wave that pushes enemies and disarms heroes |
+| Q + E + E | Needle Post, a stationary sentry |
+| W + W + W | Hollow Seam, a delayed mana drain |
+| W + W + E | Tighten Thread, a temporary attack-speed and damage buff |
+| W + E + E | Rolling Stitch, four bursts that advance in the cast direction |
+| E + E + E | Sky Needle, a long-range delayed strike |
 
-Cairn's **Q** and **W** burst at fixed distances along the cursor direction. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
+Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units away, **W** lands 460 units away, and **E** lands 700 units away. Aim with the cursor and adjust your position to choose which blast will connect. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
 
 ## Play solo
 

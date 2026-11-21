@@ -67,20 +67,24 @@
       armor: 2, armorGrowth: .38, range: 530, interval: 1.30, speedGrowth: .023, speed: 299, regen: 1.9, manaRegen: 1.65,
       unlocks: [1, 1, 1, 1, 1, 1],
       abilities: [
-        { name: 'Thread', kind: 'mark', mana: 0, cd: 0, text: 'Add a Thread mark. Weave uses your latest two marks.' },
-        { name: 'Needle', kind: 'mark', mana: 0, cd: 0, text: 'Add a Needle mark. Weave uses your latest two marks.' },
-        { name: 'Knot', kind: 'mark', mana: 0, cd: 0, text: 'Add a Knot mark. Weave uses your latest two marks.' },
-        { name: 'Weave', kind: 'invoke', mana: 0, cd: 3, text: 'Turn two marks into a prepared spell. The new spell moves to D and the previous spell moves to F.' },
+        { name: 'Thread', kind: 'mark', mana: 0, cd: 0, text: 'Add a Thread mark. Weave uses your latest three marks.' },
+        { name: 'Needle', kind: 'mark', mana: 0, cd: 0, text: 'Add a Needle mark. Weave uses your latest three marks.' },
+        { name: 'Knot', kind: 'mark', mana: 0, cd: 0, text: 'Add a Knot mark. Weave uses your latest three marks.' },
+        { name: 'Weave', kind: 'invoke', mana: 0, cd: 3, text: 'Turn three marks into a prepared spell. The new spell moves to D and the previous spell moves to F.' },
         { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a spell with R to cast it from this slot.' },
         { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a second spell with R to fill both slots.' }
       ],
       weaves: {
-        QQ: { name: 'Running Stitch', kind: 'bolt', mana: 60, cd: 9, range: 840, radius: 28, speed: 1500, piercing: true, damage: 82, growth: 19, text: 'Fire a piercing thread through enemies in a line.' },
-        QW: { name: 'Hemline', kind: 'blast', mana: 77, cd: 11, range: 700, radius: 205, delay: .45, damage: 110, growth: 22, slow: .28, slowTime: 1.6, text: 'Cut across a target area and slow enemies caught in the seam.' },
-        QE: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
-        WW: { name: 'Pincushion', kind: 'blast', mana: 105, cd: 15, range: 730, radius: 158, delay: .65, hits: 3, interval: .43, damage: 52, growth: 11, text: 'Rain three showers of needles into a small target area.' },
-        WE: { name: 'Anchor Stitch', kind: 'blast', mana: 90, cd: 14, range: 650, radius: 150, delay: .60, damage: 65, growth: 15, stun: .9, text: 'Tie enemies to the ground with a delayed area stun.' },
-        EE: { name: 'Double Knot', kind: 'buff', mana: 75, cd: 15, duration: 4, stats: { armor: 8, regen: 13 }, text: 'Gain 8 armor and 13 health regen for 4 seconds.' }
+        QQQ: { name: 'Pin Stitch', kind: 'bolt', mana: 65, cd: 11, range: 720, radius: 29, speed: 1550, damage: 59, growth: 14, stitch: true, text: 'Tag the first enemy hero hit for 4 seconds. Your follow-up hits can briefly stagger them up to three times.' },
+        QQW: { name: 'Crosswind', kind: 'bolt', mana: 85, cd: 15, range: 940, radius: 45, speed: 1150, piercing: true, damage: 72, growth: 17, stun:.8, text: 'Send a cutting gust through the lane, damaging and briefly stunning enemies it crosses.' },
+        QQE: { name: 'Fray Screen', kind: 'blast', mana: 75, cd: 13, range: 650, radius: 195, delay: .3, hits: 4, interval: .65, damage: 24, growth: 6, slow: .34, slowTime:1, text: 'Leave a tangle on the ground that damages and slows enemies in four pulses.' },
+        QWW: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
+        QWE: { name: 'Spool Break', kind: 'bolt', mana: 100, cd: 18, range: 760, radius: 41, speed: 1400, piercing: true, damage: 81, growth: 18, push:115, disarm:1.2, text: 'Fire a piercing shockwave that pushes enemies away. Hero basic attacks are disabled for 1.2 seconds.' },
+        QEE: { name: 'Needle Post', kind: 'sentry', mana: 85, cd: 20, range: 610, duration: 10, health:270, shot:30, shotGrowth:3, text: 'Plant a destructible sentry for 10 seconds. It fires at nearby enemy heroes and creeps.' },
+        WWW: { name: 'Hollow Seam', kind: 'blast', mana: 90, cd: 17, range: 750, radius: 220, delay: 1.1, damage: 88, growth: 19, drain:80, text: 'Mark an area that bursts after a delay, dealing damage and draining up to 80 mana from enemy heroes inside.' },
+        WWE: { name: 'Tighten Thread', kind: 'buff', mana: 65, cd: 17, duration: 4.5, stats: { haste:.46, damage:20 }, text: 'Gain 46% attack speed and 20 attack damage for 4.5 seconds.' },
+        WEE: { name: 'Rolling Stitch', kind: 'blast', mana: 110, cd: 18, range: 440, radius: 150, delay: .6, hits: 4, interval: .42, travel:130, damage: 40, growth: 8, text: 'Send four bursts rolling in the cast direction. Each advances 130 units from the previous one.' },
+        EEE: { name: 'Sky Needle', kind: 'blast', mana: 115, cd: 20, range: 1420, radius: 128, delay: 1.05, damage: 155, growth: 26, text: 'Call down a narrow, delayed strike up to 1,420 units away.' }
       },
       build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'vest', 'bulwark', 'heartstone']
     },
@@ -89,10 +93,11 @@
       hp: 585, hpGrowth: 79, mana: 315, manaGrowth: 32, damage: 49, damageGrowth: 3.9,
       armor: 2.5, armorGrowth: .42, range: 490, interval: 1.19, speedGrowth: .027, speed: 301, regen: 1.9, manaRegen: 1.25,
       heat: { max:6, attack:3 },
+      unlocks: [1, 1, 1, 6],
       abilities: [
-        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 7.5, range: 245, radius: 132, delay: .22, damage: 87, growth: 20, text: 'Burst 245 units toward the cursor. Use it when enemies close in.' },
-        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 570, radius: 145, delay: .34, damage: 107, growth: 22, text: 'Burst 570 units toward the cursor. The cursor sets direction and the distance is fixed.' },
-        { name: 'Bellows', kind: 'buff', mana: 60, cd: 17, duration: 4, stats: { move:.24, haste:.32 }, text: 'Gain 24% movement speed and 32% attack speed for 4 seconds.' },
+        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 9, range: 235, radius: 130, delay: .22, damage: 75, growth: 18, text: 'Trigger the near blast 235 units toward the cursor.' },
+        { name: 'Flue Burst', kind: 'blast', fixed: true, mana: 65, cd: 9, range: 460, radius: 145, delay: .29, damage: 89, growth: 20, text: 'Trigger the middle blast 460 units toward the cursor.' },
+        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 700, radius: 155, delay: .36, damage: 103, growth: 22, text: 'Trigger the far blast 700 units toward the cursor.' },
         { name: 'Furnace Vent', kind: 'blast', mana: 145, cd: 68, range: 0, radius: 340, delay: .70, damage: 135, growth: 26, heatDamage: 18, text: 'Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack.' }
       ],
       build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'prism', 'arcane', 'void', 'charm', 'heartstone']
@@ -138,7 +143,7 @@
   const RULES = { HEROES, ITEMS, CREEPS, DIFF, WIDTH: 5200, HEIGHT: 1000,
     TEAM: ['Azure', 'Crimson'], COLORS: ['#61cfff', '#fc7377'],
     ORBS: { Haste: '#5ae6e2', Might: '#ff7d67', Renewal: '#93e78d', Wealth: '#ffcb6c' },
-    UNLOCKS: [1, 2, 3, 6] };
+    UNLOCKS: [1, 2, 3, 6], WEAVE_MARKS: 3 };
   if (typeof module === 'object') module.exports = RULES;
   else globalThis.LanebreakRules = RULES;
 })();
