@@ -1894,6 +1894,18 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
+  const SPRITE_SCALE = 2;
+  const BUILDING_SPRITE = { left:108, top:124, width:216, height:200 };
+  const CREEP_SPRITE = { left:48, top:30, width:96, height:56 };
+  function makeSprite(bounds, paint) {
+    const canvas = document.createElement('canvas');
+    canvas.width = bounds.width * SPRITE_SCALE;
+    canvas.height = bounds.height * SPRITE_SCALE;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(SPRITE_SCALE, 0, 0, SPRITE_SCALE, bounds.left * SPRITE_SCALE, bounds.top * SPRITE_SCALE);
+    paint(ctx);
+    return canvas;
+  }
   function seeded(initial) {
     let n = initial;
     return () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296);
@@ -2147,6 +2159,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       this.miniContext = minimap.getContext('2d');
       this.map = null;
       this.vignette = null;
+      this.buildingSprites = new Map();
+      this.creepSprites = new Map();
       this.cam = 0;
       this.camY = 0;
       this.focus = null;
@@ -2232,11 +2246,15 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
       g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
       g.drawImage(this.map, 0, 0);
-      const visible = u => u.x >= this.cam - 175 && u.x <= this.cam + viewWidth + 175;
+      const left = this.cam - 175, right = this.cam + viewWidth + 175;
+      const visible = u => u.x >= left && u.x <= right;
       const player = s.heroes[team];
-      const troops = s.creeps.map(([id, team, kind, x, y, hp, maxHp, attack, r, facing, flags]) =>
-        ({ id, type: 'creep', team, kind, x, y, hp, maxHp, attack, r: r ?? CREEPS[kind].r, facing, flags }));
-      const units = [...troops, ...s.heroes].filter(u => u.hp > 0);
+      const fighters = [];
+      for (const [id, team, kind, x, y, hp, maxHp, attack, r, facing, flags] of s.creeps) {
+        if (hp <= 0 || x < left || x > right) continue;
+        fighters.push({ id, type:'creep', team, kind, x, y, hp, maxHp, attack, r:r ?? CREEPS[kind].r, facing, flags });
+      }
+      for (const hero of s.heroes) if (hero.hp > 0 && visible(hero)) fighters.push(hero);
       for (const b of s.buildings) {
         if (b.hp <= 0 || !b.range) continue;
         if (b.team !== team && !b.protected && b.x + b.range > this.cam && b.x - b.range < this.cam + viewWidth) {
@@ -2244,10 +2262,19 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           ellipse(g, b.x, b.y, b.range, b.range, null, '#ff636eaa', 2);
           g.setLineDash([]);
         }
-        const target = b.target && units.find(u => u.id === b.target);
-        if (target && (visible(b) || visible(target))) {
-          const hitsPlayer = target.id === player.id;
-          line(g, [[b.x, b.y-79], [target.x, target.y]], hitsPlayer ? '#ff939ac4' : COLORS[b.team] + '5a', hitsPlayer ? 2.4 : 1.4);
+        if (b.target) {
+          let target = fighters.find(u => u.id === b.target);
+          if (!target && visible(b)) {
+            target = s.heroes.find(u => u.id === b.target && u.hp > 0);
+            if (!target) {
+              const row = s.creeps.find(c => c[0] === b.target && c[5] > 0);
+              if (row) target = { x:row[3], y:row[4] };
+            }
+          }
+          if (target) {
+            const hitsPlayer = b.target === player.id;
+            line(g, [[b.x, b.y-79], [target.x, target.y]], hitsPlayer ? '#ff939ac4' : COLORS[b.team] + '5a', hitsPlayer ? 2.4 : 1.4);
+          }
         }
       }
       if (player.hp > 0) {
@@ -2286,7 +2313,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         ellipse(g, x, y, rad * progress, rad * progress, null, color + 'b8', ultimate ? 4 : 2);
         if (style === 'meteor') this.meteor(g, x, y, 1, 0, now, (1 - progress) ** 2 * 240);
       }
-      const fighters = units.filter(visible).sort((a, b) => a.y - b.y);
+      fighters.sort((a, b) => a.y - b.y);
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
         s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
@@ -2423,8 +2450,26 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       line(g, [[x,y-r],[x,y+r*.78]], '#f7f0d4aa', 2);
     }
     building(g, b, team) {
-      const {x,y,r} = b, color = COLORS[b.team], core = b.kind === 'core';
-      if (b.hp <= 0) {
+      const {x,y,r} = b, core = b.kind === 'core', alive = b.hp > 0;
+      const key = alive ? `${r}:${b.team}:${core}:${!core && b.attack}` : 'ruin:' + r;
+      let sprite = this.buildingSprites.get(key);
+      const bounds = BUILDING_SPRITE;
+      if (!sprite) {
+        sprite = makeSprite(bounds, ctx => this.buildingBody(ctx, r, COLORS[b.team], core, alive, b.attack));
+        this.buildingSprites.set(key, sprite);
+      }
+      g.drawImage(sprite, x - bounds.left, y - bounds.top, bounds.width, bounds.height);
+      if (!alive) return;
+      if (b.protected) {
+        g.setLineDash([5, 5]);
+        ellipse(g,x,y+3,r+10,r+10,null,'#e9e5cd9c',2);
+        g.setLineDash([]);
+      }
+      this.bar(g,b,y - (core ? 102 : 109),core ? 130 : 86,b.team === team ? '#58d86a' : '#ff5a5a',8);
+    }
+    buildingBody(g, r, color, core, alive, attack) {
+      const x = 0, y = 0;
+      if (!alive) {
         poly(g, [[x-r,y+13],[x-r*.6,y-20],[x-5,y-12],[x+r*.3,y-25],[x+r,y+9],[x+r*.65,y+24],[x-r*.6,y+22]], '#444a42', '#1a2828', 4);
         return;
       }
@@ -2438,19 +2483,13 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         glow(g,x,y-43,75,color+'77');
         this.crystal(g,x,y-42,50,color);
       } else {
-        const col = b.attack ? color : color + 'c5';
+        const col = attack ? color : color + 'c5';
         poly(g, [[x-r*.53,y],[x-r*.4,y-62],[x+r*.4,y-62],[x+r*.53,y],[x+r*.25,y+12],[x-r*.25,y+12]], '#404d4a', '#18272a', 3);
         poly(g, [[x,y+12],[x,y-64],[x+r*.4,y-62],[x+r*.53,y],[x+r*.25,y+12]], '#2a3b3d');
         poly(g, [[x-r*.65,y-59],[x-r*.50,y-83],[x+r*.50,y-83],[x+r*.65,y-58],[x+r*.29,y-49],[x-r*.3,y-49]], '#63716a', '#27393a', 3);
         this.crystal(g,x,y-80,17,col);
         line(g, [[x-8,y-37],[x,y-28],[x+8,y-37]], col, 3);
       }
-      if (b.protected) {
-        g.setLineDash([5, 5]);
-        ellipse(g,x,y+3,r+10,r+10,null,'#e9e5cd9c',2);
-        g.setLineDash([]);
-      }
-      this.bar(g,b,y - (core ? 102 : 109),core ? 130 : 86,b.team === team ? '#58d86a' : '#ff5a5a',8);
     }
     dummy(g, u) {
       const { x } = u, y = u.y - (u.lifted ? 22 : 0);
@@ -2525,26 +2564,37 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
       const direction = Math.cos(facing) < 0 ? -1 : 1;
       const lift = u.flags & flags.lifted ? 16 : 0;
-      g.save(); g.translate(Math.cos(facing)*lunge,Math.sin(facing)*lunge - lift);
-      if (flags & Lanebreak.CREEP_FLAGS.sentry) {
+      const kind = u.flags & flags.sentry ? 'sentry' : u.kind;
+      const key = `${kind}:${u.team}:${r}:${kind === 'sentry' ? 0 : direction}`;
+      let sprite = this.creepSprites.get(key);
+      const bounds = CREEP_SPRITE;
+      if (!sprite) {
+        sprite = makeSprite(bounds, ctx => this.creepBody(ctx, kind, color, r, direction));
+        this.creepSprites.set(key, sprite);
+      }
+      g.drawImage(sprite, x + Math.cos(facing) * lunge - bounds.left,
+        y + Math.sin(facing) * lunge - lift - bounds.top, bounds.width, bounds.height);
+      if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
+      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17-lift,16,'#fff29a');
+      if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
+    }
+    creepBody(g, kind, color, r, direction) {
+      const x = 0, y = 0;
+      if (kind === 'sentry') {
         poly(g,[[x-16,y+8],[x-9,y-9],[x+9,y-9],[x+16,y+8]],'#3c3025',color,2);
         line(g,[[x,y+5],[x,y-20]],'#eac98b',2.5);
         this.crystal(g,x,y-16,9,'#f0c865');
-      } else if (u.kind === 'siege') {
+      } else if (kind === 'siege') {
         poly(g,[[x-r,y-9],[x-r*.4,y-15],[x+r,y-10],[x+r,y+10],[x-r,y+10]],'#374d4c',color,2);
         ellipse(g,x-r*.64,y+7,7,7,'#18282b',color+'a9',1.4);
         ellipse(g,x+r*.61,y+7,7,7,'#18282b',color+'a9',1.4);
         line(g,[[x,y-13],[x+direction*24,y-16]],color,4);
       } else {
         poly(g,[[x-r,y+6],[x-r*.7,y-r*.52],[x+r*.61,y-r*.57],[x+r,y+4],[x+3,y+12]],'#243539',color,2);
-        if (u.kind === 'ranged') this.crystal(g,x,y-8,9,color);
+        if (kind === 'ranged') this.crystal(g,x,y-8,9,color);
         else ellipse(g,x,y-8,8,8,color+'8e','#203236',1.5);
         line(g,[[x+direction*11,y-3],[x+direction*21,y+4]],'#e2d9b4',2.1);
       }
-      g.restore();
-      if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
-      if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17-lift,16,'#fff29a');
-      if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
     }
     minimap(s, team, viewWidth, viewHeight) {
       const g = this.miniContext, w = this.mini.width, h = this.mini.height;
