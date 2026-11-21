@@ -238,7 +238,7 @@ test('aimed abilities and instant abilities are classified across the roster', (
   const expected = {
     vesper:[true, true, false, true], brakk:[true, false, false, false], orrin:[true, true, true, true],
     sable:[true, true, false, true], mirel:[true, true, false, true], neris:[false, false, false, false],
-    cairn:[true, true, true, false]
+    cairn:[false, false, false, false]
   };
   for (const [id, kit] of Object.entries(HEROES)) {
     assert.deepEqual(kit.abilities.slice(0, 4).map(abilityNeedsTarget), expected[id]);
@@ -249,13 +249,13 @@ test('aimed abilities and instant abilities are classified across the roster', (
 });
 
 test('an aimed cast uses the previewed point and a stale Neris slot cannot cast a different spell', () => {
-  const match = new Match({ heroes:['cairn','brakk'], training:{ dummy:false } });
-  const cairn = match.heroes[0], click = { x:cairn.x + 50, y:cairn.y + 70 };
-  const order = { o:'cast', i:0, ...click };
+  const match = new Match({ heroes:['vesper','brakk'], training:{ dummy:false } });
+  const vesper = match.heroes[0], click = { x:vesper.x + 50, y:vesper.y + 70 };
+  const order = { o:'cast', i:1, ...click };
   assert.match(match.order(0, { ...order, castMode:'self' }), /Select the ability again/);
   assert.equal(match.areas.length, 0);
   assert.equal(match.order(0, { ...order, castMode:'point' }), null);
-  const expected = castPoint(cairn,HEROES.cairn.abilities[0],click.x,click.y);
+  const expected = castPoint(vesper,HEROES.vesper.abilities[1],click.x,click.y);
   assert.deepEqual({ x:match.areas[0].x, y:match.areas[0].y }, expected);
 
   const weaver = new Match({ heroes:['neris','brakk'], training:{ dummy:false } });
@@ -394,14 +394,16 @@ test('bots can finish a weakened enemy Needle Post without treating it as a lane
   assert.deepEqual(brakk.order, { o:'attack', id:post.id });
 });
 
-test('Cairn uses three fixed blast distances from level one and spends banked Heat on Furnace Vent', () => {
+test('Cairn casts all three fixed blasts along his existing facing and spends Heat on Furnace Vent', () => {
   const match = new Match({ heroes:['cairn','brakk'], bots:[null,null] });
   const hero = match.heroes[0], kit = HEROES.cairn;
-  Object.assign(hero, { x:1000, y:500 });
-  assert.equal(match.order(0, { o:'cast', i:0, x:1050, y:500 }), null);
-  assert.equal(match.order(0, { o:'cast', i:1, x:1150, y:500 }), null);
-  assert.equal(match.order(0, { o:'cast', i:2, x:1100, y:500 }), null);
-  assert.deepEqual(match.areas.map(area => area.x), [1235, 1460, 1700]);
+  Object.assign(hero, { x:1350, y:500, facing:Math.PI });
+  assert.match(match.order(0, { o:'cast', i:0, x:1550, y:500, castMode:'point' }), /Select the ability again/);
+  for (const i of [0, 1, 2]) {
+    assert.equal(match.order(0, { o:'cast', i, x:1550, y:510, castMode:'self' }), null);
+  }
+  assert.deepEqual(match.areas.map(area => area.x), [1115, 890, 650]);
+  assert.equal(hero.facing, Math.PI);
   assert.ok(hero.cd.slice(0,3).every(cd => cd > match.time));
   hero.level = 6;
   match.spawn();
@@ -456,7 +458,7 @@ test('training has one stationary, invulnerable target and records real damage',
   assert.equal(match.mode, 'match');
 });
 
-test('empty training lets Neris prepare and cast repeatedly at zero mana', () => {
+test('empty training lets Neris cast repeatedly and automatically refills resources on the next step', () => {
   const match = new Match({ heroes:['neris', 'brakk'], training:{ dummy:false } });
   const [hero, dummy] = match.heroes;
   const cast = i => match.order(0, { o:'cast', i, x:hero.x + 500, y:hero.y });
@@ -476,8 +478,16 @@ test('empty training lets Neris prepare and cast repeatedly at zero mana', () =>
   assert.equal(hero.mana, 0);
   assert.equal(hero.cd[3], 0);
   assert.deepEqual(hero.weaveReady, {});
-  match.refillTraining();
+  hero.hp = 1;
+  hero.gold = 1;
+  hero.itemsReady.rift = 90;
+  hero.recallReady = 45;
+  match.step(1 / 60);
   assert.equal(hero.mana, hero.maxMana);
+  assert.equal(hero.hp, hero.maxHp);
+  assert.equal(hero.gold, 20_000);
+  assert.deepEqual(hero.itemsReady, {});
+  assert.equal(hero.recallReady, 0);
   assert.deepEqual(hero.prepared, ['EEE', 'QWW']);
   assert.equal(match.training.hits, 0);
 });
@@ -492,6 +502,11 @@ test('training with a dummy lets Cairn repeat standard abilities without mana or
   assert.equal(match.areas.length, 6);
   assert.equal(hero.mana, 0);
   assert.deepEqual(hero.cd, [0, 0, 0, 0]);
+  const heat = hero.heat;
+  assert.equal(match.order(0, { o:'cast', i:3, x:dummy.x, y:dummy.y }), null);
+  assert.equal(hero.heat, 0);
+  match.step(1 / 60);
+  assert.equal(hero.heat, heat);
 });
 
 test('recall is interrupted by an order and completes after three seconds when uninterrupted', () => {

@@ -75,7 +75,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .matchReadout,.matchTools small{font-size:.75rem;color:#e5e9e5;text-shadow:0 1px 4px #000;line-height:1.4}
 #opponentStatus{color:#ff9393}
 #game[data-mode=training] #opponentStatus{color:var(--gold)}
-#trainingRefill{margin-top:5px;min-height:26px;padding:2px 9px;font-size:.73rem}
+#trainingAutoRefill{margin-top:4px;color:#a9c4b4}
 .matchTools{text-align:right}
 .matchTools small{display:block;margin-top:3px;color:#c1ccc4}
 .topActions{display:flex;justify-content:end;flex-wrap:wrap;gap:4px}

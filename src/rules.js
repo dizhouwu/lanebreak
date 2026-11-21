@@ -95,9 +95,9 @@
       heat: { max:6, attack:3 },
       unlocks: [1, 1, 1, 6],
       abilities: [
-        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 9, range: 235, radius: 130, delay: .22, damage: 75, growth: 18, text: 'Trigger the near blast 235 units toward the selected point.' },
-        { name: 'Flue Burst', kind: 'blast', fixed: true, mana: 65, cd: 9, range: 460, radius: 145, delay: .29, damage: 89, growth: 20, text: 'Trigger the middle blast 460 units toward the selected point.' },
-        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 700, radius: 155, delay: .36, damage: 103, growth: 22, text: 'Trigger the far blast 700 units toward the selected point.' },
+        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 9, range: 235, radius: 130, delay: .22, damage: 75, growth: 18, text: 'Trigger the near blast 235 units in the direction Cairn is facing.' },
+        { name: 'Flue Burst', kind: 'blast', fixed: true, mana: 65, cd: 9, range: 460, radius: 145, delay: .29, damage: 89, growth: 20, text: 'Trigger the middle blast 460 units in the direction Cairn is facing.' },
+        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 700, radius: 155, delay: .36, damage: 103, growth: 22, text: 'Trigger the far blast 700 units in the direction Cairn is facing.' },
         { name: 'Furnace Vent', kind: 'blast', mana: 145, cd: 68, range: 0, radius: 340, delay: .70, damage: 135, growth: 26, heatDamage: 18, text: 'Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack.' }
       ],
       build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'prism', 'arcane', 'void', 'charm', 'heartstone']

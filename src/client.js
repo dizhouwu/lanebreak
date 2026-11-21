@@ -325,7 +325,7 @@
     $('matchOverlay').hidden = true;
     const training = Boolean(snapshot?.training);
     game.dataset.mode = training ? 'training' : 'match';
-    $('trainingTag').hidden = $('trainingRefill').hidden = !training;
+    $('trainingTag').hidden = $('trainingAutoRefill').hidden = !training;
     $('playerScore').hidden = $('opponentScore').hidden = training;
     $('back').textContent = training ? 'End training' : remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
     resultShown = false;
@@ -1170,13 +1170,6 @@
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
     $('trainingTab').onclick = () => tab('training');
-    $('trainingRefill').onclick = () => {
-      if (!local?.training || paused || local.mode !== 'match') return;
-      local.refillTraining();
-      snapshot = local.snapshot(team);
-      lastUi = -1;
-      hint('Resources refilled · Item and recall cooldowns reset');
-    };
     $('host').onclick = () => network('host');
     $('find').onclick = () => network('find');
     $('join').onclick = () => network('join');

@@ -25,7 +25,7 @@
     return kit.abilities[i];
   }
   function abilityNeedsTarget(spell) {
-    return Boolean(spell && (spell.kind === 'blast' ? spell.range > 0 :
+    return Boolean(spell && !spell.fixed && (spell.kind === 'blast' ? spell.range > 0 :
       ['bolt', 'dash', 'blink', 'sentry'].includes(spell.kind)));
   }
   const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
@@ -59,7 +59,7 @@
   }
   function castPoint(hero, spell, x, y) {
     if (spell.fixed || spell.kind === 'bolt') {
-      const angle = x === hero.x && y === hero.y ? hero.facing : Math.atan2(y - hero.y, x - hero.x);
+      const angle = spell.fixed || (x === hero.x && y === hero.y) ? hero.facing : Math.atan2(y - hero.y, x - hero.x);
       x = hero.x + Math.cos(angle) * spell.range;
       y = hero.y + Math.sin(angle) * spell.range;
       if (spell.kind === 'bolt') return { x, y };
@@ -194,7 +194,7 @@
           dummy.hp = 0;
           this.units.delete(dummy.id);
         }
-        this.refillTraining();
+        this.refillTraining(player);
         return;
       }
       for (const team of [0, 1]) {
@@ -218,16 +218,14 @@
     notice(team, text) {
       this.effect('notice', 0, 0, { audience: team, text });
     }
-    refillTraining() {
-      if (!this.training || this.mode !== 'match') return;
-      const hero = this.heroes[0];
+    refillTraining(hero) {
       const kit = HEROES[hero.hero];
       if (kit.heat) hero.heat = kit.heat.max;
       refresh(hero, this.time);
       hero.hp = hero.maxHp;
       hero.mana = hero.maxMana;
       hero.gold = Math.max(hero.gold, TRAINING_GOLD);
-      hero.itemsReady = {};
+      if (Object.keys(hero.itemsReady).length) hero.itemsReady = {};
       hero.recallReady = 0;
     }
     getBuilding(team, kind) {
@@ -489,7 +487,7 @@
       const ultimate = i === 3 && !spec.weaves;
       h.windup = null;
       h.channel = 0;
-      if (spell.kind !== 'nova' && spell.kind !== 'buff' && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
+      if (abilityNeedsTarget(spell) && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
       const damage = spellDamage(h, spell);
       if (spell.heatDamage) h.heat = 0;
       this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate });
@@ -712,15 +710,18 @@
         return;
       }
       h.buffs = h.buffs.filter(b => b.until > this.time);
-      refresh(h, this.time);
-      const regen = h.stats.regen + (h.potionUntil > this.time ? 30 : 0) +
-        (h.stats.recover && this.time - h.lastThreat >= 6 ? h.stats.recover * h.maxHp : 0);
-      const fountain = distance(h, home(h.team)) <= 400 ? .15 : 0;
-      h.hp = Math.min(h.maxHp, h.hp + dt * (regen + h.maxHp * fountain));
-      h.mana = Math.min(h.maxMana, h.mana + dt * (h.stats.manaRegen + h.maxMana * fountain));
-      if (!this.training && distance(h, home(1 - h.team)) <= 420) {
-        h.hp = Math.max(0, h.hp - 300 * dt);
-        if (!h.hp) this.kill(h, this.getBuilding(1 - h.team, 'core'), false);
+      if (this.training) this.refillTraining(h);
+      else {
+        refresh(h, this.time);
+        const regen = h.stats.regen + (h.potionUntil > this.time ? 30 : 0) +
+          (h.stats.recover && this.time - h.lastThreat >= 6 ? h.stats.recover * h.maxHp : 0);
+        const fountain = distance(h, home(h.team)) <= 400 ? .15 : 0;
+        h.hp = Math.min(h.maxHp, h.hp + dt * (regen + h.maxHp * fountain));
+        h.mana = Math.min(h.maxMana, h.mana + dt * (h.stats.manaRegen + h.maxMana * fountain));
+        if (distance(h, home(1 - h.team)) <= 420) {
+          h.hp = Math.max(0, h.hp - 300 * dt);
+          if (!h.hp) this.kill(h, this.getBuilding(1 - h.team, 'core'), false);
+        }
       }
       if (h.hp <= 0) return;
       if (h.dash) {
@@ -935,10 +936,9 @@
         return along >= 0 && along <= length && Math.abs(x * dy - y * dx) < width + c.r;
       });
     }
-    creepCluster(hero, reach, radius, minimum = 0) {
+    creepCluster(hero, reach, radius) {
       let best = null, count = 2;
       for (const c of this.nearbyCreeps(hero, 1 - hero.team, reach)) {
-        if (minimum && distance(hero, c) < minimum) continue;
         const cluster = this.nearbyCreeps(c, c.team, radius).length;
         if (cluster > count) {
           best = c;
@@ -1015,12 +1015,15 @@
           }
           case 'blast': {
             const want = kill || (ultimate ? enemyHealth < .7 && mana > .3 : mana > .4);
-            const inRange = spell.fixed ? Math.abs(reach - spell.range) < spell.radius * .8 :
-              reach < spell.range + spell.radius * (spell.range ? .4 : .9);
+            if (spell.fixed) {
+              const impact = castPoint(h, spell, h.x, h.y);
+              if (want && enemyAlive && distance(impact, enemy) < spell.radius * .85) return cast(h);
+              if (push && mana > .75 && this.nearbyCreeps(impact, enemy.team, spell.radius).length >= 3) return cast(h);
+              break;
+            }
+            const inRange = reach < spell.range + spell.radius * (spell.range ? .4 : .9);
             if (inRange && want) return cast(aim(spell.delay * .8));
-            const padding = spell.fixed ? spell.radius * .65 : 0;
-            const cluster = push && !ultimate && mana > .75 &&
-              this.creepCluster(h, spell.range + padding, spell.radius, spell.fixed ? spell.range - padding : 0);
+            const cluster = push && !ultimate && mana > .75 && this.creepCluster(h, spell.range, spell.radius);
             if (cluster) return cast(cluster);
             break;
           }

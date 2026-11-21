@@ -31,7 +31,7 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 | W + E + E | Rolling Stitch, four bursts that advance in the cast direction |
 | E + E + E | Sky Needle, a long-range delayed strike |
 
-Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units away, **W** lands 460 units away, and **E** lands 700 units away. Select a blast and click to set its direction. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
+Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units ahead, **W** lands 460 units ahead, and **E** lands 700 units ahead. Turn Cairn with movement or an attack order, then press the ability key to cast along his facing. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
 
 ## Play solo
 
@@ -63,7 +63,7 @@ Append `#play=brakk,hard` to the URL to start a match immediately, or append `#d
 
 ## Training
 
-Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a stationary target with unlimited health, or uncheck it for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities have no mana cost or cooldown. **Refill** restores resources and resets item and recall cooldowns without clearing the damage counter.
+Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a stationary target with unlimited health, or uncheck it for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities have no mana cost or cooldown. Resources refill and item and recall cooldowns reset automatically. The damage counter keeps your session total.
 
 Append `#training=neris` to jump straight into training with Neris. Add `&dummy=off` to start in an empty arena.
 

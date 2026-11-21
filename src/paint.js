@@ -341,6 +341,13 @@
       if (player.hp > 0) {
         const reach = HEROES[player.hero].range + 26;
         ellipse(g, player.x, player.y, reach, reach, null, '#ffffff12', 2);
+        if (player.hero === 'cairn') {
+          g.save();
+          g.translate(player.x, player.y);
+          g.rotate(player.facing);
+          poly(g, [[47, 0], [34, -7], [34, 7]], '#ffb67e', '#2a1911', 2);
+          g.restore();
+        }
       }
       for (const b of s.buildings) if (visible(b)) this.building(g, b, team);
       for (const t of s.training ? [] : [0, 1]) {
