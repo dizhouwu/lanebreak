@@ -5,6 +5,8 @@
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const range = (a, b) => distance(a, b) - b.r;
   const home = team => ({ x: team ? WIDTH - 110 : 110, y: 450 });
+  const TRAINING_START = { x:WIDTH / 2 - 420, y:450 };
+  const TRAINING_GOLD = 20_000;
   const physical = armor => 1 - .06 * armor / (1 + .06 * Math.abs(armor));
   const xpGoal = level => 200 + 100 * (level - 1);
   const owns = (object, id) => Object.hasOwn(object, id);
@@ -137,7 +139,7 @@
   }
 
   class Match {
-    constructor({ heroes = ['brakk', 'orrin'], names = [], bots = [null, 'normal'], seed = Date.now() } = {}) {
+    constructor({ heroes = ['brakk', 'orrin'], names = [], bots = [null, 'normal'], seed = Date.now(), training = null } = {}) {
       this.time = 0;
       this.mode = 'match';
       this.winner = null;
@@ -156,6 +158,7 @@
       this.nextEffect = 0;
       this.random = randomGenerator(seed);
       this.kills = [0, 0];
+      this.training = training ? { dummy:training.dummy !== false, damage:0, hits:0, lastHit:0 } : null;
       this.heroes = heroes.map((key, team) => {
         const hero = owns(HEROES, key) ? key : 'brakk';
         const spec = HEROES[hero];
@@ -170,6 +173,17 @@
         h.mana = h.maxMana;
         return h;
       });
+      if (this.training) {
+        const [player, dummy] = this.heroes;
+        Object.assign(player, TRAINING_START, { level:15, bot:null, order:{ o:'stop' } });
+        Object.assign(dummy, { x:WIDTH / 2 + 150, y:450, name:'Training dummy', r:32, armor:0, bot:null, dummy:true });
+        if (!this.training.dummy) {
+          dummy.hp = 0;
+          this.units.delete(dummy.id);
+        }
+        this.refillTraining();
+        return;
+      }
       for (const team of [0, 1]) {
         for (const b of [
           { kind: 'outer', x: 1850, y: 330, r: 44, hp: 1300, armor: 12, damage: 95 },
@@ -190,6 +204,20 @@
     }
     notice(team, text) {
       this.effect('notice', 0, 0, { audience: team, text });
+    }
+    refillTraining() {
+      if (!this.training || this.mode !== 'match') return;
+      const hero = this.heroes[0];
+      const kit = HEROES[hero.hero];
+      if (kit.heat) hero.heat = kit.heat.max;
+      refresh(hero, this.time);
+      hero.hp = hero.maxHp;
+      hero.mana = hero.maxMana;
+      hero.gold = Math.max(hero.gold, TRAINING_GOLD);
+      hero.cd = [0, 0, 0, 0];
+      if (kit.weaves) hero.weaveReady = {};
+      hero.itemsReady = {};
+      hero.recallReady = 0;
     }
     getBuilding(team, kind) {
       return this.buildings.find(b => b.team === team && b.kind === kind);
@@ -245,7 +273,11 @@
         target.potionUntil = 0;
         if (source.type === 'hero') source.recentAggro = this.time;
       }
-      target.hp -= amount;
+      if (target.dummy) {
+        this.training.damage += amount;
+        this.training.lastHit = amount;
+        this.training.hits++;
+      } else target.hp -= amount;
       if (target.type === 'hero' || source.type === 'hero') this.effect('hit', target.x, target.y, {
         team: source.team, audience: source.type === 'hero' ? source.team : target.team, text: Math.round(amount).toString()
       });
@@ -464,7 +496,7 @@
       this.effect('burst', h.x, h.y, { team: h.team, radius: 75, hero: h.hero });
     }
     canShop(h) {
-      return h.hp <= 0 || distance(h, home(h.team)) <= 430;
+      return !!this.training || h.hp <= 0 || distance(h, home(h.team)) <= 430;
     }
     buy(h, id) {
       const plan = shopOffer(h, id, this.time, this.canShop(h));
@@ -526,7 +558,7 @@
       return null;
     }
     order(team, cmd) {
-      if (!validOrder(cmd) || this.mode !== 'match') return 'Invalid order';
+      if (!validOrder(cmd) || this.mode !== 'match' || (this.training && team !== 0)) return 'Invalid order';
       const h = this.heroes[team];
       const { o, i, id, x, y } = cmd;
       if (o === 'buy') {
@@ -640,7 +672,7 @@
       const fountain = distance(h, home(h.team)) <= 400 ? .15 : 0;
       h.hp = Math.min(h.maxHp, h.hp + dt * (regen + h.maxHp * fountain));
       h.mana = Math.min(h.maxMana, h.mana + dt * (h.stats.manaRegen + h.maxMana * fountain));
-      if (distance(h, home(1 - h.team)) <= 420) {
+      if (!this.training && distance(h, home(1 - h.team)) <= 420) {
         h.hp = Math.max(0, h.hp - 300 * dt);
         if (!h.hp) this.kill(h, this.getBuilding(1 - h.team, 'core'), false);
       }
@@ -664,7 +696,7 @@
         if (h.channel <= this.time) {
           h.channel = 0;
           h.recallReady = this.time + 45;
-          this.blink(h, home(h.team));
+          this.blink(h, this.training ? TRAINING_START : home(h.team));
         }
         return;
       }
@@ -733,8 +765,8 @@
           if (Math.abs(dx) >= required || Math.abs(dy) >= required) continue;
           const d = Math.hypot(dx, dy);
           if (d >= required) continue;
-          const am = a.type === 'building' || a.dash ? 0 : 1;
-          const bm = b.type === 'building' || b.dash ? 0 : 1;
+          const am = a.type === 'building' || a.dash || a.dummy ? 0 : 1;
+          const bm = b.type === 'building' || b.dash || b.dummy ? 0 : 1;
           if (!am && !bm) continue;
           const push = (required - d) * (am && bm ? .35 : 1);
           const px = d > .01 ? dx / d * push : push, py = d > .01 ? dy / d * push : 0;
@@ -797,7 +829,7 @@
       if (this.mode !== 'match') return;
       this.time += dt;
       this.effects = this.effects.filter(e => this.time - e.time < 4);
-      if (this.time + 1e-8 >= this.nextWave) {
+      if (!this.training && this.time + 1e-8 >= this.nextWave) {
         this.spawn();
         this.nextWave += 30;
       }
@@ -805,7 +837,7 @@
         u.vx = u.vy = 0;
         u.slows = u.slows.filter(s => s.until > this.time);
       }
-      for (const h of this.heroes) this.updateHero(h, dt);
+      for (const h of this.heroes) if (!h.dummy) this.updateHero(h, dt);
       for (const b of this.buildings) if (b.hp > 0) this.updateBuilding(b, dt);
       for (const c of this.creeps) if (c.hp > 0) this.updateCreep(c, dt);
       this.collide();
@@ -817,7 +849,7 @@
         a.duration = a.spell.interval;
         return --a.hits > 0;
       });
-      this.updateOrb();
+      if (!this.training) this.updateOrb();
       this.creeps = this.creeps.filter(c => {
         if (c.hp > 0) return true;
         this.units.delete(c.id);
@@ -1097,6 +1129,7 @@
           channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
           facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot,
           ...(h.heat != null && { heat:h.heat }),
+          ...(h.dummy && { dummy:true }),
           loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
         return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
@@ -1106,6 +1139,7 @@
       });
       const quant = n => Math.round(n * 10) / 10;
       return { time: this.time, mode: this.mode, winner: this.winner, endReason: this.endReason, orb: this.orb, wave: this.wave, kills: this.kills,
+        ...(this.training && { training:{ ...this.training } }),
         heroes, buildings: this.buildings.map(u => ({ ...base(u), protected: this.protected(u),
           ...(u.kind === 'core' ? {} : { range: u.range, target: u.windup?.target || u.target }) })),
         creeps: this.creeps.map(c => [c.id, c.team, c.kind, quant(c.x), quant(c.y), Math.ceil(c.hp), Math.ceil(c.maxHp), !!c.windup, quant(c.r), angle(c.facing),

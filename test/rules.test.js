@@ -320,6 +320,56 @@ test('Cairn uses fixed blast distances, banks Heat from last hits, and spends it
   assert.equal(hero.heat, 2);
 });
 
+test('training has one stationary, invulnerable target and records real damage', () => {
+  const match = new Match({ heroes:['vesper', 'brakk'], training:{ dummy:true } });
+  const [hero, dummy] = match.heroes;
+  const location = { x:dummy.x, y:dummy.y };
+  const startingHealth = dummy.hp;
+  assert.equal(hero.level, 15);
+  assert.equal(match.units.size, 2);
+  assert.deepEqual(match.buildings, []);
+  assert.equal(match.order(1, { o:'attack', id:hero.id }), 'Invalid order');
+  match.order(0, { o:'attack', id:dummy.id });
+  advance(match, 4);
+  assert.ok(match.training.hits > 0);
+  assert.ok(match.training.damage > 0);
+  assert.equal(dummy.hp, startingHealth);
+  assert.deepEqual({ x:dummy.x, y:dummy.y }, location);
+  assert.equal(hero.hp, hero.maxHp);
+
+  match.order(0, { o:'stop' });
+  const damageDealt = match.training.damage;
+  assert.equal(match.hurt(dummy, 100_000, hero, { ability:true }), 75_000);
+  assert.equal(match.training.damage, damageDealt + 75_000);
+  assert.equal(dummy.hp, startingHealth);
+  Object.assign(hero, { x:5080, y:450 });
+  advance(match, 65);
+  assert.equal(hero.hp, hero.maxHp);
+  assert.equal(match.orb, null);
+  assert.equal(match.creeps.length, 0);
+  assert.equal(match.snapshot(0).heroes[1].dummy, true);
+  assert.equal(match.mode, 'match');
+});
+
+test('empty training lets Neris refill and practice without adding a target', () => {
+  const match = new Match({ heroes:['neris', 'brakk'], training:{ dummy:false } });
+  const [hero, dummy] = match.heroes;
+  const cast = i => match.order(0, { o:'cast', i, x:hero.x + 500, y:hero.y });
+  assert.equal(match.units.size, 1);
+  assert.equal(pickTarget(match.snapshot(0), 0, dummy), null);
+  assert.equal(match.canShop(hero), true);
+  cast(0); cast(2);
+  assert.equal(cast(3), null);
+  assert.equal(cast(4), null);
+  assert.ok(hero.mana < hero.maxMana);
+  assert.ok(hero.weaveReady.QE > match.time);
+  match.refillTraining();
+  assert.equal(hero.mana, hero.maxMana);
+  assert.deepEqual(hero.prepared, ['QE']);
+  assert.equal(cast(4), null);
+  assert.equal(match.training.hits, 0);
+});
+
 test('recall is interrupted by an order and completes after three seconds when uninterrupted', () => {
   const m = new Match({ bots: [null, null] });
   const h = m.heroes[0];

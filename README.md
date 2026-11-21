@@ -56,6 +56,12 @@ Click an item name in the shop to expand its recipe and buy components individua
 
 Append `#play=brakk,hard` to the URL to start a match immediately, or append `#demo=brakk,normal,300` to spectate a bot match starting at the five-minute mark.
 
+## Training
+
+Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a stationary target with unlimited health, or uncheck it for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. **Refill** restores resources and cooldowns without clearing the damage counter.
+
+Append `#training=neris` to jump straight into training with Neris. Add `&dummy=off` to start in an empty arena.
+
 ## Run a two-player server
 
 Install Node.js 22 or newer and run this command in the project directory.

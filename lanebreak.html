@@ -69,7 +69,9 @@ h2{font-size:1rem;margin:0}
 .segments{display:flex;gap:5px;margin-bottom:13px}
 .segments button{flex:1;padding:6px;font-size:.86rem}
 .segments button[aria-pressed=true]{background:#3b3020;border-color:#a38253}
-#start{display:flex;justify-content:space-between;align-items:center}
+#start,#startTraining{display:flex;justify-content:space-between;align-items:center}
+.trainingOption{display:flex;align-items:center;gap:7px;margin:0 0 12px;font-size:.86rem;color:#d1d9d2}
+.trainingOption input{width:auto;flex:none;accent-color:var(--gold)}
 input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px solid #3b4949;border-radius:5px;padding:7px 9px}
 .onlineRow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}
 .onlineRow button{font-size:.86rem;min-height:36px}
@@ -79,11 +81,15 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .matchTop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;padding:7px 12px;gap:8px}
 .matchReadout,.matchTools small{font-size:.75rem;color:#e5e9e5;text-shadow:0 1px 4px #000;line-height:1.4}
 #opponentStatus{color:#ff9393}
+#game[data-mode=training] #opponentStatus{color:var(--gold)}
+#trainingRefill{margin-top:5px;min-height:26px;padding:2px 9px;font-size:.73rem}
 .matchTools{text-align:right}
 .matchTools small{display:block;margin-top:3px;color:#c1ccc4}
 .topActions{display:flex;justify-content:end;flex-wrap:wrap;gap:4px}
 .topActions .iconButton{min-height:26px;padding:3px 6px;font-size:.72rem}
 .scoreboard{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;min-width:220px;border:1px solid #8ca0a44a;background:#090f13eb;border-radius:5px;padding:5px 9px;font-variant-numeric:tabular-nums}
+#game[data-mode=training] .scoreboard{grid-template-columns:auto auto;min-width:0;gap:6px}
+#trainingTag{color:var(--gold);font-size:.72rem;font-weight:700}
 .scoreSide{display:flex;align-items:center;gap:7px;font-size:.91rem;color:var(--score-team)}
 .scoreSide:last-child{flex-direction:row-reverse}
 .scoreSide i{width:12px;height:12px;border-radius:50%;background:var(--score-hero)}
@@ -235,7 +241,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         <div id="heroPreview" class="panel heroPreview" role="tooltip" hidden></div>
       </section>
       <section class="deploy">
-        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button></nav>
+        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button><button id="trainingTab" aria-pressed="false">Training</button></nav>
         <div id="soloPanel">
           <div class="fieldLabel" id="difficultyLabel">Bot difficulty</div>
           <div id="difficulties" class="segments" role="group" aria-labelledby="difficultyLabel">
@@ -250,13 +256,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           <div id="roomStatus" role="status"></div>
           <div id="waiting" class="onlineRow" hidden><button id="copy" class="primary">Copy invite link</button><button id="cancelWait">Cancel</button></div>
         </div>
+        <div id="trainingPanel" hidden>
+          <label class="trainingOption"><input id="trainingDummy" type="checkbox" checked> Include a training dummy</label>
+          <button id="startTraining" class="primary">Start training <kbd>Enter</kbd></button>
+        </div>
       </section>
     </div>
   </main>
   <section id="game" hidden aria-label="Match controls">
     <header class="matchTop">
-      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
-      <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
+      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><button id="trainingRefill" class="iconButton" title="Restore health, mana, gold, and cooldowns" hidden>Refill</button></div>
+      <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="trainingTag" hidden>Training</span><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
       <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">End match</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · C Toggle camera</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
@@ -470,6 +480,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const range = (a, b) => distance(a, b) - b.r;
   const home = team => ({ x: team ? WIDTH - 110 : 110, y: 450 });
+  const TRAINING_START = { x:WIDTH / 2 - 420, y:450 };
+  const TRAINING_GOLD = 20_000;
   const physical = armor => 1 - .06 * armor / (1 + .06 * Math.abs(armor));
   const xpGoal = level => 200 + 100 * (level - 1);
   const owns = (object, id) => Object.hasOwn(object, id);
@@ -602,7 +614,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   }
 
   class Match {
-    constructor({ heroes = ['brakk', 'orrin'], names = [], bots = [null, 'normal'], seed = Date.now() } = {}) {
+    constructor({ heroes = ['brakk', 'orrin'], names = [], bots = [null, 'normal'], seed = Date.now(), training = null } = {}) {
       this.time = 0;
       this.mode = 'match';
       this.winner = null;
@@ -621,6 +633,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       this.nextEffect = 0;
       this.random = randomGenerator(seed);
       this.kills = [0, 0];
+      this.training = training ? { dummy:training.dummy !== false, damage:0, hits:0, lastHit:0 } : null;
       this.heroes = heroes.map((key, team) => {
         const hero = owns(HEROES, key) ? key : 'brakk';
         const spec = HEROES[hero];
@@ -635,6 +648,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         h.mana = h.maxMana;
         return h;
       });
+      if (this.training) {
+        const [player, dummy] = this.heroes;
+        Object.assign(player, TRAINING_START, { level:15, bot:null, order:{ o:'stop' } });
+        Object.assign(dummy, { x:WIDTH / 2 + 150, y:450, name:'Training dummy', r:32, armor:0, bot:null, dummy:true });
+        if (!this.training.dummy) {
+          dummy.hp = 0;
+          this.units.delete(dummy.id);
+        }
+        this.refillTraining();
+        return;
+      }
       for (const team of [0, 1]) {
         for (const b of [
           { kind: 'outer', x: 1850, y: 330, r: 44, hp: 1300, armor: 12, damage: 95 },
@@ -655,6 +679,20 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     }
     notice(team, text) {
       this.effect('notice', 0, 0, { audience: team, text });
+    }
+    refillTraining() {
+      if (!this.training || this.mode !== 'match') return;
+      const hero = this.heroes[0];
+      const kit = HEROES[hero.hero];
+      if (kit.heat) hero.heat = kit.heat.max;
+      refresh(hero, this.time);
+      hero.hp = hero.maxHp;
+      hero.mana = hero.maxMana;
+      hero.gold = Math.max(hero.gold, TRAINING_GOLD);
+      hero.cd = [0, 0, 0, 0];
+      if (kit.weaves) hero.weaveReady = {};
+      hero.itemsReady = {};
+      hero.recallReady = 0;
     }
     getBuilding(team, kind) {
       return this.buildings.find(b => b.team === team && b.kind === kind);
@@ -710,7 +748,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         target.potionUntil = 0;
         if (source.type === 'hero') source.recentAggro = this.time;
       }
-      target.hp -= amount;
+      if (target.dummy) {
+        this.training.damage += amount;
+        this.training.lastHit = amount;
+        this.training.hits++;
+      } else target.hp -= amount;
       if (target.type === 'hero' || source.type === 'hero') this.effect('hit', target.x, target.y, {
         team: source.team, audience: source.type === 'hero' ? source.team : target.team, text: Math.round(amount).toString()
       });
@@ -929,7 +971,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       this.effect('burst', h.x, h.y, { team: h.team, radius: 75, hero: h.hero });
     }
     canShop(h) {
-      return h.hp <= 0 || distance(h, home(h.team)) <= 430;
+      return !!this.training || h.hp <= 0 || distance(h, home(h.team)) <= 430;
     }
     buy(h, id) {
       const plan = shopOffer(h, id, this.time, this.canShop(h));
@@ -991,7 +1033,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       return null;
     }
     order(team, cmd) {
-      if (!validOrder(cmd) || this.mode !== 'match') return 'Invalid order';
+      if (!validOrder(cmd) || this.mode !== 'match' || (this.training && team !== 0)) return 'Invalid order';
       const h = this.heroes[team];
       const { o, i, id, x, y } = cmd;
       if (o === 'buy') {
@@ -1105,7 +1147,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const fountain = distance(h, home(h.team)) <= 400 ? .15 : 0;
       h.hp = Math.min(h.maxHp, h.hp + dt * (regen + h.maxHp * fountain));
       h.mana = Math.min(h.maxMana, h.mana + dt * (h.stats.manaRegen + h.maxMana * fountain));
-      if (distance(h, home(1 - h.team)) <= 420) {
+      if (!this.training && distance(h, home(1 - h.team)) <= 420) {
         h.hp = Math.max(0, h.hp - 300 * dt);
         if (!h.hp) this.kill(h, this.getBuilding(1 - h.team, 'core'), false);
       }
@@ -1129,7 +1171,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         if (h.channel <= this.time) {
           h.channel = 0;
           h.recallReady = this.time + 45;
-          this.blink(h, home(h.team));
+          this.blink(h, this.training ? TRAINING_START : home(h.team));
         }
         return;
       }
@@ -1198,8 +1240,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           if (Math.abs(dx) >= required || Math.abs(dy) >= required) continue;
           const d = Math.hypot(dx, dy);
           if (d >= required) continue;
-          const am = a.type === 'building' || a.dash ? 0 : 1;
-          const bm = b.type === 'building' || b.dash ? 0 : 1;
+          const am = a.type === 'building' || a.dash || a.dummy ? 0 : 1;
+          const bm = b.type === 'building' || b.dash || b.dummy ? 0 : 1;
           if (!am && !bm) continue;
           const push = (required - d) * (am && bm ? .35 : 1);
           const px = d > .01 ? dx / d * push : push, py = d > .01 ? dy / d * push : 0;
@@ -1262,7 +1304,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (this.mode !== 'match') return;
       this.time += dt;
       this.effects = this.effects.filter(e => this.time - e.time < 4);
-      if (this.time + 1e-8 >= this.nextWave) {
+      if (!this.training && this.time + 1e-8 >= this.nextWave) {
         this.spawn();
         this.nextWave += 30;
       }
@@ -1270,7 +1312,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         u.vx = u.vy = 0;
         u.slows = u.slows.filter(s => s.until > this.time);
       }
-      for (const h of this.heroes) this.updateHero(h, dt);
+      for (const h of this.heroes) if (!h.dummy) this.updateHero(h, dt);
       for (const b of this.buildings) if (b.hp > 0) this.updateBuilding(b, dt);
       for (const c of this.creeps) if (c.hp > 0) this.updateCreep(c, dt);
       this.collide();
@@ -1282,7 +1324,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         a.duration = a.spell.interval;
         return --a.hits > 0;
       });
-      this.updateOrb();
+      if (!this.training) this.updateOrb();
       this.creeps = this.creeps.filter(c => {
         if (c.hp > 0) return true;
         this.units.delete(c.id);
@@ -1562,6 +1604,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
           facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot,
           ...(h.heat != null && { heat:h.heat }),
+          ...(h.dummy && { dummy:true }),
           loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
         return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
@@ -1571,6 +1614,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       });
       const quant = n => Math.round(n * 10) / 10;
       return { time: this.time, mode: this.mode, winner: this.winner, endReason: this.endReason, orb: this.orb, wave: this.wave, kills: this.kills,
+        ...(this.training && { training:{ ...this.training } }),
         heroes, buildings: this.buildings.map(u => ({ ...base(u), protected: this.protected(u),
           ...(u.kind === 'core' ? {} : { range: u.range, target: u.windup?.target || u.target }) })),
         creeps: this.creeps.map(c => [c.id, c.team, c.kind, quant(c.x), quant(c.y), Math.ceil(c.hp), Math.ceil(c.maxHp), !!c.windup, quant(c.r), angle(c.facing),
@@ -1953,7 +1997,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         ellipse(g, player.x, player.y, reach, reach, null, '#ffffff12', 2);
       }
       for (const b of s.buildings) if (visible(b)) this.building(g, b, team);
-      for (const t of [0, 1]) {
+      for (const t of s.training ? [] : [0, 1]) {
         const x = t ? 5090 : 110;
         if (!visible({x})) continue;
         const color = COLORS[t];
@@ -1980,7 +2024,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
         s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
-      for (const u of fighters) u.type === 'hero' ? this.hero(g, u, team, now) : this.creep(g, u);
+      for (const u of fighters) {
+        if (u.dummy) this.dummy(g, u);
+        else if (u.type === 'hero') this.hero(g, u, team, now);
+        else this.creep(g, u);
+      }
       for (const u of fighters) if (u.type === 'creep') {
         const hpColor = u.team !== team ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
         this.bar(g,u,u.y-u.r-11,34,hpColor,5);
@@ -2078,6 +2126,18 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       this.bar(g,b,y - (core ? 102 : 109),core ? 130 : 86,b.team === team ? '#58d86a' : '#ff5a5a',8);
     }
+    dummy(g, u) {
+      const { x, y } = u;
+      ellipse(g,x,y+7,37,15,'#171a18a0');
+      line(g,[[x-24,y+9],[x+24,y+9]],'#956b49',7);
+      line(g,[[x,y+9],[x,y-43]],'#b08457',9);
+      line(g,[[x-32,y-28],[x+32,y-28]],'#b08457',6);
+      ellipse(g,x,y-15,23,21,'#785438','#efd194',3);
+      ellipse(g,x,y-15,14,13,null,'#d2775b',3);
+      ellipse(g,x,y-15,6,6,'#ead29d');
+      this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
+      if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
+    }
     hero(g, u, team, now) {
       const {x,y} = u, color = COLORS[u.team], armor = HEROES[u.hero].color;
       ellipse(g,x+7,y+10,30,16,'#102125a5');
@@ -2162,7 +2222,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       for (const hero of s.heroes) if (hero.hp > 0) {
         const px = x(hero.x), py = y(hero.y);
-        g.fillStyle = HEROES[hero.hero].color; g.fillRect(px-5,py-5,10,10);
+        g.fillStyle = hero.dummy ? '#e9c181' : HEROES[hero.hero].color; g.fillRect(px-5,py-5,10,10);
         g.strokeStyle = COLORS[hero.team]; g.lineWidth = hero.team === team ? 3 : 2; g.strokeRect(px-6,py-6,12,12);
       }
       if (s.orb) ellipse(g,x(s.orb.x),y(s.orb.y),3.5,3.5,ORBS[s.orb.kind]);
@@ -2436,10 +2496,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   }
   function tab(next) {
     view = next;
-    $('soloPanel').hidden = next !== 'solo';
-    $('onlinePanel').hidden = next !== 'online';
-    $('soloTab').setAttribute('aria-pressed', next === 'solo');
-    $('onlineTab').setAttribute('aria-pressed', next === 'online');
+    for (const mode of ['solo', 'online', 'training']) {
+      $(mode + 'Panel').hidden = next !== mode;
+      $(mode + 'Tab').setAttribute('aria-pressed', next === mode);
+    }
     if (next === 'online' && !hosted) status('Online play requires the Lanebreak server. Solo is available in this file.');
   }
   function updateSettings() {
@@ -2499,7 +2559,11 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     $('feed').replaceChildren();
     $('hint').hidden = true;
     $('matchOverlay').hidden = true;
-    $('back').textContent = remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
+    const training = Boolean(snapshot?.training);
+    game.dataset.mode = training ? 'training' : 'match';
+    $('trainingTag').hidden = $('trainingRefill').hidden = !training;
+    $('playerScore').hidden = $('opponentScore').hidden = training;
+    $('back').textContent = training ? 'End training' : remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
     resultShown = false;
     $('shop').hidden = true;
     $('shopFeedback').hidden = true;
@@ -2529,7 +2593,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     game.hidden = true;
     document.body.classList.remove('matchMode');
     renderer.dirty = true;
-    if (/^#(?:play|demo)=/.test(location.hash)) clearHash();
+    if (/^#(?:play|demo|training)=/.test(location.hash)) clearHash();
   }
   function clearHash() {
     try { historyApi.replaceState(null, '', location.href.split('#')[0]); } catch { location.hash = ''; }
@@ -2550,6 +2614,14 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       beep(650, .10);
       hint('Right-click to move · Left-click to inspect · B to shop');
     }
+  }
+  function startTraining(hero = selected, dummy = $('trainingDummy').checked) {
+    disconnect();
+    safeSeat(null);
+    remote = false; demo = false; team = 0;
+    local = new Match({ heroes:[hero, 'brakk'], training:{ dummy } });
+    snapshot = local.snapshot(team);
+    enter();
   }
   function overlay(title, text, label, action, { tone = '', cancel } = {}) {
     const panel = $('matchOverlay');
@@ -2583,7 +2655,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         socket.send(JSON.stringify({ t:'surrender' }));
       }, { cancel });
     } else {
-      overlay('End this match?', 'Your run will end and you’ll see your match stats.', 'End match', () => {
+      const training = Boolean(snapshot.training);
+      overlay(training ? 'End training?' : 'End this match?',
+        training ? 'You’ll see your training stats.' : 'Your run will end and you’ll see your match stats.',
+        training ? 'End training' : 'End match', () => {
         local.finish(null, 'quit');
         snapshot = local.snapshot(team);
       }, { cancel });
@@ -2834,14 +2909,15 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     const creep = !hero && !building && s.creeps.find(u => u[0] === inspectedId);
     if (!hero && !building && !creep) return selectUnit(null);
     const unit = hero || building || { team: creep[1], kind: creep[2], hp: creep[5], maxHp: creep[6] };
-    const name = hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
+    const name = hero?.dummy ? hero.name : hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
     $('inspectPanel').hidden = false;
     $('inspectName').textContent = hero && hero.name !== name ? hero.name + ' · ' + name : name;
-    $('inspectSide').textContent = TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
+    $('inspectSide').textContent = hero?.dummy ? 'Stationary target' :
+      TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
     meter('inspectHealth', unit.hp, unit.maxHp, true);
-    $('inspectMana').hidden = !hero;
-    $('inspectEquipment').hidden = !hero;
-    if (!hero) return;
+    $('inspectMana').hidden = $('inspectEquipment').hidden = !hero || hero.dummy;
+    if (hero?.dummy) $('inspectHealth').lastElementChild.textContent = '∞ HP';
+    if (!hero || hero.dummy) return;
     meter('inspectMana', hero.mana, hero.maxMana, true);
     const loadout = hero.loadout || hero.inventory?.map(item => item.id) || [];
     const items = $('inspectItems'), sign = loadout.join(',');
@@ -2857,16 +2933,28 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   function updateHud(s) {
     const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
-    const corePct = side => Math.ceil(s.buildings.find(b => b.team === side && b.kind === 'core').hp / 30);
-    for (const [id, combatant] of [['playerScore', h], ['opponentScore', foe]]) {
-      const side = $(id);
-      side.style.setProperty('--score-team',COLORS[combatant.team]);
-      side.style.setProperty('--score-hero',HEROES[combatant.hero].color);
-      side.lastElementChild.textContent = s.kills[combatant.team];
-      side.title = TEAM[combatant.team] + ' · Core ' + corePct(combatant.team) + '%';
-    }
     $('matchClock').textContent = clock;
-    $('scoreboard').setAttribute('aria-label', TEAM[team] + ' ' + s.kills[team] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
+    if (s.training) {
+      $('scoreboard').setAttribute('aria-label', 'Training · ' + clock);
+      $('combatStats').textContent = s.training.dummy ? 'Damage ' + Math.round(s.training.damage) + ' · Hits ' + s.training.hits : 'Empty arena';
+      $('opponentStatus').textContent = s.training.dummy ? 'Dummy · ∞ HP' +
+        (s.training.hits ? ' · Last hit ' + Math.round(s.training.lastHit) : '') : '';
+    } else {
+      const corePct = side => Math.ceil(s.buildings.find(b => b.team === side && b.kind === 'core').hp / 30);
+      for (const [id, combatant] of [['playerScore', h], ['opponentScore', foe]]) {
+        const side = $(id);
+        side.style.setProperty('--score-team',COLORS[combatant.team]);
+        side.style.setProperty('--score-hero',HEROES[combatant.hero].color);
+        side.lastElementChild.textContent = s.kills[combatant.team];
+        side.title = TEAM[combatant.team] + ' · Core ' + corePct(combatant.team) + '%';
+      }
+      $('scoreboard').setAttribute('aria-label', TEAM[team] + ' ' + s.kills[team] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
+      $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
+      const enemyHero = HEROES[foe.hero].name;
+      $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
+        (foe.heat != null ? ' · Heat ' + foe.heat : '') +
+        (foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') + (remote && foe.computer ? ' · Bot' : '');
+    }
     $('heroBadge').style.color = hero.color;
     const portraitCanvas = $('hudPortrait');
     if (portraitCanvas.dataset.hero !== h.hero) {
@@ -2877,11 +2965,6 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     $('heroLevel').textContent = h.level;
     $('vitalName').textContent = h.hp > 0 ? hero.name + ' · ' + hero.title : 'Respawn ' + Math.ceil(Math.max(0,h.respawn-time)) + 's';
     $('heroAttributes').textContent = 'DMG ' + Math.round(h.stats.damage * h.stats.multiplier) + ' · Armor ' + h.stats.armor.toFixed(1) + ' · MS ' + Math.round(h.stats.speed);
-    $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
-    const enemyHero = HEROES[foe.hero].name;
-    $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
-      (foe.heat != null ? ' · Heat ' + foe.heat : '') +
-      (foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') + (remote && foe.computer ? ' · Bot' : '');
     const actualQuality = renderer.auto === 1 ? 'high' : renderer.auto === .75 ? 'medium' : 'low';
     $('quality').title = (quality === 'auto' ? 'Auto · ' + actualQuality : quality) +
       (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
@@ -2967,13 +3050,16 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       $('deathNotice').hidden = true;
       const won = s.winner === team;
       const quit = s.endReason === 'quit';
-      const title = quit ? 'Match ended' : demo ? TEAM[s.winner] + ' wins' : won ? 'Victory' : 'Defeat';
-      const reason = quit ? 'You ended this solo match.' : s.endReason === 'surrender' ?
+      const title = s.training ? 'Training ended' : quit ? 'Match ended' : demo ? TEAM[s.winner] + ' wins' : won ? 'Victory' : 'Defeat';
+      const reason = s.training ? hero.name + ' · ' + (s.training.dummy ? 'Training dummy' : 'Empty arena') :
+        quit ? 'You ended this solo match.' : s.endReason === 'surrender' ?
         (won ? 'Your opponent surrendered.' : 'You surrendered.') : TEAM[s.winner] + ' destroyed the enemy core.';
       overlay(title, reason, 'Return to lobby', goMenu, { tone: quit || demo ? '' : won ? 'victory' : 'defeat' });
       const stats = $('matchStats');
-      const rows = [['Match time', clock], ['Level', h.level + ' vs ' + foe.level],
-        ['Kills / deaths', s.kills[team] + ' / ' + h.deaths], ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
+      const rows = s.training ?
+        [['Training time', clock], ['Damage dealt', Math.round(s.training.damage)], ['Hits', s.training.hits]] :
+        [['Match time', clock], ['Level', h.level + ' vs ' + foe.level], ['Kills / deaths', s.kills[team] + ' / ' + h.deaths],
+          ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
       stats.replaceChildren(...rows.flatMap(([name,value]) => [make('dt',name),make('dd',value)]));
       stats.hidden = false;
       if (!quit) beep(won ? 523 : 196,.9,'triangle',.055,won ? 2 : .5);
@@ -3187,7 +3273,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         if (k === 'arrowup' || k === 'arrowdown') setDifficulty(difficulties[(difficulties.indexOf(difficulty) + step + 3) % 3]);
         else pick(heroKeys[(heroKeys.indexOf(selected) + step + heroKeys.length) % heroKeys.length]);
       }
-      if (k === 'enter' && event.target.tagName !== 'BUTTON' && view === 'solo') solo();
+      if (k === 'enter' && event.target.tagName !== 'BUTTON') {
+        if (view === 'training') startTraining();
+        else if (view === 'solo') solo();
+      }
       if (k === 'n') { tab('online'); $('name').focus(); }
       return;
     }
@@ -3265,8 +3354,17 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     window.addEventListener('blur', resetCameraInput);
     document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
     $('start').onclick = () => solo();
+    $('startTraining').onclick = () => startTraining();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
+    $('trainingTab').onclick = () => tab('training');
+    $('trainingRefill').onclick = () => {
+      if (!local?.training || paused || local.mode !== 'match') return;
+      local.refillTraining();
+      snapshot = local.snapshot(team);
+      lastUi = -1;
+      hint('Resources refilled · Cooldowns reset');
+    };
     $('host').onclick = () => network('host');
     $('find').onclick = () => network('find');
     $('join').onclick = () => network('join');
@@ -3300,6 +3398,12 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
   function openHash() {
     const options = new URLSearchParams(location.hash.slice(1));
     const code = options.get('room')?.toUpperCase();
+    if (options.has('training')) {
+      const hero = options.get('training');
+      tab('training');
+      startTraining(heroKeys.includes(hero) ? hero : selected, options.get('dummy') !== 'off');
+      return;
+    }
     const play = options.get('play'), spectate = options.get('demo');
     if (play || spectate) {
       const [hero, diff, t] = (play || spectate).split(',');

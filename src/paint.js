@@ -343,7 +343,7 @@
         ellipse(g, player.x, player.y, reach, reach, null, '#ffffff12', 2);
       }
       for (const b of s.buildings) if (visible(b)) this.building(g, b, team);
-      for (const t of [0, 1]) {
+      for (const t of s.training ? [] : [0, 1]) {
         const x = t ? 5090 : 110;
         if (!visible({x})) continue;
         const color = COLORS[t];
@@ -370,7 +370,11 @@
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
         s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
-      for (const u of fighters) u.type === 'hero' ? this.hero(g, u, team, now) : this.creep(g, u);
+      for (const u of fighters) {
+        if (u.dummy) this.dummy(g, u);
+        else if (u.type === 'hero') this.hero(g, u, team, now);
+        else this.creep(g, u);
+      }
       for (const u of fighters) if (u.type === 'creep') {
         const hpColor = u.team !== team ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
         this.bar(g,u,u.y-u.r-11,34,hpColor,5);
@@ -468,6 +472,18 @@
       }
       this.bar(g,b,y - (core ? 102 : 109),core ? 130 : 86,b.team === team ? '#58d86a' : '#ff5a5a',8);
     }
+    dummy(g, u) {
+      const { x, y } = u;
+      ellipse(g,x,y+7,37,15,'#171a18a0');
+      line(g,[[x-24,y+9],[x+24,y+9]],'#956b49',7);
+      line(g,[[x,y+9],[x,y-43]],'#b08457',9);
+      line(g,[[x-32,y-28],[x+32,y-28]],'#b08457',6);
+      ellipse(g,x,y-15,23,21,'#785438','#efd194',3);
+      ellipse(g,x,y-15,14,13,null,'#d2775b',3);
+      ellipse(g,x,y-15,6,6,'#ead29d');
+      this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
+      if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
+    }
     hero(g, u, team, now) {
       const {x,y} = u, color = COLORS[u.team], armor = HEROES[u.hero].color;
       ellipse(g,x+7,y+10,30,16,'#102125a5');
@@ -552,7 +568,7 @@
       }
       for (const hero of s.heroes) if (hero.hp > 0) {
         const px = x(hero.x), py = y(hero.y);
-        g.fillStyle = HEROES[hero.hero].color; g.fillRect(px-5,py-5,10,10);
+        g.fillStyle = hero.dummy ? '#e9c181' : HEROES[hero.hero].color; g.fillRect(px-5,py-5,10,10);
         g.strokeStyle = COLORS[hero.team]; g.lineWidth = hero.team === team ? 3 : 2; g.strokeRect(px-6,py-6,12,12);
       }
       if (s.orb) ellipse(g,x(s.orb.x),y(s.orb.y),3.5,3.5,ORBS[s.orb.kind]);

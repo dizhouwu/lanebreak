@@ -258,10 +258,10 @@
   }
   function tab(next) {
     view = next;
-    $('soloPanel').hidden = next !== 'solo';
-    $('onlinePanel').hidden = next !== 'online';
-    $('soloTab').setAttribute('aria-pressed', next === 'solo');
-    $('onlineTab').setAttribute('aria-pressed', next === 'online');
+    for (const mode of ['solo', 'online', 'training']) {
+      $(mode + 'Panel').hidden = next !== mode;
+      $(mode + 'Tab').setAttribute('aria-pressed', next === mode);
+    }
     if (next === 'online' && !hosted) status('Online play requires the Lanebreak server. Solo is available in this file.');
   }
   function updateSettings() {
@@ -321,7 +321,11 @@
     $('feed').replaceChildren();
     $('hint').hidden = true;
     $('matchOverlay').hidden = true;
-    $('back').textContent = remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
+    const training = Boolean(snapshot?.training);
+    game.dataset.mode = training ? 'training' : 'match';
+    $('trainingTag').hidden = $('trainingRefill').hidden = !training;
+    $('playerScore').hidden = $('opponentScore').hidden = training;
+    $('back').textContent = training ? 'End training' : remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
     resultShown = false;
     $('shop').hidden = true;
     $('shopFeedback').hidden = true;
@@ -351,7 +355,7 @@
     game.hidden = true;
     document.body.classList.remove('matchMode');
     renderer.dirty = true;
-    if (/^#(?:play|demo)=/.test(location.hash)) clearHash();
+    if (/^#(?:play|demo|training)=/.test(location.hash)) clearHash();
   }
   function clearHash() {
     try { historyApi.replaceState(null, '', location.href.split('#')[0]); } catch { location.hash = ''; }
@@ -372,6 +376,14 @@
       beep(650, .10);
       hint('Right-click to move · Left-click to inspect · B to shop');
     }
+  }
+  function startTraining(hero = selected, dummy = $('trainingDummy').checked) {
+    disconnect();
+    safeSeat(null);
+    remote = false; demo = false; team = 0;
+    local = new Match({ heroes:[hero, 'brakk'], training:{ dummy } });
+    snapshot = local.snapshot(team);
+    enter();
   }
   function overlay(title, text, label, action, { tone = '', cancel } = {}) {
     const panel = $('matchOverlay');
@@ -405,7 +417,10 @@
         socket.send(JSON.stringify({ t:'surrender' }));
       }, { cancel });
     } else {
-      overlay('End this match?', 'Your run will end and you’ll see your match stats.', 'End match', () => {
+      const training = Boolean(snapshot.training);
+      overlay(training ? 'End training?' : 'End this match?',
+        training ? 'You’ll see your training stats.' : 'Your run will end and you’ll see your match stats.',
+        training ? 'End training' : 'End match', () => {
         local.finish(null, 'quit');
         snapshot = local.snapshot(team);
       }, { cancel });
@@ -656,14 +671,15 @@
     const creep = !hero && !building && s.creeps.find(u => u[0] === inspectedId);
     if (!hero && !building && !creep) return selectUnit(null);
     const unit = hero || building || { team: creep[1], kind: creep[2], hp: creep[5], maxHp: creep[6] };
-    const name = hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
+    const name = hero?.dummy ? hero.name : hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
     $('inspectPanel').hidden = false;
     $('inspectName').textContent = hero && hero.name !== name ? hero.name + ' · ' + name : name;
-    $('inspectSide').textContent = TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
+    $('inspectSide').textContent = hero?.dummy ? 'Stationary target' :
+      TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
     meter('inspectHealth', unit.hp, unit.maxHp, true);
-    $('inspectMana').hidden = !hero;
-    $('inspectEquipment').hidden = !hero;
-    if (!hero) return;
+    $('inspectMana').hidden = $('inspectEquipment').hidden = !hero || hero.dummy;
+    if (hero?.dummy) $('inspectHealth').lastElementChild.textContent = '∞ HP';
+    if (!hero || hero.dummy) return;
     meter('inspectMana', hero.mana, hero.maxMana, true);
     const loadout = hero.loadout || hero.inventory?.map(item => item.id) || [];
     const items = $('inspectItems'), sign = loadout.join(',');
@@ -679,16 +695,28 @@
   function updateHud(s) {
     const h = s.heroes[team], foe = s.heroes[1-team], hero = HEROES[h.hero], time = s.time;
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
-    const corePct = side => Math.ceil(s.buildings.find(b => b.team === side && b.kind === 'core').hp / 30);
-    for (const [id, combatant] of [['playerScore', h], ['opponentScore', foe]]) {
-      const side = $(id);
-      side.style.setProperty('--score-team',COLORS[combatant.team]);
-      side.style.setProperty('--score-hero',HEROES[combatant.hero].color);
-      side.lastElementChild.textContent = s.kills[combatant.team];
-      side.title = TEAM[combatant.team] + ' · Core ' + corePct(combatant.team) + '%';
-    }
     $('matchClock').textContent = clock;
-    $('scoreboard').setAttribute('aria-label', TEAM[team] + ' ' + s.kills[team] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
+    if (s.training) {
+      $('scoreboard').setAttribute('aria-label', 'Training · ' + clock);
+      $('combatStats').textContent = s.training.dummy ? 'Damage ' + Math.round(s.training.damage) + ' · Hits ' + s.training.hits : 'Empty arena';
+      $('opponentStatus').textContent = s.training.dummy ? 'Dummy · ∞ HP' +
+        (s.training.hits ? ' · Last hit ' + Math.round(s.training.lastHit) : '') : '';
+    } else {
+      const corePct = side => Math.ceil(s.buildings.find(b => b.team === side && b.kind === 'core').hp / 30);
+      for (const [id, combatant] of [['playerScore', h], ['opponentScore', foe]]) {
+        const side = $(id);
+        side.style.setProperty('--score-team',COLORS[combatant.team]);
+        side.style.setProperty('--score-hero',HEROES[combatant.hero].color);
+        side.lastElementChild.textContent = s.kills[combatant.team];
+        side.title = TEAM[combatant.team] + ' · Core ' + corePct(combatant.team) + '%';
+      }
+      $('scoreboard').setAttribute('aria-label', TEAM[team] + ' ' + s.kills[team] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
+      $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
+      const enemyHero = HEROES[foe.hero].name;
+      $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
+        (foe.heat != null ? ' · Heat ' + foe.heat : '') +
+        (foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') + (remote && foe.computer ? ' · Bot' : '');
+    }
     $('heroBadge').style.color = hero.color;
     const portraitCanvas = $('hudPortrait');
     if (portraitCanvas.dataset.hero !== h.hero) {
@@ -699,11 +727,6 @@
     $('heroLevel').textContent = h.level;
     $('vitalName').textContent = h.hp > 0 ? hero.name + ' · ' + hero.title : 'Respawn ' + Math.ceil(Math.max(0,h.respawn-time)) + 's';
     $('heroAttributes').textContent = 'DMG ' + Math.round(h.stats.damage * h.stats.multiplier) + ' · Armor ' + h.stats.armor.toFixed(1) + ' · MS ' + Math.round(h.stats.speed);
-    $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
-    const enemyHero = HEROES[foe.hero].name;
-    $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
-      (foe.heat != null ? ' · Heat ' + foe.heat : '') +
-      (foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') + (remote && foe.computer ? ' · Bot' : '');
     const actualQuality = renderer.auto === 1 ? 'high' : renderer.auto === .75 ? 'medium' : 'low';
     $('quality').title = (quality === 'auto' ? 'Auto · ' + actualQuality : quality) +
       (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
@@ -789,13 +812,16 @@
       $('deathNotice').hidden = true;
       const won = s.winner === team;
       const quit = s.endReason === 'quit';
-      const title = quit ? 'Match ended' : demo ? TEAM[s.winner] + ' wins' : won ? 'Victory' : 'Defeat';
-      const reason = quit ? 'You ended this solo match.' : s.endReason === 'surrender' ?
+      const title = s.training ? 'Training ended' : quit ? 'Match ended' : demo ? TEAM[s.winner] + ' wins' : won ? 'Victory' : 'Defeat';
+      const reason = s.training ? hero.name + ' · ' + (s.training.dummy ? 'Training dummy' : 'Empty arena') :
+        quit ? 'You ended this solo match.' : s.endReason === 'surrender' ?
         (won ? 'Your opponent surrendered.' : 'You surrendered.') : TEAM[s.winner] + ' destroyed the enemy core.';
       overlay(title, reason, 'Return to lobby', goMenu, { tone: quit || demo ? '' : won ? 'victory' : 'defeat' });
       const stats = $('matchStats');
-      const rows = [['Match time', clock], ['Level', h.level + ' vs ' + foe.level],
-        ['Kills / deaths', s.kills[team] + ' / ' + h.deaths], ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
+      const rows = s.training ?
+        [['Training time', clock], ['Damage dealt', Math.round(s.training.damage)], ['Hits', s.training.hits]] :
+        [['Match time', clock], ['Level', h.level + ' vs ' + foe.level], ['Kills / deaths', s.kills[team] + ' / ' + h.deaths],
+          ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
       stats.replaceChildren(...rows.flatMap(([name,value]) => [make('dt',name),make('dd',value)]));
       stats.hidden = false;
       if (!quit) beep(won ? 523 : 196,.9,'triangle',.055,won ? 2 : .5);
@@ -1009,7 +1035,10 @@
         if (k === 'arrowup' || k === 'arrowdown') setDifficulty(difficulties[(difficulties.indexOf(difficulty) + step + 3) % 3]);
         else pick(heroKeys[(heroKeys.indexOf(selected) + step + heroKeys.length) % heroKeys.length]);
       }
-      if (k === 'enter' && event.target.tagName !== 'BUTTON' && view === 'solo') solo();
+      if (k === 'enter' && event.target.tagName !== 'BUTTON') {
+        if (view === 'training') startTraining();
+        else if (view === 'solo') solo();
+      }
       if (k === 'n') { tab('online'); $('name').focus(); }
       return;
     }
@@ -1087,8 +1116,17 @@
     window.addEventListener('blur', resetCameraInput);
     document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
     $('start').onclick = () => solo();
+    $('startTraining').onclick = () => startTraining();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
+    $('trainingTab').onclick = () => tab('training');
+    $('trainingRefill').onclick = () => {
+      if (!local?.training || paused || local.mode !== 'match') return;
+      local.refillTraining();
+      snapshot = local.snapshot(team);
+      lastUi = -1;
+      hint('Resources refilled · Cooldowns reset');
+    };
     $('host').onclick = () => network('host');
     $('find').onclick = () => network('find');
     $('join').onclick = () => network('join');
@@ -1122,6 +1160,12 @@
   function openHash() {
     const options = new URLSearchParams(location.hash.slice(1));
     const code = options.get('room')?.toUpperCase();
+    if (options.has('training')) {
+      const hero = options.get('training');
+      tab('training');
+      startTraining(heroKeys.includes(hero) ? hero : selected, options.get('dummy') !== 'off');
+      return;
+    }
     const play = options.get('play'), spectate = options.get('demo');
     if (play || spectate) {
       const [hero, diff, t] = (play || spectate).split(',');

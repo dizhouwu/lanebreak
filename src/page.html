@@ -26,7 +26,7 @@
         <div id="heroPreview" class="panel heroPreview" role="tooltip" hidden></div>
       </section>
       <section class="deploy">
-        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button></nav>
+        <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button><button id="trainingTab" aria-pressed="false">Training</button></nav>
         <div id="soloPanel">
           <div class="fieldLabel" id="difficultyLabel">Bot difficulty</div>
           <div id="difficulties" class="segments" role="group" aria-labelledby="difficultyLabel">
@@ -41,13 +41,17 @@
           <div id="roomStatus" role="status"></div>
           <div id="waiting" class="onlineRow" hidden><button id="copy" class="primary">Copy invite link</button><button id="cancelWait">Cancel</button></div>
         </div>
+        <div id="trainingPanel" hidden>
+          <label class="trainingOption"><input id="trainingDummy" type="checkbox" checked> Include a training dummy</label>
+          <button id="startTraining" class="primary">Start training <kbd>Enter</kbd></button>
+        </div>
       </section>
     </div>
   </main>
   <section id="game" hidden aria-label="Match controls">
     <header class="matchTop">
-      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div></div>
-      <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
+      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><button id="trainingRefill" class="iconButton" title="Restore health, mana, gold, and cooldowns" hidden>Refill</button></div>
+      <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="trainingTag" hidden>Training</span><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
       <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">End match</button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · C Toggle camera</small></div>
     </header>
     <div id="feed" aria-live="polite"></div>
