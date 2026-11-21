@@ -15,6 +15,7 @@ pub(super) enum Command {
     Item(usize, Point),
     Buy(String),
     Sell(usize),
+    TrainingHero(String),
     Potion,
     Recall,
 }
@@ -55,6 +56,13 @@ impl Command {
             "recall" => Self::Recall,
             "sell" => Self::Sell(slot()?),
             "item" => Self::Item(slot()?, pos()?),
+            "trainingHero" => {
+                let key = cmd.get("hero")?.as_str()?;
+                if !rules().heroes.contains_key(key) {
+                    return None;
+                }
+                Self::TrainingHero(key.into())
+            }
             "buy" => {
                 let id = cmd.get("id")?.as_str()?;
                 if !rules().items.contains_key(id) {
@@ -128,7 +136,7 @@ fn sell_value(item: &Inventory, time: f64) -> f64 {
 
 impl Match {
     pub fn valid_order(input: &str) -> bool {
-        Command::parse(input).is_some()
+        !matches!(Command::parse(input), None | Some(Command::TrainingHero(_)))
     }
     pub fn order_json(&mut self, team: usize, input: &str) -> Option<String> {
         let Some(&id) = HEROES.get(team) else {
@@ -296,6 +304,7 @@ impl Match {
             return Err("Invalid order".into());
         }
         match &cmd {
+            Command::TrainingHero(key) => return self.switch_training_hero(id, key),
             Command::Buy(key) => {
                 let before = self.h(id).gold;
                 self.buy(id, key)?;
@@ -411,8 +420,50 @@ impl Match {
                 h.order = Order::None;
                 u.windup = None;
             }
-            Command::Buy(_) | Command::Sell(_) => unreachable!(),
+            Command::Buy(_) | Command::Sell(_) | Command::TrainingHero(_) => unreachable!(),
         }
+        Ok(())
+    }
+
+    fn switch_training_hero(&mut self, id: Id, key: &str) -> Result<(), String> {
+        if self.training.is_none() {
+            return Err("Hero switching is only available in training".into());
+        }
+        if self.h(id).key == key {
+            return Ok(());
+        }
+        let player = self.u_mut(id);
+        let previous = player.hero.as_mut().unwrap();
+        let mut hero = Hero::new(key.into(), rules().heroes[key].name.clone(), None, 0.0);
+        hero.level = previous.level;
+        hero.gold = previous.gold;
+        hero.inventory = std::mem::take(&mut previous.inventory);
+        hero.order = Order::Stop;
+        *player = Unit {
+            id,
+            role: Role::Hero,
+            team: player.team,
+            pos: player.pos,
+            facing: player.facing,
+            r: player.r,
+            hero: Some(hero),
+            ..Unit::default()
+        };
+        for sentry in self.creeps.drain(..) {
+            self.units.remove(&sentry);
+        }
+        self.areas.clear();
+        self.projectiles.clear();
+        self.effects.clear();
+        let dummy = self.u_mut(HEROES[1]);
+        dummy.stun_until = 0.0;
+        dummy.disarmed_until = 0.0;
+        dummy.lift_until = 0.0;
+        dummy.slows.clear();
+        dummy.stitch = None;
+        dummy.resonance = None;
+        dummy.burn = None;
+        self.refill_training(id);
         Ok(())
     }
 

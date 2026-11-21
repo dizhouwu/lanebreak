@@ -194,6 +194,13 @@
       button.append(pic, make('kbd', index + 1), cardText);
       button.addEventListener('click', () => pick(id));
       $('heroes').append(button);
+      const trainingChoice = make('button');
+      trainingChoice.type = 'button';
+      trainingChoice.dataset.hero = id;
+      trainingChoice.style.setProperty('--hero', h.color);
+      trainingChoice.append(make('strong', h.name), make('small', h.title));
+      trainingChoice.addEventListener('click', () => switchTrainingHero(id));
+      $('trainingHeroChoices').append(trainingChoice);
     }
     for (const button of $('difficulties').children) button.addEventListener('click', () => setDifficulty(button.dataset.difficulty));
     for (const [i, key] of keys.entries()) {
@@ -354,7 +361,7 @@
     $('matchOverlay').hidden = true;
     const training = Boolean(snapshot?.training);
     game.dataset.mode = training ? 'training' : 'match';
-    $('trainingTag').hidden = $('trainingAutoRefill').hidden = !training;
+    $('trainingTag').hidden = $('trainingAutoRefill').hidden = $('changeTrainingHero').hidden = !training;
     $('playerScore').hidden = $('opponentScore').hidden = training;
     $('back').textContent = training ? 'End training' : remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
     resultShown = false;
@@ -419,6 +426,30 @@
     local = new Match({ heroes:[hero, 'brakk'], training:{ dummy } });
     snapshot = local.snapshot(team);
     enter();
+  }
+  function openTrainingHeroPicker() {
+    if (!local || !snapshot?.training || snapshot.mode !== 'match' || paused) return;
+    setPendingCast(null);
+    stopCameraDrag();
+    panKeys.clear();
+    cursorOnArena = false;
+    edgePointer = null;
+    $('hudTooltip').hidden = true;
+    tooltipTarget = null;
+    for (const button of $('trainingHeroChoices').children) {
+      const current = button.dataset.hero === snapshot.heroes[team].hero;
+      button.disabled = current;
+      button.lastElementChild.textContent = current ? 'Current hero' : HEROES[button.dataset.hero].title;
+    }
+    $('trainingHeroPicker').showModal();
+  }
+  function switchTrainingHero(hero) {
+    $('trainingHeroPicker').close();
+    if (!local || !snapshot?.training || !issue({ o:'trainingHero', hero })) return;
+    renderMark = null;
+    renderer.displayed = null;
+    updateHud(snapshot);
+    hint('Now training as ' + HEROES[hero].name);
   }
   function overlay(title, text, label, action, { tone = '', cancel } = {}) {
     setPendingCast(null);
@@ -566,7 +597,7 @@
   }
   function cameraInputEnabled() {
     return renderer.focus != null && !game.hidden && snapshot?.mode === 'match' && !paused &&
-      !$('controls').open && $('matchOverlay').hidden && $('shop').hidden;
+      !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden;
   }
   function moveCamera(dx, dy) {
     const center = renderer.focus;
@@ -1221,6 +1252,8 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
     $('start').onclick = () => solo();
     $('startTraining').onclick = () => startTraining();
+    $('changeTrainingHero').onclick = openTrainingHeroPicker;
+    $('closeTrainingHeroPicker').onclick = () => $('trainingHeroPicker').close();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
     $('trainingTab').onclick = () => tab('training');
@@ -1289,7 +1322,7 @@
     lastFrame = now;
     if (game.hidden) renderer.title();
     else {
-      if (local && !paused && local.mode === 'match' && !$('controls').open) {
+      if (local && !paused && local.mode === 'match' && !$('controls').open && !$('trainingHeroPicker').open) {
         const frameTime = Math.min(elapsed,.1), steps = Math.max(1, Math.ceil(frameTime * 60 - .05));
         if (frameTime > 0) local.step(frameTime / steps, steps);
         snapshot = local.snapshot(team,demo);

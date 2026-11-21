@@ -76,6 +76,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 #opponentStatus{color:#ff9393}
 #game[data-mode=training] #opponentStatus{color:var(--gold)}
 #trainingAutoRefill{margin-top:4px;color:#a9c4b4}
+#changeTrainingHero{margin-top:5px;min-height:26px;padding:3px 8px;font-size:.75rem}
 .matchTools{text-align:right}
 .matchTools small{display:block;margin-top:3px;color:#c1ccc4}
 .topActions{display:flex;justify-content:end;flex-wrap:wrap;gap:4px}
@@ -196,6 +197,10 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 #matchStats{grid-template-columns:1fr 1fr;text-align:left;margin:18px 0}
 dialog{width:min(550px,calc(100vw - 22px));padding:17px}
 dialog::backdrop{background:#06090cd9}
+#trainingHeroPicker{max-height:calc(100dvh - 26px)}
+#trainingHeroChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#trainingHeroChoices button{display:grid;gap:3px;text-align:left;border-left:3px solid var(--hero);line-height:1.25;overflow-wrap:anywhere}
+#trainingHeroChoices small{color:var(--muted);font-size:.74rem}
 #itemGuide{width:min(850px,calc(100vw - 22px));max-height:calc(100dvh - 26px)}
 #itemSearch{width:100%;margin-bottom:4px}
 .catalogGroup h3{margin:16px 0 8px;font-size:.88rem;color:var(--gold)}

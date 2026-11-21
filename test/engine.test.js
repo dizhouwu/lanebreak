@@ -58,6 +58,47 @@ test('native and browser Rust engines agree on commands, marks, training, and ou
   browser.dispose();
 });
 
+test('training hero switches keep the session and clear the previous kit', () => {
+  const switchHero = hero => ({o:'trainingHero', hero});
+  assert.equal(validOrder(switchHero('cairn')), false, 'hero switches are not network orders');
+  const duel = new Match({heroes:['neris','brakk']});
+  assert.match(duel.order(0, switchHero('cairn')), /only available in training/);
+  for (const Engine of [Match, browserMatch()]) {
+    const match = new Engine({heroes:['neris','brakk'], training:{dummy:true}, seed:42});
+    const snapshot = () => JSON.parse(JSON.stringify(match.snapshot(0)));
+    assert.equal(match.order(0, {o:'buy', id:'boots'}), null);
+    match.order(0, {o:'move', x:2370, y:460});
+    match.step(dt, 20);
+    prepare(match, 'QQQ');
+    assert.equal(match.order(0, {o:'cast', i:4, id:2, castMode:'unit', recipe:'QQQ'}), null);
+    prepare(match, 'QEE');
+    assert.equal(match.order(0, {o:'cast', i:4, x:2570, y:450, castMode:'point', recipe:'QEE'}), null);
+    prepare(match, 'EEW');
+    assert.equal(match.order(0, {o:'cast', i:4, x:2750, y:450, castMode:'point', recipe:'WEE'}), null);
+    const before = snapshot();
+    assert.ok(before.areas.length && before.creeps.length && before.heroes[1].stitched);
+    assert.ok(before.training.damage > 0);
+    assert.equal(match.order(0, switchHero('missing')), 'Invalid order');
+    assert.equal(match.order(1, switchHero('cairn')), 'Invalid order');
+    assert.equal(match.order(0, switchHero('cairn')), null);
+    const after = snapshot();
+    assert.equal(after.time, before.time);
+    assert.deepEqual(after.training, before.training);
+    assert.equal(after.heroes[0].hero, 'cairn');
+    assert.equal(after.heroes[0].heat, HEROES.cairn.heat.max);
+    assert.equal(after.heroes[0].mana, after.heroes[0].maxMana);
+    for (const key of ['id','x','y','facing','level','gold','inventory']) {
+      assert.deepEqual(after.heroes[0][key], before.heroes[0][key]);
+    }
+    const {stitched, ...dummy} = before.heroes[1];
+    assert.deepEqual(after.heroes[1], {...dummy, stunned:false});
+    for (const key of ['areas','creeps','effects','projectiles']) assert.deepEqual(after[key], []);
+    assert.equal(match.order(0, switchHero('neris')), null);
+    assert.deepEqual(snapshot().heroes[0].prepared, []);
+    match.dispose();
+  }
+});
+
 test('native and browser bot matches advance the same state from the same seed', () => {
   const BrowserMatch = browserMatch();
   const options = { heroes:['vesper','brakk'], bots:['hard','hard'], seed:81 };
