@@ -46,6 +46,21 @@
       poly(g,[[2,-7],[-13,-16],[-17,-31],[-4,-25]],'#526e3e',color,1.6);
       poly(g,[[4,-10],[10,-24],[23,-29],[16,-13]],color,'#deedbb',1.4);
       ellipse(g,2,-12,5,5,'#e3f4c0');
+    } else if (key === 'ecarg') {
+      g.rotate(-.62);
+      line(g, [[0,-6],[0,-32]], '#9a6441', 6);
+      ellipse(g,0,-34,4.3,4.3,'#c09560','#e8bb77',1.6);
+      line(g,[[-6,-29],[6,-29]],'#e1b77f',2);
+      g.beginPath(); g.moveTo(0,-14);
+      g.bezierCurveTo(-16,-17,-15,-5,-8,-1);
+      g.bezierCurveTo(-22,9,-14,24,0,23);
+      g.bezierCurveTo(14,24,22,9,8,-1);
+      g.bezierCurveTo(15,-5,16,-17,0,-14);
+      g.closePath(); g.fillStyle='#ab613c'; g.fill(); g.strokeStyle='#ffcb91'; g.lineWidth=2.3; g.stroke();
+      line(g,[[-7,6],[7,6]],'#f2c486',2.2);
+      for (const offset of [-2.4,-.8,.8,2.4]) line(g,[[offset,-32],[offset,17]],'#ffe0b6',.75);
+      line(g,[[-17,22],[25,-20]],'#d8b391',2.5);
+      line(g,[[-17,22],[23,-23]],color,1);
     } else if (key === 'cairn') {
       const size = 17;
       line(g,[[-6,29],[1,-4],[9,-22]],'#815a43',5);
@@ -113,7 +128,8 @@
         sable: { cloak:'#4b2539', mask:'#b7a0ab', shoulders:[82,274], head:[[140,109],[151,71],[184,56],[218,70],[231,105],[212,135],[174,147]], weapon:[262,118,2.8] },
         mirel: { cloak:'#30472c', mask:'#b5b98d', shoulders:[66,292], head:[[128,103],[149,87],[142,57],[169,74],[184,50],[195,75],[222,62],[217,89],[238,105],[213,138],[157,137]], weapon:[278,110,3] },
         neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] },
-        cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] }
+        cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] },
+        ecarg: { cloak:'#2e355e', mask:'#d7b9a0', shoulders:[88,284], head:[[128,110],[139,76],[160,58],[185,62],[211,42],[206,78],[225,104],[208,140],[167,143]], weapon:[255,150,2.7] }
       }[key];
       const [left,right] = shape.shoulders;
       poly(g,[[left-14,238],[left,166],[143,134],[209,134],[right,175],[right+16,238]],shape.cloak,color,2.5);
@@ -516,6 +532,7 @@
       ellipse(g,x,y-15,6,6,'#ead29d');
       this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
       if (u.stitched) ellipse(g,x,y-15,29,27,null,'#d5bfea',2);
+      if (u.resonating) ellipse(g,x,y-15,32,29,null,HEROES.ecarg.color,3);
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
     }
     hero(g, u, team, now) {
@@ -559,6 +576,7 @@
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
+      if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
       this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);

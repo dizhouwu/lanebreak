@@ -347,6 +347,7 @@
       } else if (unit.type === 'hero') {
         unit.deaths++;
         unit.stitch = null;
+        unit.resonance = null;
         unit.disarmedUntil = 0;
         if (unit.heat != null) unit.heat = Math.floor(unit.heat / 2);
         this.effect('fall', unit.x, unit.y, { unit: 'hero' });
@@ -451,6 +452,13 @@
         target.stunUntil = Math.max(target.stunUntil, this.time + spell.stun);
       }
       if (target.type === 'hero') {
+        const mark = target.resonance;
+        if (spell.accent && mark?.owner === source.id && mark.until > this.time) {
+          target.resonance = null;
+          damage = Math.round(damage * (1 + spell.accent));
+          target.stunUntil = Math.max(target.stunUntil, this.time + spell.accentStun);
+          this.effect('burst', target.x, target.y, { team:source.team, radius:70, hero:source.hero });
+        }
         if (spell.drain) target.mana = Math.max(0, target.mana - spell.drain);
         if (spell.disarm) {
           target.disarmedUntil = Math.max(target.disarmedUntil || 0, this.time + spell.disarm);
@@ -459,6 +467,9 @@
       }
       this.hurt(target, damage, source, { ability: true });
       if (target.hp <= 0) return;
+      if (spell.resonance && target.type === 'hero') {
+        target.resonance = { owner:source.id, until:this.time + spell.resonance };
+      }
       if (spell.stitch && target.type === 'hero') {
         target.stitch = { source:source.id, until:this.time + 4, ready:this.time + .25, hits:3 };
       }
@@ -1026,8 +1037,10 @@
       });
       const recipes = kill ? ['QQW', 'WEE', 'EEE', 'QWE', 'QQQ', 'WWW', 'QWW', 'WWE', 'QEE', 'QQE'] :
         ['WWE', 'QQE', 'QQW', 'WWW', 'QQQ', 'QEE', 'QWE', 'WEE', 'EEE', 'QWW'];
+      const buildResonance = spec.abilities[0].resonance &&
+        !(enemy.resonance?.owner === h.id && enemy.resonance.until > this.time);
       const options = spec.weaves ? recipes.map(recipe => ({ i:3, spell:spec.weaves[recipe], recipe })) :
-        [3, 1, 0, 2].map(i => ({ i, spell:spec.abilities[i] }));
+        (buildResonance ? [0, 3, 1, 2] : [3, 1, 0, 2]).map(i => ({ i, spell:spec.abilities[i] }));
       for (const { i, spell, recipe } of options) {
         if (recipe ? !this.weaveAvailable(h, recipe, spell) : !this.abilityReady(h, i)) continue;
         const ultimate = i === 3 && !recipe;
@@ -1234,6 +1247,7 @@
           ...(h.heat != null && { heat:h.heat }),
           ...(h.dummy && { dummy:true }),
           ...(h.stitch?.until > this.time && { stitched:true }),
+          ...(h.resonance?.until > this.time && { resonating:true }),
           ...(h.disarmedUntil > this.time && { disarmed:true }),
           loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;

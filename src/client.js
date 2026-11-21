@@ -308,6 +308,32 @@
       osc.start(); osc.stop(audio.currentTime + duration);
     } catch {}
   }
+  function violinPhrase(kind, ultimate) {
+    if (muted) return;
+    initAudio();
+    if (!audio) return;
+    const notes = ultimate ? [392, 466.16, 587.33] :
+      kind === 'bolt' ? [440] : kind === 'buff' ? [329.63, 440] : [349.23, 523.25];
+    try {
+      const start = audio.currentTime;
+      for (const [i, frequency] of notes.entries()) {
+        const at = start + i * .095;
+        const string = audio.createOscillator(), tone = audio.createBiquadFilter(), gain = audio.createGain();
+        string.type = 'sawtooth';
+        string.frequency.setValueAtTime(frequency, at);
+        string.detune.setValueAtTime(-9, at);
+        string.detune.linearRampToValueAtTime(4, at + .07);
+        tone.type = 'lowpass';
+        tone.frequency.value = 1750;
+        gain.gain.setValueAtTime(.001, at);
+        gain.gain.exponentialRampToValueAtTime(.035, at + .045);
+        gain.gain.exponentialRampToValueAtTime(.001, at + .23);
+        string.connect(tone).connect(gain).connect(audio.destination);
+        string.start(at);
+        string.stop(at + .24);
+      }
+    } catch {}
+  }
   function status(text) { $('roomStatus').textContent = text; }
   function hint(text) {
     $('hint').textContent = text;
@@ -886,7 +912,8 @@
         if (parent.children.length > 6) parent.lastElementChild.remove();
       }
       if (e.kind === 'level' && e.team === team) beep(660,.25,'triangle',.07,1.5);
-      if (e.kind === 'cast') {
+      if (e.kind === 'cast' && e.hero === 'ecarg') violinPhrase(e.spell, e.ultimate);
+      else if (e.kind === 'cast') {
         const sound = e.spell === 'blast' ? [e.ultimate ? 240 : 420,.25,'sine',.05,.7] : castSounds[e.spell];
         if (sound) beep(...sound);
       }

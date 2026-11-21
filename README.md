@@ -13,6 +13,7 @@ A one-lane 1v1 strategy game inspired by Dota 2's laning. Last-hit creeps, conte
 | Mirel, Fen Warden | Ranged lane control with persistent zones and defensive sustain |
 | Neris, Loomkeeper | Weaves ten spells from three-mark combinations and casts them from two slots |
 | Cairn, Kiln Keeper | Ranged burst carry who builds Heat by last-hitting creeps |
+| Ecarg, String Virtuoso | Bowed notes mark heroes for stronger follow-up spells |
 
 Hover over a hero on the home screen to read their kit. Select a hero and open **Abilities** for the same reference on touchscreens. Open **Item guide** to search shop items by name, effect, or recipe component and compare their full prices.
 
@@ -32,6 +33,8 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 | E + E + E | Sky Needle, a long-range delayed strike |
 
 Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units ahead, **W** lands 460 units ahead, and **E** lands 700 units ahead. Turn Cairn with movement or an attack order, then press the ability key to cast along his facing. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
+
+Ecarg's **Downbow** marks enemy heroes with Resonance. Land **Overtone** or **Grand Cadence** while the mark is active to consume it for extra damage and a short stun. **Countertempo** gives Ecarg a burst of movement and attack speed.
 
 ## Play solo
 

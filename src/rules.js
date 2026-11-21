@@ -101,6 +101,22 @@
         { name: 'Furnace Vent', kind: 'blast', mana: 145, cd: 68, range: 0, radius: 340, delay: .70, damage: 135, growth: 26, heatDamage: 18, text: 'Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack.' }
       ],
       build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'prism', 'arcane', 'void', 'charm', 'heartstone']
+    },
+    ecarg: {
+      name: 'Ecarg', title: 'String Virtuoso', role: 'Ranged combo caster', color: '#95a7f3',
+      hp: 602, hpGrowth: 77, mana: 340, manaGrowth: 35, damage: 47, damageGrowth: 3.7,
+      armor: 2.5, armorGrowth: .39, range: 540, interval: 1.26, speedGrowth: .026, speed: 299, regen: 2, manaRegen: 1.45,
+      abilities: [
+        { name: 'Downbow', kind: 'bolt', mana: 60, cd: 7.5, range: 880, radius: 31, speed: 1450, piercing: true,
+          damage: 75, growth: 18, resonance: 5, text: 'Play a piercing note that marks enemy heroes with Resonance for 5 seconds.' },
+        { name: 'Overtone', kind: 'blast', mana: 85, cd: 12, range: 725, radius: 178, delay: .46, damage: 90, growth: 20,
+          slow: .26, slowTime: 1.25, accent: .45, accentStun: .7, text: 'Burst a target area after a short delay. Consume Resonance on a hero for 45% extra damage and a brief stun.' },
+        { name: 'Countertempo', kind: 'buff', mana: 50, cd: 16, duration: 4.5, stats: { move:.30, haste:.32 },
+          text: 'Pick up the tempo for 4.5 seconds, gaining 30% movement speed and 32% attack speed.' },
+        { name: 'Grand Cadence', kind: 'blast', mana: 165, cd: 68, range: 790, radius: 230, delay: .55, hits: 3, interval: .6,
+          damage: 62, growth: 10, accent: .45, accentStun: .7, text: 'Play three notes over a target area. The first note to hit a marked hero consumes Resonance for bonus damage and a brief stun.' }
+      ],
+      build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'gloves', 'frost', 'heartstone']
     }
   };
   const ITEMS = {

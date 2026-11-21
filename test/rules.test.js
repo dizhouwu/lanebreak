@@ -256,7 +256,7 @@ test('aimed abilities and instant abilities are classified across the roster', (
   const expected = {
     vesper:[true, true, false, true], brakk:[true, false, false, false], orrin:[true, true, true, true],
     sable:[true, true, false, true], mirel:[true, true, false, true], neris:[false, false, false, false],
-    cairn:[false, false, false, false]
+    cairn:[false, false, false, false], ecarg:[true, true, false, true]
   };
   for (const [id, kit] of Object.entries(HEROES)) {
     assert.deepEqual(kit.abilities.slice(0, 4).map(abilityNeedsTarget), expected[id]);
@@ -525,6 +525,30 @@ test('training with a dummy lets Cairn repeat standard abilities without mana or
   assert.equal(hero.heat, 0);
   match.step(1 / 60);
   assert.equal(hero.heat, heat);
+});
+
+test('Ecarg marks with Downbow and only an active Resonance boosts a follow-up', () => {
+  const match = new Match({ heroes:['ecarg','brakk'], training:{ dummy:true } });
+  const [hero, dummy] = match.heroes, [downbow, overtone] = HEROES.ecarg.abilities;
+  const cast = i => match.order(0, { o:'cast', i, x:dummy.x, y:dummy.y, castMode:'point' });
+  assert.equal(cast(0), null);
+  advance(match, .5);
+  assert.equal(match.snapshot(0).heroes[1].resonating, true);
+  const damage = match.training.damage;
+  assert.equal(cast(1), null);
+  advance(match, .5);
+  assert.equal(match.training.damage - damage, Math.round(spellDamage(hero,overtone) * (1 + overtone.accent)) * .75);
+  assert.ok(dummy.stunUntil > match.time);
+  assert.equal(match.snapshot(0).heroes[1].resonating, undefined);
+
+  assert.equal(cast(0), null);
+  advance(match, downbow.resonance + 1);
+  assert.equal(match.snapshot(0).heroes[1].resonating, undefined);
+  const expired = match.training.damage;
+  assert.equal(cast(1), null);
+  advance(match, .5);
+  assert.equal(match.training.damage - expired, spellDamage(hero,overtone) * .75);
+  assert.ok(dummy.stunUntil < match.time);
 });
 
 test('recall is interrupted by an order and completes after three seconds when uninterrupted', () => {

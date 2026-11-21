@@ -239,7 +239,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     </section>
     <div class="lobbyControls">
       <section class="draft">
-        <div class="sectionHeader"><h2>Choose your hero</h2><div class="draftActions"><button type="button" id="openHeroGuide" class="iconButton">Abilities</button><span class="keyHint"><kbd>1</kbd>–<kbd>7</kbd></span></div></div>
+        <div class="sectionHeader"><h2>Choose your hero</h2><div class="draftActions"><button type="button" id="openHeroGuide" class="iconButton">Abilities</button><span class="keyHint"><kbd>1</kbd>–<kbd>8</kbd></span></div></div>
         <div id="heroes" class="heroGrid"></div>
         <div id="heroPreview" class="panel heroPreview" role="tooltip" hidden></div>
       </section>
@@ -435,6 +435,22 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         { name: 'Furnace Vent', kind: 'blast', mana: 145, cd: 68, range: 0, radius: 340, delay: .70, damage: 135, growth: 26, heatDamage: 18, text: 'Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack.' }
       ],
       build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'prism', 'arcane', 'void', 'charm', 'heartstone']
+    },
+    ecarg: {
+      name: 'Ecarg', title: 'String Virtuoso', role: 'Ranged combo caster', color: '#95a7f3',
+      hp: 602, hpGrowth: 77, mana: 340, manaGrowth: 35, damage: 47, damageGrowth: 3.7,
+      armor: 2.5, armorGrowth: .39, range: 540, interval: 1.26, speedGrowth: .026, speed: 299, regen: 2, manaRegen: 1.45,
+      abilities: [
+        { name: 'Downbow', kind: 'bolt', mana: 60, cd: 7.5, range: 880, radius: 31, speed: 1450, piercing: true,
+          damage: 75, growth: 18, resonance: 5, text: 'Play a piercing note that marks enemy heroes with Resonance for 5 seconds.' },
+        { name: 'Overtone', kind: 'blast', mana: 85, cd: 12, range: 725, radius: 178, delay: .46, damage: 90, growth: 20,
+          slow: .26, slowTime: 1.25, accent: .45, accentStun: .7, text: 'Burst a target area after a short delay. Consume Resonance on a hero for 45% extra damage and a brief stun.' },
+        { name: 'Countertempo', kind: 'buff', mana: 50, cd: 16, duration: 4.5, stats: { move:.30, haste:.32 },
+          text: 'Pick up the tempo for 4.5 seconds, gaining 30% movement speed and 32% attack speed.' },
+        { name: 'Grand Cadence', kind: 'blast', mana: 165, cd: 68, range: 790, radius: 230, delay: .55, hits: 3, interval: .6,
+          damage: 62, growth: 10, accent: .45, accentStun: .7, text: 'Play three notes over a target area. The first note to hit a marked hero consumes Resonance for bonus damage and a brief stun.' }
+      ],
+      build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'gloves', 'frost', 'heartstone']
     }
   };
   const ITEMS = {
@@ -832,6 +848,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       } else if (unit.type === 'hero') {
         unit.deaths++;
         unit.stitch = null;
+        unit.resonance = null;
         unit.disarmedUntil = 0;
         if (unit.heat != null) unit.heat = Math.floor(unit.heat / 2);
         this.effect('fall', unit.x, unit.y, { unit: 'hero' });
@@ -936,6 +953,13 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         target.stunUntil = Math.max(target.stunUntil, this.time + spell.stun);
       }
       if (target.type === 'hero') {
+        const mark = target.resonance;
+        if (spell.accent && mark?.owner === source.id && mark.until > this.time) {
+          target.resonance = null;
+          damage = Math.round(damage * (1 + spell.accent));
+          target.stunUntil = Math.max(target.stunUntil, this.time + spell.accentStun);
+          this.effect('burst', target.x, target.y, { team:source.team, radius:70, hero:source.hero });
+        }
         if (spell.drain) target.mana = Math.max(0, target.mana - spell.drain);
         if (spell.disarm) {
           target.disarmedUntil = Math.max(target.disarmedUntil || 0, this.time + spell.disarm);
@@ -944,6 +968,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       }
       this.hurt(target, damage, source, { ability: true });
       if (target.hp <= 0) return;
+      if (spell.resonance && target.type === 'hero') {
+        target.resonance = { owner:source.id, until:this.time + spell.resonance };
+      }
       if (spell.stitch && target.type === 'hero') {
         target.stitch = { source:source.id, until:this.time + 4, ready:this.time + .25, hits:3 };
       }
@@ -1511,8 +1538,10 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       });
       const recipes = kill ? ['QQW', 'WEE', 'EEE', 'QWE', 'QQQ', 'WWW', 'QWW', 'WWE', 'QEE', 'QQE'] :
         ['WWE', 'QQE', 'QQW', 'WWW', 'QQQ', 'QEE', 'QWE', 'WEE', 'EEE', 'QWW'];
+      const buildResonance = spec.abilities[0].resonance &&
+        !(enemy.resonance?.owner === h.id && enemy.resonance.until > this.time);
       const options = spec.weaves ? recipes.map(recipe => ({ i:3, spell:spec.weaves[recipe], recipe })) :
-        [3, 1, 0, 2].map(i => ({ i, spell:spec.abilities[i] }));
+        (buildResonance ? [0, 3, 1, 2] : [3, 1, 0, 2]).map(i => ({ i, spell:spec.abilities[i] }));
       for (const { i, spell, recipe } of options) {
         if (recipe ? !this.weaveAvailable(h, recipe, spell) : !this.abilityReady(h, i)) continue;
         const ultimate = i === 3 && !recipe;
@@ -1719,6 +1748,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
           ...(h.heat != null && { heat:h.heat }),
           ...(h.dummy && { dummy:true }),
           ...(h.stitch?.until > this.time && { stitched:true }),
+          ...(h.resonance?.until > this.time && { resonating:true }),
           ...(h.disarmedUntil > this.time && { disarmed:true }),
           loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
@@ -1819,6 +1849,21 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       poly(g,[[2,-7],[-13,-16],[-17,-31],[-4,-25]],'#526e3e',color,1.6);
       poly(g,[[4,-10],[10,-24],[23,-29],[16,-13]],color,'#deedbb',1.4);
       ellipse(g,2,-12,5,5,'#e3f4c0');
+    } else if (key === 'ecarg') {
+      g.rotate(-.62);
+      line(g, [[0,-6],[0,-32]], '#9a6441', 6);
+      ellipse(g,0,-34,4.3,4.3,'#c09560','#e8bb77',1.6);
+      line(g,[[-6,-29],[6,-29]],'#e1b77f',2);
+      g.beginPath(); g.moveTo(0,-14);
+      g.bezierCurveTo(-16,-17,-15,-5,-8,-1);
+      g.bezierCurveTo(-22,9,-14,24,0,23);
+      g.bezierCurveTo(14,24,22,9,8,-1);
+      g.bezierCurveTo(15,-5,16,-17,0,-14);
+      g.closePath(); g.fillStyle='#ab613c'; g.fill(); g.strokeStyle='#ffcb91'; g.lineWidth=2.3; g.stroke();
+      line(g,[[-7,6],[7,6]],'#f2c486',2.2);
+      for (const offset of [-2.4,-.8,.8,2.4]) line(g,[[offset,-32],[offset,17]],'#ffe0b6',.75);
+      line(g,[[-17,22],[25,-20]],'#d8b391',2.5);
+      line(g,[[-17,22],[23,-23]],color,1);
     } else if (key === 'cairn') {
       const size = 17;
       line(g,[[-6,29],[1,-4],[9,-22]],'#815a43',5);
@@ -1886,7 +1931,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         sable: { cloak:'#4b2539', mask:'#b7a0ab', shoulders:[82,274], head:[[140,109],[151,71],[184,56],[218,70],[231,105],[212,135],[174,147]], weapon:[262,118,2.8] },
         mirel: { cloak:'#30472c', mask:'#b5b98d', shoulders:[66,292], head:[[128,103],[149,87],[142,57],[169,74],[184,50],[195,75],[222,62],[217,89],[238,105],[213,138],[157,137]], weapon:[278,110,3] },
         neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] },
-        cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] }
+        cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] },
+        ecarg: { cloak:'#2e355e', mask:'#d7b9a0', shoulders:[88,284], head:[[128,110],[139,76],[160,58],[185,62],[211,42],[206,78],[225,104],[208,140],[167,143]], weapon:[255,150,2.7] }
       }[key];
       const [left,right] = shape.shoulders;
       poly(g,[[left-14,238],[left,166],[143,134],[209,134],[right,175],[right+16,238]],shape.cloak,color,2.5);
@@ -2289,6 +2335,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       ellipse(g,x,y-15,6,6,'#ead29d');
       this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
       if (u.stitched) ellipse(g,x,y-15,29,27,null,'#d5bfea',2);
+      if (u.resonating) ellipse(g,x,y-15,32,29,null,HEROES.ecarg.color,3);
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
     }
     hero(g, u, team, now) {
@@ -2332,6 +2379,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
+      if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
       this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);
@@ -2703,6 +2751,32 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + duration);
       osc.connect(gain).connect(audio.destination);
       osc.start(); osc.stop(audio.currentTime + duration);
+    } catch {}
+  }
+  function violinPhrase(kind, ultimate) {
+    if (muted) return;
+    initAudio();
+    if (!audio) return;
+    const notes = ultimate ? [392, 466.16, 587.33] :
+      kind === 'bolt' ? [440] : kind === 'buff' ? [329.63, 440] : [349.23, 523.25];
+    try {
+      const start = audio.currentTime;
+      for (const [i, frequency] of notes.entries()) {
+        const at = start + i * .095;
+        const string = audio.createOscillator(), tone = audio.createBiquadFilter(), gain = audio.createGain();
+        string.type = 'sawtooth';
+        string.frequency.setValueAtTime(frequency, at);
+        string.detune.setValueAtTime(-9, at);
+        string.detune.linearRampToValueAtTime(4, at + .07);
+        tone.type = 'lowpass';
+        tone.frequency.value = 1750;
+        gain.gain.setValueAtTime(.001, at);
+        gain.gain.exponentialRampToValueAtTime(.035, at + .045);
+        gain.gain.exponentialRampToValueAtTime(.001, at + .23);
+        string.connect(tone).connect(gain).connect(audio.destination);
+        string.start(at);
+        string.stop(at + .24);
+      }
     } catch {}
   }
   function status(text) { $('roomStatus').textContent = text; }
@@ -3283,7 +3357,8 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
         if (parent.children.length > 6) parent.lastElementChild.remove();
       }
       if (e.kind === 'level' && e.team === team) beep(660,.25,'triangle',.07,1.5);
-      if (e.kind === 'cast') {
+      if (e.kind === 'cast' && e.hero === 'ecarg') violinPhrase(e.spell, e.ultimate);
+      else if (e.kind === 'cast') {
         const sound = e.spell === 'blast' ? [e.ultimate ? 240 : 420,.25,'sine',.05,.7] : castSounds[e.spell];
         if (sound) beep(...sound);
       }
