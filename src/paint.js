@@ -320,17 +320,10 @@
       this.camY = this.focus ? clamp(this.focus.y - FREE_VIEW_HEIGHT / 2, 0, HEIGHT - FREE_VIEW_HEIGHT) : 0;
       this.displayed = s;
       const viewWidth = w / this.scale, viewHeight = h / this.scale;
-      if (viewWidth > WIDTH) {
-        const edge = Math.floor(WIDTH * this.scale);
-        g.setTransform(1, 0, 0, 1, 0, 0);
-        g.fillStyle = '#142529'; g.fillRect(edge, 0, w - edge, h);
-      }
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
       g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
-      const left = Math.max(0, Math.floor(this.cam) - 1);
-      const top = Math.max(0, Math.floor(this.camY) - 1);
-      const width = Math.min(WIDTH, Math.ceil(this.cam + viewWidth) + 1) - left;
-      const height = Math.min(HEIGHT, Math.ceil(this.camY + viewHeight) + 1) - top;
-      g.drawImage(this.map, left, top, width, height, left, top, width, height);
+      g.drawImage(this.map, 0, 0);
       const visible = u => u.x >= this.cam - 175 && u.x <= this.cam + viewWidth + 175;
       const player = s.heroes[team];
       const troops = s.creeps.map(([id, team, kind, x, y, hp, maxHp, attack, r, facing, flags]) =>
@@ -449,9 +442,7 @@
       g.setTransform(1, 0, 0, 1, 0, 0);
       this.vignette ||= gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
       g.fillStyle = this.vignette;
-      g.fillRect(0, 0, w, Math.ceil(h * .23));
-      const shadeAt = Math.floor(h * .66);
-      g.fillRect(0, shadeAt, w, h - shadeAt);
+      g.fillRect(0, 0, w, h);
       this.minimap(s, team, viewWidth, viewHeight);
     }
     castPreview(g, hero, spell, at) {
