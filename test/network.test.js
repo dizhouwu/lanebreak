@@ -117,3 +117,35 @@ test('public queue pairs two players and refuses cross-origin browser upgrades',
   assert.equal(first.code,second.code);
   assert.equal(first.code,waiting.code);
 });
+
+test('only a seated player can surrender and both players receive the same final result', async t => {
+  const url = await setup(t);
+  const a = connect(url.ws), b = connect(url.ws);
+  t.after(() => { a.ws.close(); b.ws.close(); });
+  await Promise.all([a.opened, b.opened]);
+  a.send({ t:'surrender' });
+  assert.match((await a.get(type('err'))).msg, /No active match/);
+
+  a.send({ t:'host', hero:'brakk' });
+  const { code } = await a.get(type('wait'));
+  b.send({ t:'join', code, hero:'orrin' });
+  const [aSeat] = await Promise.all([a.get(type('start')), b.get(type('start'))]);
+
+  // The authenticated seat determines the result, even if a payload claims another team.
+  a.send({ t:'surrender', team:1 });
+  const ended = message => message.t === 's' && message.s.mode === 'ended';
+  const results = await Promise.all([a.get(ended), b.get(ended)]);
+  for (const { s } of results) {
+    assert.equal(s.winner, 1);
+    assert.equal(s.endReason, 'surrender');
+  }
+
+  b.send({ t:'surrender' });
+  const replacement = connect(url.ws);
+  t.after(() => replacement.ws.close());
+  await replacement.opened;
+  replacement.send({ t:'rejoin', code, token:aSeat.token });
+  const { s:rejoined } = await replacement.get(ended);
+  assert.equal(rejoined.winner, 1);
+  assert.equal(rejoined.endReason, 'surrender');
+});

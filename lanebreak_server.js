@@ -120,6 +120,12 @@ function createServer(options = {}) {
     let data;
     try { data = JSON.parse(decoder.decode(raw)); } catch { return error(peer,'Invalid message.'); }
     if (!data || typeof data !== 'object' || Array.isArray(data)) return error(peer,'Invalid message.');
+    if (data.t === 'surrender') {
+      const room = peer.room;
+      if (!room?.match || room.members[peer.team]?.peer !== peer) return error(peer,'No active match to surrender.');
+      room.match.finish(1 - peer.team, 'surrender');
+      return;
+    }
     if (data.t === 'o') {
       const now = performance.now();
       if (now >= peer.windowEnd) { peer.windowEnd = now + 1000; peer.orders = 0; }
@@ -214,10 +220,11 @@ function createServer(options = {}) {
       if (room.match.mode === 'ended' && room.finalSent) continue;
       const interval = 1000 / 30;
       room.nextSnapshot = Math.max(room.nextSnapshot + interval, now + interval / 2);
+      const ended = room.match.mode === 'ended';
       for (const [team,member] of room.members.entries()) {
-        if (member.peer) send(member.peer,{t:'s',s:room.match.snapshot(team)},true);
+        if (member.peer) send(member.peer,{t:'s',s:room.match.snapshot(team)},!ended);
       }
-      if (room.match.mode === 'ended') {
+      if (ended) {
         room.endedAt = now;
         room.finalSent = true;
       }

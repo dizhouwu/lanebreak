@@ -224,6 +224,13 @@
       return { x: this.cam + x * this.canvas.width / this.canvas.clientWidth / this.scale,
         y: this.camY + y * this.canvas.height / this.canvas.clientHeight / this.scale };
     }
+    viewCenter() {
+      return { x: this.cam + this.canvas.width / (2 * this.scale),
+        y: this.camY + this.canvas.height / (2 * this.scale) };
+    }
+    get freeWorldPerPixel() {
+      return FREE_VIEW_HEIGHT / Math.max(1, this.canvas.clientHeight);
+    }
     focusAt(x, y) {
       const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
       const halfWidth = Math.min(WIDTH, FREE_VIEW_HEIGHT * aspect) / 2;

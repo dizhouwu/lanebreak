@@ -116,6 +116,7 @@
       this.time = 0;
       this.mode = 'match';
       this.winner = null;
+      this.endReason = null;
       this.nextId = 1;
       this.wave = 0;
       this.nextWave = 2;
@@ -274,14 +275,19 @@
         this.effect('feed', unit.x, unit.y, { team: hero.team, text: hero.name + ' killed ' + unit.name + ' (+' + gold + ' gold)' });
       } else {
         if (unit.kind === 'core') {
-          this.mode = 'ended';
-          this.winner = 1 - unit.team;
+          this.finish(1 - unit.team, 'core');
         } else {
           hero.gold += 180;
           this.effect('fall', unit.x, unit.y, { unit: 'tower' });
           this.effect('feed', unit.x, unit.y, { team: unit.team, text: TEAM[unit.team] + ' ' + unit.kind + ' tower destroyed' });
         }
       }
+    }
+    finish(winner, reason) {
+      if (this.mode !== 'match') return;
+      this.mode = 'ended';
+      this.winner = winner;
+      this.endReason = reason;
     }
     damageAtLaunch(a) {
       const s = a.stats;
@@ -1013,7 +1019,7 @@
           canShop: this.canShop(h) };
       });
       const quant = n => Math.round(n * 10) / 10;
-      return { time: this.time, mode: this.mode, winner: this.winner, orb: this.orb, wave: this.wave, kills: this.kills,
+      return { time: this.time, mode: this.mode, winner: this.winner, endReason: this.endReason, orb: this.orb, wave: this.wave, kills: this.kills,
         heroes, buildings: this.buildings.map(u => ({ ...base(u), protected: this.protected(u),
           ...(u.kind === 'core' ? {} : { range: u.range, target: u.windup?.target || u.target }) })),
         creeps: this.creeps.map(c => [c.id, c.team, c.kind, quant(c.x), quant(c.y), Math.ceil(c.hp), Math.ceil(c.maxHp), !!c.windup, quant(c.r), angle(c.facing),

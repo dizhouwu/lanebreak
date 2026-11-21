@@ -1,58 +1,60 @@
 # Lanebreak
 
-单路 1v1 推塔游戏。选择 Vesper、Brakk 或 Orrin，补刀、抢河道符文、合成装备，依次摧毁外塔、内塔和敌方核心。单机可选三个难度，联机可以邀请好友或排队匹配。
+A one-lane 1v1 strategy game. Pick Vesper, Brakk, or Orrin. Last-hit creeps, contest river runes, and build items as you take down the outer tower, inner tower, and enemy core. Play solo at one of three difficulty levels, invite a friend, or queue for an online match.
 
-## 直接玩单机
+## Play solo
 
-用桌面浏览器打开 `lanebreak.html`，选择英雄和难度后点击 **Start match**。这个 HTML 自带规则、画面和声音，可以离线使用。
+Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and click **Start match**. The HTML includes the rules, graphics, and sound and works offline.
 
-| 操作 | 按键 |
+| Action | Controls |
 |---|---|
-| 移动、攻击、转移小兵仇恨、反补 | 右键 |
-| 查看单位血量和英雄装备 | 左键 |
-| 切换是否跟随、镜头跳回英雄当前位置并保持自由 | C / Space |
-| 移动镜头 | 方向键、点击或拖动小地图、自由镜头下鼠标移到屏幕四边 |
-| 释放技能 | Q / W / E / R |
-| 使用装备主动效果 | 1–6 |
-| 攻击光标下的目标或走 A、停止自动攻击 | A / S |
-| 商店、药水、回城 | B / F / T |
-| 单机暂停 | P / Esc |
-| 画质、声音 | G / M |
+| Move, attack, transfer creep aggro, or deny | Right-click |
+| Inspect unit health and hero items | Left-click |
+| Toggle follow / center on your hero and resume free camera | C / Space |
+| Pan the camera | Arrow keys, middle-mouse drag, click or drag on the minimap, or move the cursor to a screen edge in free mode |
+| Cast abilities | Q / W / E / R |
+| Use active items | 1–6 |
+| Attack the target under the cursor or attack-move / stop attacking | A / S |
+| Shop / potion / recall | B / F / T |
+| Pause a solo match | P / Esc |
+| Change graphics / toggle sound | G / M |
 
-靠近敌方小兵时，对敌方英雄下达普攻指令即可拉仇恨。右键或按 A 指向附近的己方小兵，可以把攻击你的敌方小兵转向它。己方小兵血条变紫时还可以反补。
+Order a basic attack on the enemy hero near enemy creeps to draw their aggro. Right-click or press **A** over a nearby allied creep to redirect enemy creeps that are attacking you. You can deny an allied creep when its health bar turns purple.
 
-商店里点击装备名称可展开合成树，直接购买中间件或基础零件。已持有的组件会高亮，也会自动从成品价格中抵扣。金色购买按钮可直接下单，点击背包中的装备可出售。单机暂停后可按 P、Esc 或点击画面继续。
+Click **End match** in a solo game to end your run early and see your stats. In an online game, confirm **Surrender** to award the opponent a win and show the result to both players.
 
-地址末尾可以追加 `#play=brakk,hard` 直接开局，或追加 `#demo=brakk,normal,300` 观看模拟到第 5 分钟的电脑对局。
+Click an item name in the shop to expand its recipe and buy components individually. The recipe highlights components you own and deducts their value from the finished item's price. Use the gold button to buy an item or click an item in your inventory to sell it. After pausing a solo match, press **P** or **Esc**, or click the overlay to resume.
 
-## 本地双人联机
+Append `#play=brakk,hard` to the URL to start a match immediately, or append `#demo=brakk,normal,300` to spectate a bot match starting at the five-minute mark.
 
-需要 Node.js 22 或更新版本。解压后，在项目目录运行：
+## Run a two-player server
+
+Install Node.js 22 or newer and run this command in the project directory.
 
 ```sh
 npm start
 ```
 
-两人打开 `http://127.0.0.1:8377/`。一方在 **Online 1v1** 点击 **Host match**，另一方打开邀请链接或输入四位房间码后点击 **Join room**。也可以两人都点 **Find opponent**。同一台电脑可用两个标签页试跑。若两台设备在同一局域网，用 `node lanebreak_server.js --host=0.0.0.0` 启动，再从另一台设备打开主机的局域网 IP 和端口 8377。
+For a test on one computer, open `http://127.0.0.1:8377/` in two browser tabs. Under **Online 1v1**, one player clicks **Host match** and the other opens the invite link or enters the four-letter room code and clicks **Join room**. Both players can also click **Find opponent**. To play from two devices on the same LAN, run `node lanebreak_server.js --host=0.0.0.0` and open the host's LAN address on port 8377 from the other device.
 
-服务器按 60 Hz 推进比赛，按约 30 Hz 发送快照。网页刷新后可用当前标签页的席位令牌自动重连，离线期间由电脑接手。服务器重启会清空进行中的房间。
+The server simulates the match at 60 Hz and sends snapshots at approximately 30 Hz. Refreshing the page reconnects to the match using the current tab's seat token. A bot takes over while the player is disconnected. Restarting the server clears active rooms.
 
-## 以后部署到 Cloudflare
+## Deploy with Cloudflare Tunnel
 
-保留这个 Node.js 对战服务时，可以用 **Cloudflare Tunnel** 提供公网域名。把项目放到持续运行的主机，在同一台主机运行 `npm start` 和 `cloudflared`，然后在 Tunnel 的 **Published application** 里把域名指向 `http://127.0.0.1:8377`。继续使用默认回环监听，并让隧道保留请求的公网 Host。HTTPS 网页会自动连接同域的 `wss://…/ws`。
+Run `npm start` and `cloudflared` on the same host. In the tunnel's **Published application** settings, point the public hostname to `http://127.0.0.1:8377`. Keep the default loopback listener and preserve the public Host header through the tunnel. The HTTPS page connects automatically to `/ws` over a secure WebSocket on the same hostname.
 
-接通后，用 `/healthz` 检查服务，再用两台设备经公网域名建房、加入和刷新重连。
+Check `/healthz`, then use two devices to host, join, and reconnect after a refresh through the public hostname.
 
-- [Cloudflare Tunnel 设置文档](https://developers.cloudflare.com/tunnel/get-started/)
-- [Cloudflare WebSocket 文档](https://developers.cloudflare.com/network/websockets/)
+- [Cloudflare Tunnel setup](https://developers.cloudflare.com/tunnel/get-started/)
+- [Cloudflare WebSocket documentation](https://developers.cloudflare.com/network/websockets/)
 
-## 源码与验证
+## Source and tests
 
-`src/rules.js` 存放英雄、装备和难度数据，`src/engine.js` 供单机和对战服务器共用。`src/paint.js` 和 `src/client.js` 负责画面、输入和在线客户端。改完源码后运行 `npm run build` 重新生成单文件版，再重启服务器。
+`src/rules.js` defines heroes, items, and difficulty settings. Solo and online modes share `src/engine.js`. Rendering lives in `src/paint.js`, and `src/client.js` handles input and online play. After changing the source, run `npm run build` to regenerate the standalone HTML, then restart the server.
 
 ```sh
 npm test
 npm run balance
 ```
 
-测试覆盖英雄技能、合成和退款、主动装备冷却、反补、回城、对局结算、私人房间、公开匹配和断线重连。依据截图重建了规则与界面。补充的源码截图确认了 Void Core 的属性：Arcane Core + Focus Rune + 550 金，总价 2,300 金，提供 40% 技能伤害、320 法力、每秒 3 法力回复和 20% 技能冷却缩减。电脑对战脚本可复测本版英雄强度和局长。
+The tests cover hero abilities, recipes and refunds, active item cooldowns, denies, recall, match results, private rooms, public matchmaking, and reconnects. The rules and interface were reconstructed from screenshots. Source screenshots confirmed the Void Core recipe and stats. It costs 2,300 gold total (Arcane Core, Focus Rune, and 550 gold) and grants 40% ability damage, 320 mana, 3 mana per second, and 20% ability cooldown reduction. The bot match script measures hero balance and match length.

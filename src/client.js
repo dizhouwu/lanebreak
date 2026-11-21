@@ -6,7 +6,8 @@
   const keys = ['Q', 'W', 'E', 'R'];
   const heroKeys = Object.keys(HEROES);
   const difficulties = Object.keys(DIFF);
-  const renderer = new Renderer($('arena'), $('minimap'));
+  const arena = $('arena');
+  const renderer = new Renderer(arena, $('minimap'));
   const hosted = /^(http|https):$/.test(location.protocol);
   const prefs = {
     load(key) { try { return localStorage.getItem('lanebreak:' + key); } catch { return null; } },
@@ -19,7 +20,7 @@
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
-  let placeCameraOnHero = false;
+  let placeCameraOnHero = false, cameraDrag = null, resultShown = false;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
@@ -229,12 +230,15 @@
     $('feed').replaceChildren();
     $('hint').hidden = true;
     $('matchOverlay').hidden = true;
+    $('back').textContent = remote ? 'Surrender' : demo ? 'Stop watching' : 'End match';
+    resultShown = false;
     $('shop').hidden = true;
     $('shopFeedback').hidden = true;
     $('deathNotice').hidden = true;
     $('hudTooltip').hidden = true;
     shopFocus = shopSelection = tooltipTarget = null;
     selectUnit(null);
+    stopCameraDrag();
     panKeys.clear();
     renderer.focus = null;
     placeCameraOnHero = true;
@@ -282,14 +286,43 @@
       hint('Right-click to move · Left-click to inspect · B to shop');
     }
   }
-  function overlay(title, text, label, action) {
+  function overlay(title, text, label, action, { tone = '', cancel } = {}) {
+    const panel = $('matchOverlay');
+    const primary = $('overlayAction');
+    const secondary = $('overlaySecondary');
+    panel.dataset.tone = tone;
     $('overlayTitle').textContent = title;
     $('overlayText').textContent = text;
-    $('overlayAction').textContent = label;
-    $('overlayAction').onclick = action;
+    primary.textContent = label;
+    primary.onclick = action;
+    secondary.hidden = !cancel;
+    secondary.onclick = cancel || null;
     $('matchStats').hidden = true;
     $('hudTooltip').hidden = true;
-    $('matchOverlay').hidden = false;
+    panel.hidden = false;
+    (cancel ? secondary : primary).focus({ preventScroll: true });
+  }
+  function confirmEndMatch() {
+    if (demo) return goMenu();
+    if (snapshot?.mode !== 'match') return;
+    paused = !remote;
+    const cancel = () => {
+      paused = false;
+      $('matchOverlay').hidden = true;
+      $('back').blur();
+    };
+    if (remote) {
+      overlay('Surrender this match?', 'Your opponent will win the match.', 'Surrender', () => {
+        cancel();
+        if (socket?.readyState !== WebSocket.OPEN) return hint('Reconnecting…');
+        socket.send(JSON.stringify({ t:'surrender' }));
+      }, { cancel });
+    } else {
+      overlay('End this match?', 'Your run will end and you’ll see your match stats.', 'End match', () => {
+        local.finish(null, 'quit');
+        snapshot = local.snapshot(team);
+      }, { cancel });
+    }
   }
   function pause() {
     if (remote || !snapshot || snapshot.mode === 'ended') return;
@@ -357,28 +390,68 @@
     renderer.focusAt(x,y);
   }
   function toggleCamera() {
+    stopCameraDrag();
     if (placeCameraOnHero || renderer.focus != null) followHero();
     else {
-      const center = renderer.toWorld(innerWidth / 2, innerHeight / 2);
+      const center = renderer.viewCenter();
       freeCamera(center.x,center.y);
     }
   }
+  function cameraInputEnabled() {
+    return !game.hidden && snapshot?.mode === 'match' && !paused &&
+      !$('controls').open && $('matchOverlay').hidden && $('shop').hidden;
+  }
+  function moveCamera(dx, dy) {
+    const center = renderer.focus ?? renderer.viewCenter();
+    freeCamera(center.x + dx, center.y + dy);
+  }
+  function edgePan(position, size) {
+    if (position < 0 || position >= size) return 0;
+    const margin = Math.min(32, size * .06);
+    const distance = Math.max(0, Math.min(position, size - 1 - position));
+    if (distance >= margin) return 0;
+    const strength = 1 - .65 * distance / margin;
+    return position < size / 2 ? -strength : strength;
+  }
   function panCamera(dt) {
-    if (paused || $('controls').open || !$('matchOverlay').hidden || !$('shop').hidden) return;
+    if (!cameraInputEnabled()) return stopCameraDrag();
+    if (cameraDrag) return;
     let dx = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
     let dy = Number(panKeys.has('arrowdown')) - Number(panKeys.has('arrowup'));
     if (!panKeys.size && renderer.focus && edgePointer) {
-      const edge = (position, size) => {
-        const margin = Math.min(22, size * .05);
-        return position <= margin ? -1 : position >= size - margin ? 1 : 0;
-      };
-      dx = edge(edgePointer.x, innerWidth);
-      dy = edge(edgePointer.y, innerHeight);
+      dx = edgePan(edgePointer.x, arena.clientWidth);
+      dy = edgePan(edgePointer.y, arena.clientHeight);
     }
     if (!dx && !dy) return;
-    const center = renderer.focus || renderer.toWorld(innerWidth / 2, innerHeight / 2);
-    const step = 1150 * Math.min(dt,.05) / Math.hypot(dx,dy);
-    freeCamera(center.x + dx * step, center.y + dy * step);
+    const step = 1650 * Math.min(dt,.05) / Math.max(1, Math.hypot(dx,dy));
+    moveCamera(dx * step, dy * step);
+  }
+  function stopCameraDrag() {
+    if (!cameraDrag) return;
+    const { id } = cameraDrag;
+    cameraDrag = null;
+    arena.classList.remove('draggingCamera');
+    if (arena.hasPointerCapture(id)) arena.releasePointerCapture(id);
+  }
+  function arenaPointerDown(event) {
+    if (event.button !== 1) return canvasOrder(event);
+    if (!cameraInputEnabled()) return;
+    event.preventDefault();
+    edgePointer = null;
+    cameraDrag = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    arena.setPointerCapture(event.pointerId);
+    arena.classList.add('draggingCamera');
+  }
+  function arenaPointerMove(event) {
+    hovered = { x: event.clientX, y: event.clientY };
+    cursorOnArena = true;
+    if (cameraDrag?.id !== event.pointerId) return;
+    if (!(event.buttons & 4) || !cameraInputEnabled()) return stopCameraDrag();
+    const { x, y } = cameraDrag;
+    const scale = renderer.freeWorldPerPixel;
+    moveCamera((x - event.clientX) * scale, (y - event.clientY) * scale);
+    cameraDrag.x = event.clientX;
+    cameraDrag.y = event.clientY;
   }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
@@ -600,18 +673,25 @@
       if (opacity <= 0) row.remove();
       else row.style.opacity = opacity;
     }
-    if (s.mode === 'ended' && $('matchOverlay').hidden) {
+    if (s.mode === 'ended' && !resultShown) {
+      resultShown = true;
       if (remote) safeSeat(null);
+      if ($('controls').open) $('controls').close();
       $('shop').hidden = true;
       $('shopButton').setAttribute('aria-expanded', 'false');
-      overlay(demo ? TEAM[s.winner] + ' wins' : s.winner === team ? 'Victory' : 'Defeat',
-        TEAM[s.winner] + ' destroyed the enemy core.', 'Return to lobby', goMenu);
+      $('deathNotice').hidden = true;
+      const won = s.winner === team;
+      const quit = s.endReason === 'quit';
+      const title = quit ? 'Match ended' : demo ? TEAM[s.winner] + ' wins' : won ? 'Victory' : 'Defeat';
+      const reason = quit ? 'You ended this solo match.' : s.endReason === 'surrender' ?
+        (won ? 'Your opponent surrendered.' : 'You surrendered.') : TEAM[s.winner] + ' destroyed the enemy core.';
+      overlay(title, reason, 'Return to lobby', goMenu, { tone: quit || demo ? '' : won ? 'victory' : 'defeat' });
       const stats = $('matchStats');
       const rows = [['Match time', clock], ['Level', h.level + ' vs ' + foe.level],
         ['Kills / deaths', s.kills[team] + ' / ' + h.deaths], ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
       stats.replaceChildren(...rows.flatMap(([name,value]) => [make('dt',name),make('dd',value)]));
       stats.hidden = false;
-      beep(s.winner === team ? 523 : 196,.9,'triangle',.055,s.winner === team ? 2 : .5);
+      if (!quit) beep(won ? 523 : 196,.9,'triangle',.055,won ? 2 : .5);
     }
   }
   function playEvents(s) {
@@ -793,6 +873,15 @@
   function hotkey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
+    if (!game.hidden && !$('matchOverlay').hidden) {
+      const primary = $('overlayAction');
+      const secondary = $('overlaySecondary');
+      if (!event.repeat && (k === 'escape' || (k === 'enter' && secondary.hidden) || (k === 'p' && primary.onclick === pause))) {
+        event.preventDefault();
+        (secondary.hidden ? primary : secondary).click();
+      }
+      return;
+    }
     if (!game.hidden && k.startsWith('arrow')) {
       event.preventDefault();
       panKeys.add(k);
@@ -813,11 +902,10 @@
       if (k === 'n') { tab('online'); $('name').focus(); }
       return;
     }
-    if (snapshot?.mode === 'ended' && (k === 'enter' || k === 'escape')) return goMenu();
-    if (paused && (k === 'p' || k === 'escape')) return pause();
     if (k === 'c') toggleCamera();
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
+      stopCameraDrag();
       panKeys.clear();
       edgePointer = null;
       const { x, y } = (renderer.displayed || snapshot).heroes[team];
@@ -837,10 +925,15 @@
     else if (k === 'm') changeAudio();
   }
   function wire() {
-    $('arena').addEventListener('contextmenu', event => { if (!game.hidden) event.preventDefault(); });
-    $('arena').addEventListener('pointerdown', canvasOrder);
-    $('arena').addEventListener('pointermove', e => { hovered = {x:e.clientX,y:e.clientY}; cursorOnArena = true; });
-    $('arena').addEventListener('pointerleave', () => { cursorOnArena = false; });
+    arena.addEventListener('contextmenu', event => { if (!game.hidden) event.preventDefault(); });
+    arena.addEventListener('pointerdown', arenaPointerDown);
+    arena.addEventListener('pointermove', arenaPointerMove);
+    arena.addEventListener('pointerleave', () => { cursorOnArena = false; });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      arena.addEventListener(type, event => {
+        if (cameraDrag?.id === event.pointerId) stopCameraDrag();
+      });
+    }
     $('matchOverlay').addEventListener('pointerdown', e => {
       if (e.target === $('matchOverlay') && $('overlayAction').onclick === pause) pause();
     });
@@ -861,7 +954,7 @@
     });
     document.addEventListener('pointermove', event => {
       if (event.pointerType === 'mouse') {
-        edgePointer = event.target === minimap ? null : { x:event.clientX, y:event.clientY };
+        edgePointer = event.target === arena && !cameraDrag ? hovered : null;
       }
     });
     document.addEventListener('pointerout', event => {
@@ -869,7 +962,14 @@
     });
     document.addEventListener('keydown', hotkey);
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
-    window.addEventListener('blur', () => { panKeys.clear(); cursorOnArena = false; edgePointer = null; });
+    const resetCameraInput = () => {
+      stopCameraDrag();
+      panKeys.clear();
+      cursorOnArena = false;
+      edgePointer = null;
+    };
+    window.addEventListener('blur', resetCameraInput);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
     $('start').onclick = () => solo();
     $('soloTab').onclick = () => tab('solo');
     $('onlineTab').onclick = () => tab('online');
@@ -878,12 +978,7 @@
     $('join').onclick = () => network('join');
     $('copy').onclick = copyInvite;
     $('cancelWait').onclick = disconnect;
-    $('back').onclick = () => {
-      if (snapshot?.mode !== 'ended' && !remote && !demo && !paused) {
-        paused = true;
-        overlay('Leave match?', 'Your current solo match will end.', 'Return to lobby', goMenu);
-      } else goMenu();
-    };
+    $('back').onclick = confirmEndMatch;
     $('audio').onclick = changeAudio;
     $('camera').onclick = toggleCamera;
     $('quality').onclick = changeQuality;
