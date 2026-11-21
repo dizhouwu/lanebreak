@@ -1,12 +1,19 @@
 (function () {
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, HEIGHT } = LanebreakRules;
-  const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, pickTarget, pickUnit, xpGoal } = Lanebreak;
+  const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
+    weaveRecipe, pickTarget, pickUnit, xpGoal } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
-  const keys = ['Q', 'W', 'E', 'R'];
+  const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
   const weaveGuide = Object.entries(HEROES.neris.weaves).map(([marks, spell]) => [...marks].join('+') + ' · ' + spell.name).join('\n');
   const difficulties = Object.keys(DIFF);
+  const itemGroups = [
+    ['Consumables', id => ['potion','tome'].includes(id)],
+    ['Basics', id => ITEMS[id].stats && !ITEMS[id].parts],
+    ['Upgrades', id => id === 'rift' || (ITEMS[id].parts && !ITEMS[id].master)],
+    ['Masterworks', id => ITEMS[id].master]
+  ];
   const arena = $('arena');
   const renderer = new Renderer(arena, $('minimap'));
   const hosted = /^(http|https):$/.test(location.protocol);
@@ -22,6 +29,7 @@
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let cameraDrag = null, resultShown = false;
+  let heroPreviewCard = null;
   let socket, seat, room, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
   const history = [];
@@ -37,6 +45,86 @@
     if (text != null) el.textContent = text;
     if (className) el.className = className;
     return el;
+  }
+  function renderHeroGuide(panel, id) {
+    const hero = HEROES[id];
+    const list = make('ul', null, 'heroGuideSpells');
+    for (const [i, spell] of hero.abilities.slice(0, 4).entries()) {
+      const row = make('li');
+      const copy = make('div');
+      copy.append(make('strong', spell.name), make('p', spell.text));
+      const costs = [spell.mana && spell.mana + ' mana', spell.cd && spell.cd + 's cooldown'].filter(Boolean);
+      if (costs.length) copy.append(make('small', costs.join(' · '), 'muted'));
+      row.append(make('kbd', keys[i]), copy);
+      list.append(row);
+    }
+    panel.replaceChildren(make('h3', hero.name + ' · ' + hero.title), make('p', hero.role, 'muted'), list);
+    if (hero.heat) panel.append(make('p', 'Heat · Last hits on enemy creeps add +' + hero.heat.attack +
+      ' attack damage per stack, up to ' + hero.heat.max + '. On death, you lose half your Heat.', 'heroTrait'));
+    if (hero.weaves) panel.append(make('p', 'Cast prepared spells with D and F. Use V for potions.', 'heroTrait'));
+  }
+  function hideHeroGuide(card) {
+    if (card && card !== heroPreviewCard) return;
+    heroPreviewCard?.removeAttribute('aria-describedby');
+    heroPreviewCard = null;
+    $('heroPreview').hidden = true;
+  }
+  function showHeroGuide(card) {
+    if (!$('lobby').hidden && !document.querySelector('dialog[open]')) {
+      if (heroPreviewCard !== card) {
+        hideHeroGuide();
+        heroPreviewCard = card;
+        card.setAttribute('aria-describedby','heroPreview');
+      }
+      const panel = $('heroPreview');
+      if (panel.dataset.hero !== card.dataset.hero) {
+        renderHeroGuide(panel, card.dataset.hero);
+        panel.dataset.hero = card.dataset.hero;
+      }
+      panel.hidden = false;
+      const rect = card.getBoundingClientRect(), w = panel.offsetWidth, h = panel.offsetHeight;
+      const right = rect.right + 10, left = rect.left - w - 10;
+      panel.style.left = (right + w < innerWidth - 8 ? right : left > 8 ? left : Math.max(8, innerWidth - w - 8)) + 'px';
+      panel.style.top = Math.max(8, Math.min(rect.top, innerHeight - h - 8)) + 'px';
+    }
+  }
+  function fillItemGuide() {
+    const catalog = $('itemCatalog');
+    for (const [label, test] of itemGroups) {
+      const section = make('section', null, 'catalogGroup');
+      const grid = make('div', null, 'catalogGrid');
+      for (const id of Object.keys(ITEMS).filter(test)) {
+        const item = ITEMS[id];
+        const entry = make('article', null, 'catalogItem');
+        const header = make('div', null, 'catalogItemTop');
+        entry.style.setProperty('--item', item.color);
+        header.append(make('h4', item.name), make('span', item.total + ' g', 'catalogPrice'));
+        entry.append(header, make('p', item.text));
+        if (item.cd) entry.append(make('p', 'Active cooldown · ' + item.cd + 's', 'muted'));
+        if (item.parts) {
+          const recipe = item.parts.map(part => ITEMS[part].name).join(' + ');
+          entry.append(make('p', recipe + ' + ' + item.cost + ' g', 'catalogRecipe'));
+        }
+        grid.append(entry);
+      }
+      section.append(make('h3', label), grid);
+      catalog.append(section);
+    }
+  }
+  function filterItemGuide() {
+    const terms = $('itemSearch').value.trim().toLowerCase().split(/\s+/);
+    let results = 0;
+    for (const group of $('itemCatalog').children) {
+      let shown = 0;
+      for (const item of group.lastElementChild.children) {
+        const text = item.textContent.toLowerCase();
+        item.hidden = !terms.every(term => text.includes(term));
+        if (!item.hidden) shown++;
+      }
+      group.hidden = !shown;
+      results += shown;
+    }
+    $('itemSearchEmpty').hidden = results > 0;
   }
   function bindTooltip(button) {
     for (const type of ['pointerenter','focus']) button.addEventListener(type, () => {
@@ -90,7 +178,9 @@
     for (const [index, id] of heroKeys.entries()) {
       const h = HEROES[id], button = make('button', null, 'heroCard');
       button.dataset.hero = id;
-      button.title = h.role + '\n' + h.abilities.map((spell, i) => keys[i] + ' · ' + spell.name).join('\n');
+      button.addEventListener('pointerenter', event => { if (event.pointerType !== 'touch') showHeroGuide(button); });
+      button.addEventListener('focus', () => { if (button.matches(':focus-visible')) showHeroGuide(button); });
+      for (const type of ['pointerleave', 'blur']) button.addEventListener(type, () => hideHeroGuide(button));
       const pic = make('canvas');
       pic.width = 360; pic.height = 236;
       pic.setAttribute('aria-hidden', 'true');
@@ -104,6 +194,7 @@
     for (const button of $('difficulties').children) button.addEventListener('click', () => setDifficulty(button.dataset.difficulty));
     for (const [i, key] of keys.entries()) {
       const tile = make('div', null, 'abilityTile');
+      tile.hidden = i >= 4;
       const button = make('button');
       button.append(make('kbd', key), make('span'));
       button.addEventListener('click', () => aim('cast', i));
@@ -127,13 +218,7 @@
     for (const button of document.querySelectorAll('[data-utility]')) {
       button.addEventListener('click', () => issue({ o: button.dataset.utility }));
     }
-    const groups = [
-      ['Consumables', id => ['potion','tome'].includes(id)],
-      ['Basics', id => ITEMS[id].stats && !ITEMS[id].parts],
-      ['Upgrades', id => id === 'rift' || (ITEMS[id].parts && !ITEMS[id].master)],
-      ['Masterworks', id => ITEMS[id].master]
-    ];
-    for (const [label, test] of groups) {
+    for (const [label, test] of itemGroups) {
       const group = make('section', null, 'shopGroup'), grid = make('div', null, 'itemGrid');
       group.append(make('h3', label), grid);
       for (const id of Object.keys(ITEMS).filter(test)) {
@@ -154,6 +239,7 @@
       }
       $('shopItems').append(group);
     }
+    fillItemGuide();
     $('name').value = prefs.load('name') || '';
     $('name').addEventListener('input', () => prefs.save('name', $('name').value));
     pick(selected);
@@ -228,6 +314,7 @@
     hintTimer = setTimeout(() => { $('hint').hidden = true; }, 2450);
   }
   function enter() {
+    hideHeroGuide();
     $('lobby').hidden = true;
     game.hidden = false;
     document.body.classList.add('matchMode');
@@ -615,6 +702,7 @@
     $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
     const enemyHero = HEROES[foe.hero].name;
     $('opponentStatus').textContent = 'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
+      (foe.heat != null ? ' · Heat ' + foe.heat : '') +
       (foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') + (remote && foe.computer ? ' · Bot' : '');
     const actualQuality = renderer.auto === 1 ? 'high' : renderer.auto === .75 ? 'medium' : 'low';
     $('quality').title = (quality === 'auto' ? 'Auto · ' + actualQuality : quality) +
@@ -623,28 +711,37 @@
     meter('mana', h.mana, h.maxMana, true);
     meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
     $('gold').textContent = Math.floor(h.gold) + ' g';
-    const markStatus = $('weaveMarks');
-    markStatus.hidden = !hero.weaves;
+    const resource = $('heroResource'), recipe = weaveRecipe(h);
+    let resourceText = '';
     if (hero.weaves) {
       const marks = (h.marks || []).map(mark => keys[mark]);
-      const text = marks.length ? 'Marks · ' + [marks[0], marks[1] || '…'].join(' + ') : 'Choose two marks with Q, W, or E';
-      if (markStatus.textContent !== text) markStatus.textContent = text;
+      resourceText = marks.length ? 'Marks · ' + [marks[0], marks[1] || '…'].join(' + ') : 'Choose two marks with Q, W, or E';
+      if (recipe) resourceText += ' → ' + hero.weaves[recipe].name;
+    } else if (hero.heat) {
+      resourceText = 'Heat ' + h.heat + '/' + hero.heat.max + ' · +' + h.heat * hero.heat.attack + ' attack damage';
     }
-    $('abilities').style.setProperty('--hero',hero.color);
-    for (const [i, tile] of [...$('abilities').children].entries()) {
+    resource.hidden = !resourceText;
+    if (resource.textContent !== resourceText) resource.textContent = resourceText;
+    const abilities = $('abilities');
+    abilities.dataset.weaves = !!hero.weaves;
+    abilities.style.setProperty('--hero',hero.color);
+    for (const [i, tile] of [...abilities.children].entries()) {
+      tile.hidden = i >= hero.abilities.length;
+      if (tile.hidden) continue;
       const button = tile.lastElementChild;
-      const slot = hero.abilities[i], spell = abilitySpell(h, i), level = abilityLevel(h, i);
-      const cd = Math.max(0, h.cd[i] - time), locked = h.level < level, awaitingMarks = spell.kind === 'weave';
+      const spell = abilitySpell(h, i), level = abilityLevel(h, i);
+      const cd = Math.max(0, abilityReadyAt(h, i) - time), locked = h.level < level;
+      const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
-      button.style.setProperty('--cooldown', (slot.cd ? Math.min(100, cd / slot.cd * 100) : 0) + '%');
+      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < spell.mana ? 'nomana' : 'ready';
+      button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
-        awaitingMarks ? '2 marks' : spell.mana || '';
-      const cooldown = +(slot.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
+        awaitingMarks ? '2 marks' : empty ? '–' : spell.mana || '';
+      const cooldown = +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (spell.mana ? ' · ' + spell.mana + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
-        (slot.kind === 'weave' ? '\n\n' + weaveGuide : '');
+        (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
     for (const [i, button] of [...$('inventory').children].entries()) {
@@ -659,8 +756,9 @@
       button.style.setProperty('--cooldown', (cd ? Math.min(100,cd/item.cd*100) : 0) + '%');
       button.style.borderColor = item?.color || '';
     }
-    const utility = document.querySelector('[data-utility=potion] span');
-    utility.textContent = 'Potion ×' + h.pots;
+    const utility = document.querySelector('[data-utility=potion]');
+    utility.firstElementChild.textContent = hero.weaves ? 'V' : 'F';
+    utility.lastElementChild.textContent = 'Potion ×' + h.pots;
     $('shopButton').dataset.open = h.canShop;
     $('shopButton').title = h.canShop ? 'Buy equipment (B)' : 'Browse equipment · Buy at your fountain (B)';
     document.querySelector('[data-utility=recall] span').textContent = h.channel > time ? (h.channel-time).toFixed(1) + 's' :
@@ -793,9 +891,10 @@
         if (!rejoin) enter();
         if (rejoin) hint('Reconnected');
       } else if (data.t === 's') {
-        const previousMarks = snapshot?.heroes[team].marks?.join();
+        const previous = snapshot?.heroes[team];
         snapshot = data.s;
-        if (previousMarks !== snapshot.heroes[team].marks?.join()) lastUi = -1;
+        const current = snapshot.heroes[team];
+        if (previous?.marks?.join() !== current.marks?.join() || previous?.prepared?.join() !== current.prepared?.join()) lastUi = -1;
         const sample = snapshot.time - performance.now() / 1000;
         clockOffset = clockOffset === null || Math.abs(sample - clockOffset) > .5 ? sample : clockOffset + .1 * (sample - clockOffset);
         history.push(snapshot);
@@ -882,7 +981,7 @@
     return { ...b, time, heroes: objects(), creeps: rows(a.creeps,b.creeps,3,4), projectiles: rows(a.projectiles,b.projectiles,3,4) };
   }
   function hotkey(event) {
-    if (event.metaKey || event.ctrlKey || event.altKey || $('controls').open || event.target.tagName === 'INPUT') return;
+    if (event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]') || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
     if (!game.hidden && !$('matchOverlay').hidden) {
       const primary = $('overlayAction');
@@ -901,6 +1000,7 @@
     if (event.repeat) return;
     if (k === '?') return help();
     if (game.hidden) {
+      if (k === 'escape' && heroPreviewCard) return hideHeroGuide();
       if (k === 'escape' && (waiting || networkAction || seat)) return disconnect();
       if (/^[1-9]$/.test(k) && heroKeys[+k - 1]) pick(heroKeys[+k - 1]);
       if (k.startsWith('arrow')) {
@@ -913,6 +1013,8 @@
       if (k === 'n') { tab('online'); $('name').focus(); }
       return;
     }
+    const weaver = snapshot && HEROES[snapshot.heroes[team].hero].weaves;
+    const spellSlot = keys.indexOf(k.toUpperCase());
     if (k === 'c') toggleCamera();
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
@@ -923,10 +1025,10 @@
         const { x, y } = (renderer.displayed || snapshot).heroes[team];
         freeCamera(x,y);
       }
-    } else if ('qwer'.includes(k) && k.length === 1) aim('cast', 'qwer'.indexOf(k));
+    } else if (spellSlot >= 0 && (spellSlot < 4 || weaver)) aim('cast', spellSlot);
     else if (/^[1-6]$/.test(k)) aim('item', +k - 1);
     else if (k === 'b') toggleShop();
-    else if (k === 'f') issue({o:'potion'});
+    else if (k === (weaver ? 'v' : 'f')) issue({o:'potion'});
     else if (k === 't') issue({o:'recall'});
     else if (k === 's') issue({o:'stop'});
     else if (k === 'a') battleOrder(aimPoint(),'amove');
@@ -1001,6 +1103,17 @@
     $('closeInspect').onclick = () => selectUnit(null);
     $('help').onclick = help;
     $('gameHelp').onclick = help;
+    $('openItemGuide').onclick = () => { hideHeroGuide(); $('itemGuide').showModal(); };
+    $('closeItemGuide').onclick = () => $('itemGuide').close();
+    $('itemSearch').addEventListener('input', filterItemGuide);
+    $('openHeroGuide').onclick = () => {
+      hideHeroGuide();
+      renderHeroGuide($('selectedHeroGuide'), selected);
+      $('heroGuide').showModal();
+    };
+    $('closeHeroGuide').onclick = () => $('heroGuide').close();
+    window.addEventListener('resize', () => { if (heroPreviewCard) showHeroGuide(heroPreviewCard); });
+    window.addEventListener('scroll', () => { if (heroPreviewCard) hideHeroGuide(); }, { passive:true });
     $('closeHelp').onclick = () => $('controls').close();
     $('controls').addEventListener('close', () => {
       if (wasPaused) { paused = false; wasPaused = false; }

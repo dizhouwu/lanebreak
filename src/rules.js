@@ -65,26 +65,41 @@
       name: 'Neris', title: 'Loomkeeper', role: 'Combo spellcaster', color: '#f0c865',
       hp: 595, hpGrowth: 78, mana: 350, manaGrowth: 39, damage: 49, damageGrowth: 3.7,
       armor: 2, armorGrowth: .38, range: 530, interval: 1.30, speedGrowth: .023, speed: 299, regen: 1.9, manaRegen: 1.65,
-      unlocks: [1, 1, 1, 1],
+      unlocks: [1, 1, 1, 1, 1, 1],
       abilities: [
         { name: 'Thread', kind: 'mark', mana: 0, cd: 0, text: 'Add a Thread mark. Weave uses your latest two marks.' },
         { name: 'Needle', kind: 'mark', mana: 0, cd: 0, text: 'Add a Needle mark. Weave uses your latest two marks.' },
         { name: 'Knot', kind: 'mark', mana: 0, cd: 0, text: 'Add a Knot mark. Weave uses your latest two marks.' },
-        { name: 'Weave', kind: 'weave', mana: 0, cd: 7, text: 'Add two marks with Q, W, or E, then press R to cast the resulting spell.' }
+        { name: 'Weave', kind: 'invoke', mana: 0, cd: 3, text: 'Turn two marks into a prepared spell. The new spell moves to D and the previous spell moves to F.' },
+        { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a spell with R to cast it from this slot.' },
+        { name: 'Empty slot', kind: 'prepared', mana: 0, cd: 0, text: 'Prepare a second spell with R to fill both slots.' }
       ],
       weaves: {
-        QQ: { name: 'Running Stitch', kind: 'bolt', mana: 60, range: 840, radius: 28, speed: 1500, piercing: true, damage: 82, growth: 19, text: 'Fire a piercing thread through enemies in a line.' },
-        QW: { name: 'Hemline', kind: 'blast', mana: 77, range: 700, radius: 205, delay: .45, damage: 110, growth: 22, slow: .28, slowTime: 1.6, text: 'Cut across a target area and slow enemies caught in the seam.' },
-        QE: { name: 'Loose End', kind: 'blink', mana: 65, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
-        WW: { name: 'Pincushion', kind: 'blast', mana: 105, range: 730, radius: 158, delay: .65, hits: 3, interval: .43, damage: 52, growth: 11, text: 'Rain three showers of needles into a small target area.' },
-        WE: { name: 'Anchor Stitch', kind: 'blast', mana: 90, range: 650, radius: 150, delay: .60, damage: 65, growth: 15, stun: .9, text: 'Tie enemies to the ground with a delayed area stun.' },
-        EE: { name: 'Double Knot', kind: 'buff', mana: 75, duration: 4, stats: { armor: 8, regen: 13 }, text: 'Gain 8 armor and 13 health regen for 4 seconds.' }
+        QQ: { name: 'Running Stitch', kind: 'bolt', mana: 60, cd: 9, range: 840, radius: 28, speed: 1500, piercing: true, damage: 82, growth: 19, text: 'Fire a piercing thread through enemies in a line.' },
+        QW: { name: 'Hemline', kind: 'blast', mana: 77, cd: 11, range: 700, radius: 205, delay: .45, damage: 110, growth: 22, slow: .28, slowTime: 1.6, text: 'Cut across a target area and slow enemies caught in the seam.' },
+        QE: { name: 'Loose End', kind: 'blink', mana: 65, cd: 15, range: 510, text: 'Slip toward the cursor, teleporting up to 510 units.' },
+        WW: { name: 'Pincushion', kind: 'blast', mana: 105, cd: 15, range: 730, radius: 158, delay: .65, hits: 3, interval: .43, damage: 52, growth: 11, text: 'Rain three showers of needles into a small target area.' },
+        WE: { name: 'Anchor Stitch', kind: 'blast', mana: 90, cd: 14, range: 650, radius: 150, delay: .60, damage: 65, growth: 15, stun: .9, text: 'Tie enemies to the ground with a delayed area stun.' },
+        EE: { name: 'Double Knot', kind: 'buff', mana: 75, cd: 15, duration: 4, stats: { armor: 8, regen: 13 }, text: 'Gain 8 armor and 13 health regen for 4 seconds.' }
       },
       build: ['boots', 'prism', 'rune', 'arcane', 'charm', 'locket', 'void', 'vest', 'bulwark', 'heartstone']
+    },
+    cairn: {
+      name: 'Cairn', title: 'Kiln Keeper', role: 'Ranged burst carry', color: '#ff9962',
+      hp: 585, hpGrowth: 79, mana: 315, manaGrowth: 32, damage: 49, damageGrowth: 3.9,
+      armor: 2.5, armorGrowth: .42, range: 490, interval: 1.19, speedGrowth: .027, speed: 301, regen: 1.9, manaRegen: 1.25,
+      heat: { max:6, attack:3 },
+      abilities: [
+        { name: 'Flashpan', kind: 'blast', fixed: true, mana: 55, cd: 7.5, range: 245, radius: 132, delay: .22, damage: 87, growth: 20, text: 'Burst 245 units toward the cursor. Use it when enemies close in.' },
+        { name: 'Chimney Shot', kind: 'blast', fixed: true, mana: 75, cd: 9, range: 570, radius: 145, delay: .34, damage: 107, growth: 22, text: 'Burst 570 units toward the cursor. The cursor sets direction and the distance is fixed.' },
+        { name: 'Bellows', kind: 'buff', mana: 60, cd: 17, duration: 4, stats: { move:.24, haste:.32 }, text: 'Gain 24% movement speed and 32% attack speed for 4 seconds.' },
+        { name: 'Furnace Vent', kind: 'blast', mana: 145, cd: 68, range: 0, radius: 340, delay: .70, damage: 135, growth: 26, heatDamage: 18, text: 'Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack.' }
+      ],
+      build: ['boots', 'gloves', 'striders', 'stone', 'greatblade', 'executioner', 'prism', 'arcane', 'void', 'charm', 'heartstone']
     }
   };
   const ITEMS = {
-    potion: { color: '#e2506a', name: 'Mend Potion', cost: 90, text: 'F restores 300 HP over 10s.' },
+    potion: { color: '#e2506a', name: 'Mend Potion', cost: 90, text: 'Restores 300 HP over 10s.' },
     tome: { color: '#cdb46a', name: 'Tome of Insight', cost: 280, text: '+220 XP immediately. Restocks in 150s.' },
     stone: { color: '#b9c2cc', name: 'Whetstone', cost: 320, stats: { damage: 12 }, text: '+12 damage' },
     gloves: { color: '#e8d15a', name: 'Swift Gloves', cost: 520, stats: { haste: .25 }, text: '+25% attack speed' },

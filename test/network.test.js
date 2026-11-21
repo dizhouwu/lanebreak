@@ -150,7 +150,7 @@ test('only a seated player can surrender and both players receive the same final
   assert.equal(rejoined.endReason, 'surrender');
 });
 
-test('online Neris can queue marks and cast before receiving a new snapshot', async t => {
+test('online Neris can queue marks, prepare a spell, and cast before receiving a new snapshot', async t => {
   const url = await setup(t);
   const a = connect(url.ws), b = connect(url.ws);
   t.after(() => { a.ws.close(); b.ws.close(); });
@@ -163,11 +163,14 @@ test('online Neris can queue marks and cast before receiving a new snapshot', as
   cast(2);
   cast(0);
   cast(3);
+  cast(4);
   const moved = message => message.t === 's' && message.s.heroes[0].jump > 0;
   const [host, guest] = await Promise.all([a.get(moved), b.get(moved)]);
   assert.equal(host.s.heroes[0].x, 620);
   assert.deepEqual(host.s.heroes[0].marks, []);
-  assert.ok(host.s.heroes[0].cd[3] > host.s.time);
+  assert.deepEqual(host.s.heroes[0].prepared, ['QE']);
+  assert.ok(host.s.heroes[0].weaveReady.QE > host.s.time);
   assert.equal(guest.s.heroes[0].marks, undefined);
+  assert.equal(guest.s.heroes[0].prepared, undefined);
   assert.equal(guest.s.heroes[1].hero, 'mirel');
 });

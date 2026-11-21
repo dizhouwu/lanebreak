@@ -11,9 +11,12 @@ A one-lane 1v1 strategy game inspired by Dota 2's laning. Last-hit creeps, conte
 | Orrin, Gravity Sage | Burst caster with delayed impacts and a blink |
 | Sable, Glass Duelist | Mobile melee pressure with a dash and a piercing finisher |
 | Mirel, Fen Warden | Ranged lane control with persistent zones and defensive sustain |
-| Neris, Loomkeeper | Assembles a spell from a pair of marks at cast time |
+| Neris, Loomkeeper | Prepares spells from pairs of marks and casts them from two slots |
+| Cairn, Kiln Keeper | Ranged burst carry who builds Heat by last-hitting creeps |
 
-Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest two count, in either order. **R** casts the resulting spell, spends its mana, and starts a shared cooldown with a base duration of seven seconds. You can prepare the next pair during the cooldown.
+Hover over a hero on the home screen to read their kit. Select a hero and open **Abilities** for the same reference on touchscreens. Open **Item guide** to search shop items by name, effect, or recipe component and compare their full prices.
+
+Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest two count, in either order. **R** prepares the recipe in **D** and moves the previous spell to **F**. **D** and **F** cast the prepared spells and spend their mana. Each spell keeps its own cooldown when it changes slots or is prepared again. Neris uses **V** for potions.
 
 | Marks | Spell |
 |---|---|
@@ -23,6 +26,8 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 | W + W | Pincushion, three focused area hits |
 | W + E | Anchor Stitch, a delayed area stun |
 | E + E | Double Knot, temporary armor and healing |
+
+Cairn's **Q** and **W** burst at fixed distances along the cursor direction. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
 
 ## Play solo
 

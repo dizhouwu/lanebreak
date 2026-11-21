@@ -12,21 +12,28 @@
   const CREEP_AGGRO_RANGE = 500;
   const CREEP_AGGRO_TIME = 2.3;
   const CREEP_AGGRO_COOLDOWN = 3;
-  const spellDamage = (hero, spell) => spell.damage ? Math.round((spell.damage + spell.growth * (hero.level - 1)) * hero.stats.power) : 0;
+  const spellDamage = (hero, spell) => spell.damage ? Math.round(
+    (spell.damage + spell.growth * (hero.level - 1) + (spell.heatDamage || 0) * (hero.heat || 0)) * hero.stats.power
+  ) : 0;
   const abilityLevel = (hero, i) => (HEROES[hero.hero].unlocks || UNLOCKS)[i];
+  const weaveRecipe = hero => hero.marks?.length === 2 ? [...hero.marks].sort().map(mark => 'QWE'[mark]).join('') : null;
   function abilitySpell(hero, i) {
     const kit = HEROES[hero.hero];
-    if (i === 3 && kit.weaves && hero.marks?.length === 2) {
-      const recipe = [...hero.marks].sort().map(mark => 'QWE'[mark]).join('');
-      return kit.weaves[recipe] || kit.abilities[i];
-    }
+    if (i >= 4 && kit.weaves) return kit.weaves[hero.prepared?.[i - 4]] || kit.abilities[i];
     return kit.abilities[i];
   }
+  const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
   function abilityError(hero, i, time, spell = abilitySpell(hero, i)) {
+    if (!spell) return 'Invalid ability';
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
-    if (hero.cd[i] > time) return 'Ability cooling down';
-    if (spell.kind === 'weave') return 'Queue two marks with Q, W, or E';
+    if (abilityReadyAt(hero, i) > time) return 'Ability cooling down';
+    if (spell.kind === 'prepared') return 'Prepare a spell with R first';
+    if (spell.kind === 'invoke') {
+      const recipe = weaveRecipe(hero);
+      if (!recipe) return 'Queue two marks with Q, W, or E';
+      if (hero.prepared[0] === recipe) return 'That spell is already in D';
+    }
     if (hero.mana < spell.mana) return 'Not enough mana';
     return null;
   }
@@ -107,6 +114,7 @@
     const s = { hp: d.hp + lv * d.hpGrowth, mana: d.mana + lv * d.manaGrowth, damage: d.damage + lv * d.damageGrowth,
       armor: d.armor + lv * d.armorGrowth, speed: d.speed, regen: d.regen + lv * .15, manaRegen: d.manaRegen + lv * .08,
       haste: 1 + lv * d.speedGrowth, life: 0, power: 1, move: 1, multiplier: 1 };
+    if (d.heat) s.damage += h.heat * d.heat.attack;
     const strongest = {};
     for (const slot of h.inventory) {
       for (const [key, value] of Object.entries(ITEMS[slot.id].stats || {})) {
@@ -153,7 +161,8 @@
         const spec = HEROES[hero];
         const h = this.unit({ type: 'hero', team, hero, name: names[team] || spec.name, ...home(team), r: 26,
           level: 1, xp: 0, gold: 600, inventory: [], pots: 0, buffs: [], cd: [0, 0, 0, 0],
-          ...(spec.weaves && { marks: [] }),
+          ...(spec.weaves && { marks: [], prepared: [], weaveReady: {} }),
+          ...(spec.heat && { heat: 0 }),
           itemsReady: {}, recallReady: 0, tomeReady: 0, lastThreat: -Infinity, recentAggro: -Infinity,
           bot: bots[team], think: this.random() * .3, buildIndex: 0, sway: 0, deaths: 0, lastHits: 0, denies: 0 });
         refresh(h, 0);
@@ -267,6 +276,7 @@
         if (source === hero && !deny) {
           hero.gold += unit.gold;
           hero.lastHits++;
+          if (hero.heat != null && hero.hp > 0) hero.heat = Math.min(hero.heat + 1, HEROES[hero.hero].heat.max);
           this.effect('gold', unit.x, unit.y, { audience: hero.team, text: '+' + unit.gold });
         }
         if (deny) {
@@ -276,6 +286,7 @@
         if (hero.hp > 0 && distance(hero, unit) <= 1200) this.gainXp(hero, unit.xp * (deny ? .4 : 1));
       } else if (unit.type === 'hero') {
         unit.deaths++;
+        if (unit.heat != null) unit.heat = Math.floor(unit.heat / 2);
         this.effect('fall', unit.x, unit.y, { unit: 'hero' });
         unit.respawn = this.time + 5 + 2.2 * unit.level;
         unit.order = null;
@@ -394,14 +405,23 @@
         h.marks = [...h.marks.slice(-1), i];
         return null;
       }
-      if (spec.weaves) h.marks = [];
+      const readyAt = this.time + spell.cd * (1 - (h.stats.cdr || 0));
+      if (spell.kind === 'invoke') {
+        const recipe = weaveRecipe(h);
+        h.prepared = [recipe, ...h.prepared.filter(previous => previous !== recipe)].slice(0, 2);
+        h.marks = [];
+        h.cd[i] = readyAt;
+        return null;
+      }
       const ultimate = i === 3 && !spec.weaves;
       h.mana -= spell.mana;
-      h.cd[i] = this.time + spec.abilities[i].cd * (1 - (h.stats.cdr || 0));
+      if (i >= 4) h.weaveReady[h.prepared[i - 4]] = readyAt;
+      else h.cd[i] = readyAt;
       h.windup = null;
       h.channel = 0;
       if (spell.kind !== 'nova' && spell.kind !== 'buff' && (x !== h.x || y !== h.y)) h.facing = Math.atan2(y - h.y, x - h.x);
       const damage = spellDamage(h, spell);
+      if (spell.heatDamage) h.heat = 0;
       this.effect('cast', h.x, h.y, { team: h.team, hero: h.hero, spell: spell.kind, ultimate });
       switch (spell.kind) {
         case 'bolt': {
@@ -411,10 +431,12 @@
             from: h, team: h.team, speed: spell.speed, dx, dy, left: spell.range, spell, damage, hit: new Set() });
           break;
         }
-        case 'blast':
-          this.areas.push({ id: this.nextId++, ...point(h, x, y, spell.range, 0, false), from: h, team: h.team, radius: spell.radius,
+        case 'blast': {
+          const target = spell.fixed ? { x:h.x + Math.cos(h.facing) * spell.range, y:h.y + Math.sin(h.facing) * spell.range } : { x, y };
+          this.areas.push({ id: this.nextId++, ...point(h, target.x, target.y, spell.range, 0, false), from: h, team: h.team, radius: spell.radius,
             time: this.time + spell.delay, duration: spell.delay, ultimate, hits: spell.hits || 1, spell, damage });
           break;
+        }
         case 'nova':
           this.blast(h, spell, h.x, h.y, damage);
           break;
@@ -821,9 +843,10 @@
         return along >= 0 && along <= length && Math.abs(x * dy - y * dx) < width + c.r;
       });
     }
-    creepCluster(hero, reach, radius) {
+    creepCluster(hero, reach, radius, minimum = 0) {
       let best = null, count = 2;
       for (const c of this.nearbyCreeps(hero, 1 - hero.team, reach)) {
+        if (minimum && distance(hero, c) < minimum) continue;
         const cluster = this.nearbyCreeps(c, c.team, radius).length;
         if (cluster > count) {
           best = c;
@@ -832,15 +855,20 @@
       }
       return best;
     }
-    abilityReady(hero, i, mana = hero.mana, spell = abilitySpell(hero, i)) {
-      return hero.level >= abilityLevel(hero, i) && hero.cd[i] <= this.time && spell.kind !== 'weave' && mana >= spell.mana;
+    abilityReady(hero, i, mana = hero.mana) {
+      const spell = abilitySpell(hero, i);
+      return hero.level >= abilityLevel(hero, i) && abilityReadyAt(hero, i) <= this.time && mana >= spell.mana;
+    }
+    weaveAvailable(hero, recipe, spell) {
+      return hero.mana >= spell.mana && (hero.weaveReady[recipe] || 0) <= this.time &&
+        (hero.cd[3] <= this.time || hero.prepared.includes(recipe));
     }
     aiBurst(hero, enemy) {
       let mana = hero.mana;
       let damage = 3 * hero.stats.damage * hero.stats.multiplier * physical(enemy.armor);
       const spec = HEROES[hero.hero];
       if (spec.weaves) {
-        const weaves = Object.values(spec.weaves).filter(spell => this.abilityReady(hero, 3, mana, spell));
+        const weaves = Object.entries(spec.weaves).filter(([recipe, spell]) => this.weaveAvailable(hero, recipe, spell)).map(([, spell]) => spell);
         return damage + Math.max(0, ...weaves.map(spell => .75 * spellDamage(hero, spell) * (spell.hits ? spell.hits * .5 : 1)));
       }
       for (const [i, spell] of spec.abilities.entries()) {
@@ -851,11 +879,20 @@
       return damage;
     }
     castBotSpell(h, i, pos, recipe) {
-      const previous = h.marks;
-      if (recipe) h.marks = Array.from(recipe, mark => 'QWE'.indexOf(mark));
-      const error = this.order(h.team, { o:'cast', i, x:pos.x, y:pos.y });
-      if (error && recipe) h.marks = previous;
-      return !error;
+      if (recipe) {
+        let slot = h.prepared.indexOf(recipe);
+        if (slot < 0) {
+          const previous = h.marks;
+          h.marks = Array.from(recipe, mark => 'QWE'.indexOf(mark));
+          if (this.order(h.team, { o:'cast', i:3, x:pos.x, y:pos.y })) {
+            h.marks = previous;
+            return false;
+          }
+          slot = 0;
+        }
+        i = slot + 4;
+      }
+      return !this.order(h.team, { o:'cast', i, x:pos.x, y:pos.y });
     }
     aiCast(h, enemy, mode, difficulty) {
       if (this.random() > difficulty.cast) return false;
@@ -872,7 +909,7 @@
       const options = spec.weaves ? recipes.map(recipe => ({ i:3, spell:spec.weaves[recipe], recipe })) :
         [3, 1, 0, 2].map(i => ({ i, spell:spec.abilities[i] }));
       for (const { i, spell, recipe } of options) {
-        if (!this.abilityReady(h, i, h.mana, spell)) continue;
+        if (recipe ? !this.weaveAvailable(h, recipe, spell) : !this.abilityReady(h, i)) continue;
         const ultimate = i === 3 && !recipe;
         const cast = pos => this.castBotSpell(h, i, pos, recipe);
         switch (spell.kind) {
@@ -885,8 +922,12 @@
           }
           case 'blast': {
             const want = kill || (ultimate ? enemyHealth < .7 && mana > .3 : mana > .4);
-            if (reach < spell.range + spell.radius * .4 && want) return cast(aim(spell.delay * .8));
-            const cluster = push && !ultimate && mana > .75 && this.creepCluster(h, spell.range, spell.radius);
+            const inRange = spell.fixed ? Math.abs(reach - spell.range) < spell.radius * .8 :
+              reach < spell.range + spell.radius * (spell.range ? .4 : .9);
+            if (inRange && want) return cast(aim(spell.delay * .8));
+            const padding = spell.fixed ? spell.radius * .65 : 0;
+            const cluster = push && !ultimate && mana > .75 &&
+              this.creepCluster(h, spell.range + padding, spell.radius, spell.fixed ? spell.range - padding : 0);
             if (cluster) return cast(cluster);
             break;
           }
@@ -952,7 +993,7 @@
           if (enemyDist < 700) {
             const away = { x:h.x - dir * 1000, y:h.y };
             if (data.weaves) {
-              if (this.abilityReady(h, 3, h.mana, data.weaves.QE)) this.castBotSpell(h, 3, away, 'QE');
+              if (this.weaveAvailable(h, 'QE', data.weaves.QE)) this.castBotSpell(h, 3, away, 'QE');
             } else {
               const escape = data.abilities.findIndex((spell, i) => this.abilityReady(h, i) &&
                 (spell.kind === 'dash' || spell.kind === 'blink' || (spell.kind === 'buff' && (spell.stats.move || spell.stats.armor))));
@@ -1055,10 +1096,11 @@
         const common = { ...base(h), hero: h.hero, name: h.name, level: h.level, respawn: h.respawn,
           channel: h.channel, mana: h.mana, maxMana: h.maxMana, deaths: h.deaths, lastHits: h.lastHits, denies: h.denies, jump: h.jump || 0,
           facing: h.facing, buffs: h.buffs.map(b => b.id), potionActive: h.potionUntil > this.time, computer: !!h.bot,
+          ...(h.heat != null && { heat:h.heat }),
           loadout: h.inventory.map(item => item.id) };
         if (h.team !== team && !full) return common;
         return { ...common, gold: h.gold, xp: h.xp, cd: h.cd, inventory: h.inventory, itemsReady: h.itemsReady,
-          ...(h.marks && { marks:h.marks }),
+          ...(h.marks && { marks:h.marks, prepared:h.prepared, weaveReady:h.weaveReady }),
           recallReady: h.recallReady, tomeReady: h.tomeReady, pots: h.pots, stats: h.stats, potionUntil: h.potionUntil,
           canShop: this.canShop(h) };
       });
@@ -1084,7 +1126,7 @@
       case 'move':
       case 'amove': return pos;
       case 'attack': return Number.isSafeInteger(cmd.id) && cmd.id > 0;
-      case 'cast': return slot(4) && pos;
+      case 'cast': return slot(6) && pos;
       case 'item': return slot(6) && pos;
       case 'sell': return slot(6);
       case 'buy': return typeof cmd.id === 'string' && owns(ITEMS, cmd.id);
@@ -1095,7 +1137,7 @@
     }
   }
   const api = { Match, validOrder, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell,
-    abilityError, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
+    abilityError, abilityReadyAt, weaveRecipe, pickTarget, pickUnit, CREEP_FLAGS, xpGoal, home, distance, physical };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = api;
 })();

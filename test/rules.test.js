@@ -234,18 +234,23 @@ test('standard spells respect unlock levels, mana, and cooldowns', () => {
   }
 });
 
-test('Neris can cast all six recipes at level one in either order', () => {
+test('Neris can prepare and cast all six recipes at level one in either order', () => {
   for (const [recipe, spell] of Object.entries(HEROES.neris.weaves)) {
     const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
     const hero = match.heroes[0];
     const cast = i => match.order(0, { o:'cast', i, x:600, y:450 });
     assert.match(cast(3), /Queue two marks/);
+    assert.match(cast(4), /Prepare a spell/);
     for (const key of [...recipe].reverse()) assert.equal(cast('QWE'.indexOf(key)), null);
     assert.equal(hero.mana, hero.maxMana);
     assert.equal(cast(3), null);
-    assert.equal(hero.mana, hero.maxMana - spell.mana);
+    assert.equal(hero.mana, hero.maxMana);
+    assert.deepEqual(hero.prepared, [recipe]);
     assert.deepEqual(hero.marks, []);
     assert.equal(hero.cd[3], HEROES.neris.abilities[3].cd);
+    assert.equal(cast(4), null);
+    assert.equal(hero.mana, hero.maxMana - spell.mana);
+    assert.equal(hero.weaveReady[recipe], spell.cd);
     if (spell.kind === 'blast') assert.equal(match.areas[0].spell, spell);
     else if (spell.kind === 'bolt') assert.equal(match.projectiles[0].spell, spell);
     else if (spell.kind === 'blink') assert.equal(hero.x, 600);
@@ -253,13 +258,14 @@ test('Neris can cast all six recipes at level one in either order', () => {
   }
 });
 
-test('Neris keeps the latest marks when Weave is on cooldown or lacks mana', () => {
+test('Neris preserves spell cooldowns when spells swap slots or are prepared again', () => {
   const match = new Match({ heroes:['neris','brakk'], bots:[null,null] });
   const hero = match.heroes[0];
   const cast = i => match.order(0, { o:'cast', i, x:600, y:450 });
   cast(0);
-  cast(0);
+  cast(2);
   assert.equal(cast(3), null);
+  assert.equal(cast(4), null);
   cast(0);
   cast(1);
   cast(2);
@@ -267,13 +273,51 @@ test('Neris keeps the latest marks when Weave is on cooldown or lacks mana', () 
   assert.match(cast(3), /cooling down/);
   match.time = hero.cd[3];
   hero.mana = 0;
-  assert.match(cast(3), /Not enough mana/);
-  assert.deepEqual(hero.marks, [1, 2]);
-  assert.deepEqual(match.snapshot(0).heroes[0].marks, [1, 2]);
-  assert.equal(match.snapshot(1).heroes[0].marks, undefined);
-  hero.mana = HEROES.neris.weaves.WE.mana;
   assert.equal(cast(3), null);
+  assert.deepEqual(hero.prepared, ['WE', 'QE']);
+  assert.match(cast(4), /Not enough mana/);
+  assert.match(cast(5), /cooling down/);
+  hero.mana = hero.maxMana;
+  assert.equal(cast(4), null);
   assert.equal(match.areas[0].spell.name, 'Anchor Stitch');
+  match.time = hero.cd[3];
+  cast(2); cast(2);
+  assert.equal(cast(3), null);
+  match.time = hero.cd[3];
+  cast(2); cast(0);
+  assert.equal(cast(3), null);
+  assert.deepEqual(match.snapshot(0).heroes[0].prepared, ['QE', 'EE']);
+  assert.equal(match.snapshot(1).heroes[0].prepared, undefined);
+  assert.match(cast(4), /cooling down/);
+  assert.equal(cast(5), null);
+});
+
+test('Cairn uses fixed blast distances, banks Heat from last hits, and spends it on Furnace Vent', () => {
+  const match = new Match({ heroes:['cairn','brakk'], bots:[null,null] });
+  const hero = match.heroes[0], kit = HEROES.cairn;
+  Object.assign(hero, { x:1000, y:500, level:6 });
+  assert.equal(match.order(0, { o:'cast', i:0, x:1050, y:500 }), null);
+  assert.equal(match.order(0, { o:'cast', i:1, x:1150, y:500 }), null);
+  assert.deepEqual(match.areas.map(area => area.x), [1245, 1570]);
+  match.spawn();
+  match.spawn();
+  match.spawn();
+  const wave = match.creeps.filter(creep => creep.team === 1);
+  match.kill(match.creeps.find(creep => creep.team === 0),hero,true);
+  assert.equal(hero.heat, 0);
+  for (const creep of wave) match.kill(creep,hero,false);
+  assert.equal(hero.heat, kit.heat.max);
+  advance(match, .03);
+  assert.equal(hero.stats.damage, kit.damage + (hero.level - 1) * kit.damageGrowth + kit.heat.max * kit.heat.attack);
+  hero.mana = hero.maxMana;
+  const expected = spellDamage(hero, kit.abilities[3]);
+  assert.equal(match.order(0, { o:'cast', i:3, x:1600, y:500 }), null);
+  assert.equal(match.areas.at(-1).damage, expected);
+  assert.equal(match.areas.at(-1).x, hero.x);
+  assert.equal(hero.heat, 0);
+  Object.assign(hero, { heat:5 });
+  match.kill(hero,match.heroes[1],false);
+  assert.equal(hero.heat, 2);
 });
 
 test('recall is interrupted by an order and completes after three seconds when uninterrupted', () => {

@@ -12,7 +12,7 @@
   <main id="lobby">
     <header class="mast">
       <div class="brand"><span class="mark" aria-hidden="true"></span> LANEBREAK</div>
-      <button class="iconButton" id="help">Controls <kbd>?</kbd></button>
+      <div class="mastActions"><button class="iconButton" id="openItemGuide">Item guide</button><button class="iconButton" id="help">Controls <kbd>?</kbd></button></div>
     </header>
     <section class="titleBlock">
       <div class="eyebrow"><span></span> ONE-LANE STRATEGY DUELS</div>
@@ -21,8 +21,9 @@
     </section>
     <div class="lobbyControls">
       <section class="draft">
-        <div class="sectionHeader"><h2>Choose your hero</h2><span class="keyHint"><kbd>1</kbd>–<kbd>6</kbd></span></div>
+        <div class="sectionHeader"><h2>Choose your hero</h2><div class="draftActions"><button type="button" id="openHeroGuide" class="iconButton">Abilities</button><span class="keyHint"><kbd>1</kbd>–<kbd>7</kbd></span></div></div>
         <div id="heroes" class="heroGrid"></div>
+        <div id="heroPreview" class="panel heroPreview" role="tooltip" hidden></div>
       </section>
       <section class="deploy">
         <nav class="tabs" aria-label="Match mode"><button id="soloTab" aria-pressed="true">Solo</button><button id="onlineTab" aria-pressed="false">Online 1v1</button></nav>
@@ -72,13 +73,24 @@
       <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to pan in free camera mode"></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
-        <div class="abilityBlock"><small id="weaveMarks" aria-live="polite" hidden></small><div class="abilities" id="abilities"></div></div>
+        <div class="abilityBlock"><small id="heroResource" aria-live="polite" hidden></small><div class="abilities" id="abilities"></div></div>
         <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
         <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton" aria-controls="shop" aria-expanded="false"><kbd>B</kbd><span>Item shop</span></button></div>
       </div>
       <div id="hudTooltip" class="panel hudTooltip" role="tooltip" hidden></div>
     </footer>
   </section>
+  <dialog id="itemGuide" class="panel" aria-labelledby="itemGuideTitle">
+    <header><h2 id="itemGuideTitle">Item guide</h2><button type="button" id="closeItemGuide">Close <kbd>Esc</kbd></button></header>
+    <label class="fieldLabel" for="itemSearch">Search by item, effect, or component</label>
+    <input id="itemSearch" type="search" autocomplete="off" placeholder="Search items" autofocus>
+    <p id="itemSearchEmpty" role="status" hidden>No matching items.</p>
+    <div id="itemCatalog"></div>
+  </dialog>
+  <dialog id="heroGuide" class="panel" aria-labelledby="heroGuideTitle">
+    <header><h2 id="heroGuideTitle">Hero abilities</h2><button type="button" id="closeHeroGuide" autofocus>Close <kbd>Esc</kbd></button></header>
+    <div id="selectedHeroGuide"></div>
+  </dialog>
   <dialog id="controls" class="panel">
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
@@ -92,7 +104,7 @@
       <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause solo play.</dd>
       <dt><kbd>G</kbd> / <kbd>M</kbd></dt><dd>Cycle graphics quality / toggle sound.</dd>
     </dl>
-    <details><summary>Neris spell recipes</summary><p>Choose two marks with Q, W, or E in either order. Press R to cast.</p><dl id="weaveRecipes"></dl></details>
+    <details><summary>Neris spell recipes</summary><p>Choose two marks with Q, W, or E in either order. Press R to prepare the spell, then D or F to cast. Neris uses V for potions.</p><dl id="weaveRecipes"></dl></details>
     <p class="muted">Last-hit enemy creeps for gold. Destroy the outer tower, inner tower, and enemy core in order.</p>
   </dialog>
   <!-- SCRIPTS -->
