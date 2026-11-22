@@ -9,7 +9,7 @@
   const weaveGuide = Object.entries(HEROES.neris.weaves).map(([marks, spell]) => [...marks].join('+') + ' · ' + spell.name).join('\n');
   const difficulties = Object.keys(DIFF);
   const itemGroups = [
-    ['Consumables', id => ['potion','tome','dust'].includes(id)],
+    ['Consumables', id => id === 'dust'],
     ['Basics', id => ITEMS[id].stats && !ITEMS[id].parts],
     ['Upgrades', id => id === 'rift' || (ITEMS[id].parts && !ITEMS[id].master)],
     ['Masterworks', id => ITEMS[id].master]
@@ -91,7 +91,7 @@
     panel.replaceChildren(make('h3', hero.name + ' · ' + hero.title), make('p', hero.role, 'muted'), list);
     if (hero.heat) panel.append(make('p', 'Heat · Last hits on enemy creeps add +' + hero.heat.attack +
       ' attack damage per stack, up to ' + hero.heat.max + '. On death, you lose half your Heat.', 'heroTrait'));
-    if (hero.weaves) panel.append(make('p', 'Cast prepared spells with D and F. Use V for potions.', 'heroTrait'));
+    if (hero.weaves) panel.append(make('p', 'Cast prepared spells with D and F.', 'heroTrait'));
     if (showBuilds) {
       const builds = make('div');
       renderBuilds(builds, hero);
@@ -201,8 +201,8 @@
     button.addEventListener('click', () => issue({ o: 'buy', id }));
     return button;
   }
-  function updateBuyButton(button, h, time) {
-    const id = button.dataset.buy, item = ITEMS[id], plan = shopOffer(h,id,time,h.canShop);
+  function updateBuyButton(button, h) {
+    const id = button.dataset.buy, item = ITEMS[id], plan = shopOffer(h,id,h.canShop);
     button.textContent = (plan.reason ? '' : 'Buy ') + plan.cost + 'g';
     button.dataset.buyable = !plan.reason;
     button.setAttribute('aria-disabled', !!plan.reason);
@@ -639,7 +639,7 @@
       if (cmd.o === 'cast' && !HEROES[h.hero].weaves) {
         error = abilityError(h, cmd.i, snapshot.time);
       }
-      if (cmd.o === 'buy') error = shopOffer(h, cmd.id, snapshot.time, h.canShop).reason;
+      if (cmd.o === 'buy') error = shopOffer(h, cmd.id, h.canShop).reason;
       if (cmd.o === 'sell' && !h.canShop) error = 'Return to your fountain to sell items';
       if (!error) socket.send(JSON.stringify({ t: 'o', ...cmd }));
     } else {
@@ -892,7 +892,7 @@
         add('Sells for ' + sellValue(h.inventory[slot], time) + 'g', 'cost');
         if (!h.canShop) add('Return to your fountain to sell items');
       } else {
-        const offer = shopOffer(h, id, time, h.canShop);
+        const offer = shopOffer(h, id, h.canShop);
         add('Price now · ' + offer.cost + 'g', 'cost');
         if (offer.reason) add(offer.reason);
       }
@@ -913,9 +913,9 @@
         panel.append(make('h4', 'Builds into'), links);
       }
     }
-    updateShopRecipe(h, time, !selling && item?.parts ? id : null);
+    updateShopRecipe(h, !selling && item?.parts ? id : null);
   }
-  function updateShopRecipe(h, time, id) {
+  function updateShopRecipe(h, id) {
     const container = $('shopRecipe');
     container.hidden = !id;
     if (!id) return;
@@ -940,7 +940,7 @@
       container.dataset.recipe = signature;
       container.replaceChildren(make('h4','Recipe'),tree);
     }
-    for (const button of container.querySelectorAll('[data-buy]')) updateBuyButton(button,h,time);
+    for (const button of container.querySelectorAll('[data-buy]')) updateBuyButton(button,h);
   }
   function updateShop(h, time) {
     $('shopStatus').textContent = h.canShop ? Math.floor(h.gold) + ' gold available' : 'Purchase at your fountain or while dead';
@@ -953,7 +953,7 @@
       const id = button.dataset.item, item = ITEMS[id];
       button.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : '', item.parts ? 'Recipe' : ''].filter(Boolean).join(' · ');
       button.setAttribute('aria-pressed', id === shopSelection);
-      updateBuyButton(button.nextElementSibling,h,time);
+      updateBuyButton(button.nextElementSibling,h);
     }
     const sign = h.inventory.map(item => item.id).join(',');
     if ($('sellItems').dataset.content !== sign) {
@@ -1177,9 +1177,6 @@
       button.style.setProperty('--cooldown', (cd ? Math.min(100,cd/item.cd*100) : 0) + '%');
       button.style.borderColor = item?.color || '';
     }
-    const utility = document.querySelector('[data-utility=potion]');
-    utility.firstElementChild.textContent = hero.weaves ? 'V' : 'F';
-    utility.lastElementChild.textContent = 'Potion ×' + h.pots;
     $('shopButton').dataset.open = h.canShop;
     $('shopButton').title = h.canShop ? 'Buy equipment (B)' : 'Browse equipment · Buy at your fountain (B)';
     document.querySelector('[data-utility=recall] span').textContent = h.channel > time ? (h.channel-time).toFixed(1) + 's' :
@@ -1570,7 +1567,6 @@
       return;
     }
     const kit = snapshot && HEROES[snapshot.heroes[team].hero];
-    const weaver = kit?.weaves;
     const spellSlot = keys.indexOf(k.toUpperCase());
     if (pendingCast && k === 'escape') return setPendingCast(null);
     if (pendingCast && ['a', 's', 't'].includes(k)) setPendingCast(null);
@@ -1587,7 +1583,6 @@
     } else if (spellSlot >= 0 && spellSlot < kit?.abilities.length) chooseAbility(spellSlot);
     else if (/^[1-6]$/.test(k)) useItem(+k - 1);
     else if (k === 'b') toggleShop();
-    else if (k === (weaver ? 'v' : 'f')) issue({o:'potion'});
     else if (k === 't') issue({o:'recall'});
     else if (k === 's') {
       const ids = selectedGroup();

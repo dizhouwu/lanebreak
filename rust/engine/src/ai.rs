@@ -425,10 +425,6 @@ impl Match {
         let home_dist = u.pos.dist(own);
         let dir = if team == 0 { 1.0 } else { -1.0 };
         if (u.hp == 0.0 || home_dist < 400.0) && u.windup.is_none() {
-            let h = self.h(id);
-            if h.level < 9 && h.pots == 0 && h.gold >= 90.0 {
-                let _ = self.buy(id, "potion");
-            }
             if let Some(key) = kit.build.get(self.h(id).build_index)
                 && self.buy(id, key).is_ok()
             {
@@ -438,9 +434,6 @@ impl Match {
         let u = self.u(id);
         if u.hp == 0.0 || u.windup.is_some() || u.dash.is_some() || u.stun_until > t {
             return;
-        }
-        if hp < 0.60 && enemy_dist > 650.0 {
-            let _ = self.command(id, Command::Potion);
         }
         if hp < 0.50 {
             self.bot_item(id, "locket");

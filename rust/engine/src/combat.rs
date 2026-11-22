@@ -277,7 +277,6 @@ impl Match {
             let t = self.time;
             let h = self.h_mut(target);
             h.last_threat = t;
-            h.potion_until = 0.0;
             if source_role == Role::Hero {
                 self.h_mut(source).recent_aggro = t;
             }
@@ -463,7 +462,6 @@ impl Match {
                 h.order = Order::None;
                 h.channel = 0.0;
                 h.cast_channel = None;
-                h.potion_until = 0.0;
                 h.buffs.clear();
                 h.spell_barrier = None;
                 h.impact_hits = 0;

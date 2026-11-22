@@ -3,6 +3,32 @@ use super::{orders::Command, *};
 const DT: f64 = 1.0 / 60.0;
 
 #[test]
+fn insight_rune_spawns_and_grants_experience_on_both_maps() {
+    for team_match in [false, true] {
+        let mut m = Match::from_options(
+            &json!({"team_match":team_match, "bots":[null,null,null,null,null,null,null,null,null,null]})
+                .to_string(),
+        )
+        .unwrap();
+        m.rng = 9;
+        m.next_wave = f64::INFINITY;
+        m.time = m.next_orb;
+        m.step(DT, 1);
+
+        let rune = m.orb.unwrap();
+        assert_eq!(rune.kind, "Insight");
+        let player = m.heroes[0];
+        assert_eq!(m.h(player).xp, 0.0);
+        place(&mut m, player, rune.pos.x, rune.pos.y);
+        m.step(DT, 1);
+        assert!(m.orb.is_none());
+        assert_eq!(m.h(player).level, 2);
+        assert_eq!(m.h(player).xp, 20.0);
+        assert_eq!(m.next_orb, m.time + 75.0);
+    }
+}
+
+#[test]
 fn personal_kda_counts_recent_damage_once_and_is_public_when_concealed() {
     let mut m = Match::from_options(r#"{"team_match":true}"#).unwrap();
     let (killer, helper, expired, victim) = (m.heroes[0], m.heroes[1], m.heroes[2], m.heroes[5]);
@@ -1369,7 +1395,6 @@ fn furnace_vent_requires_a_full_channel_and_commits_resources_on_release() {
         Command::Move(Point::new(2400.0, 450.0)),
         Command::Attack(2),
         Command::cast(0, at, None),
-        Command::Potion,
         Command::Recall,
         Command::Item(0, at),
     ] {

@@ -85,7 +85,6 @@ struct PublicHero<'a> {
     jump: u32,
     facing: f64,
     buffs: Vec<&'a str>,
-    potion_active: bool,
     loadout: Vec<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     spell_barrier: Option<f64>,
@@ -134,10 +133,7 @@ struct PrivateHero<'a> {
     inventory: &'a [Inventory],
     items_ready: &'a BTreeMap<String, f64>,
     recall_ready: f64,
-    tome_ready: f64,
-    pots: u32,
     stats: &'a Stats,
-    potion_until: f64,
     can_shop: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     veil_until: Option<f64>,
@@ -374,7 +370,6 @@ impl Match {
                     jump: h.jump,
                     facing: u.facing,
                     buffs: h.buffs.iter().map(|b| b.id.as_str()).collect(),
-                    potion_active: h.potion_until > time,
                     loadout: h.inventory.iter().map(|i| i.id.as_str()).collect(),
                     spell_barrier: h
                         .spell_barrier
@@ -408,10 +403,7 @@ impl Match {
                     inventory: &h.inventory,
                     items_ready: &h.items_ready,
                     recall_ready: h.recall_ready,
-                    tome_ready: h.tome_ready,
-                    pots: h.pots,
                     stats: &h.stats,
-                    potion_until: h.potion_until,
                     can_shop: self.can_shop(id),
                     veil_until: veiled.then_some(u.veil_until),
                     impact: (stat(&h.stats, "bash") > 0.0)

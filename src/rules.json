@@ -1071,20 +1071,6 @@
     }
   },
   "ITEMS": {
-    "potion": {
-      "color": "#e2506a",
-      "name": "Mend Potion",
-      "cost": 90,
-      "text": "Restores 300 HP over 10s.",
-      "total": 90
-    },
-    "tome": {
-      "color": "#cdb46a",
-      "name": "Tome of Insight",
-      "cost": 280,
-      "text": "+220 XP immediately. Restocks in 150s.",
-      "total": 280
-    },
     "dust": {
       "color": "#c8a5ff",
       "name": "Revelation Dust",
@@ -1580,7 +1566,8 @@
     "Haste": "#5ae6e2",
     "Might": "#ff7d67",
     "Renewal": "#93e78d",
-    "Wealth": "#ffcb6c"
+    "Wealth": "#ffcb6c",
+    "Insight": "#ad9aff"
   },
   "UNLOCKS": [
     1,

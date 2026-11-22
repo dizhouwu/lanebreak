@@ -30,7 +30,6 @@ pub(super) enum Command {
     TrainingCooldowns(bool),
     Fortify,
     Buyback,
-    Potion,
     Recall,
     Group {
         ids: Vec<Id>,
@@ -70,7 +69,6 @@ impl Command {
             "amove" => Self::Advance(pos()?),
             "attack" => Self::Attack(target()?),
             "stop" => Self::Stop,
-            "potion" => Self::Potion,
             "recall" => Self::Recall,
             "fortify" => Self::Fortify,
             "buyback" => Self::Buyback,
@@ -247,20 +245,7 @@ impl Match {
         if !self.can_shop(id) {
             return Err("Return to your fountain to buy items".into());
         }
-        if key == "potion" && h.pots >= 5 {
-            return Err("Potion limit reached".into());
-        }
-        if key == "tome" {
-            if h.level >= 15 {
-                return Err("Maximum level reached".into());
-            }
-            if h.tome_ready > self.time {
-                return Err(format!(
-                    "Restocks in {}s",
-                    (h.tome_ready - self.time).ceil()
-                ));
-            }
-        } else if key != "potion" && used.iter().filter(|&&used| !used).count() >= 6 {
+        if used.iter().filter(|&&used| !used).count() >= 6 {
             return Err("Inventory full".into());
         }
         if h.gold + 1e-6 < cost {
@@ -269,30 +254,21 @@ impl Match {
         let t = self.time;
         let h = self.h_mut(id);
         h.gold -= cost;
-        match key {
-            "potion" => h.pots += 1,
-            "tome" => {
-                h.tome_ready = t + 150.0;
-                self.gain_xp(id, 220.0);
-            }
-            _ => {
-                let spent = cost
-                    + h.inventory
-                        .iter()
-                        .zip(&used)
-                        .filter(|(_, used)| **used)
-                        .map(|(item, _)| sell_value(item, t))
-                        .sum::<f64>();
-                let mut used = used.into_iter();
-                h.inventory.retain(|_| !used.next().unwrap());
-                h.inventory.push(Inventory {
-                    id: key.to_owned(),
-                    spent,
-                    at: t,
-                });
-                self.recalculate_item_stats(id);
-            }
-        }
+        let spent = cost
+            + h.inventory
+                .iter()
+                .zip(&used)
+                .filter(|(_, used)| **used)
+                .map(|(item, _)| sell_value(item, t))
+                .sum::<f64>();
+        let mut used = used.into_iter();
+        h.inventory.retain(|_| !used.next().unwrap());
+        h.inventory.push(Inventory {
+            id: key.to_owned(),
+            spent,
+            at: t,
+        });
+        self.recalculate_item_stats(id);
         Ok(())
     }
 
@@ -627,17 +603,6 @@ impl Match {
             }
             Command::TargetItem { slot, key, target } => {
                 return self.use_item(id, slot, Point::default(), Some(&key), Some(target));
-            }
-            Command::Potion => {
-                let h = self.h_mut(id);
-                if h.pots == 0 {
-                    return Err("No potions".into());
-                }
-                if h.potion_until > time {
-                    return Err("Potion already active".into());
-                }
-                h.pots -= 1;
-                h.potion_until = time + 10.0;
             }
             Command::Recall => {
                 let u = self.u_mut(id);

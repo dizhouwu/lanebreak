@@ -213,7 +213,6 @@ impl Match {
             let u = self.u_mut(id);
             let h = u.hero.as_mut().unwrap();
             let regen = stat(&h.stats, "regen")
-                + if h.potion_until > time { 30.0 } else { 0.0 }
                 + if time - h.last_threat >= 6.0 {
                     stat(&h.stats, "recover") * u.max_hp
                 } else {
@@ -770,7 +769,7 @@ impl Match {
     fn update_orb(&mut self) {
         if self.orb.is_none() && self.time >= self.next_orb {
             let y = if self.random() < 0.5 { 170.0 } else { 730.0 };
-            let kinds = ["Haste", "Might", "Renewal", "Wealth"];
+            let kinds = ["Haste", "Might", "Renewal", "Wealth", "Insight"];
             let kind = kinds[(self.random() * kinds.len() as f64).floor() as usize];
             let pos = Point::new(
                 2600.0,
@@ -784,7 +783,7 @@ impl Match {
             self.effect(
                 "feed",
                 pos,
-                json!({"text": format!("{kind} orb appeared at the river")}),
+                json!({"text": format!("{kind} rune appeared at the river")}),
             );
         }
         let Some(Orb { pos, kind }) = self.orb else {
@@ -811,12 +810,13 @@ impl Match {
                 ]),
             ),
             "Wealth" => self.h_mut(id).gold += 120.0,
+            "Insight" => self.gain_xp(id, 220.0),
             _ => unreachable!(),
         }
         self.effect(
             "feed",
             pos,
-            json!({"team": self.u(id).team, "text": format!("{} claimed {kind}", self.h(id).name)}),
+            json!({"team": self.u(id).team, "text": format!("{} claimed the {kind} rune", self.h(id).name)}),
         );
         self.orb = None;
         self.next_orb = self.time + 75.0;

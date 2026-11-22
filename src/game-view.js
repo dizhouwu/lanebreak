@@ -81,14 +81,11 @@
   function sellValue(item, time) {
     return time - item.at <= 10 ? item.spent : Math.floor(ITEMS[item.id].total / 2);
   }
-  function shopOffer(hero, id, time, canShop) {
+  function shopOffer(hero, id, canShop) {
     const plan = buyPlan(hero, id);
     let reason = null;
     if (!canShop) reason = 'Return to your fountain to buy items';
-    else if (id === 'potion' && hero.pots >= 5) reason = 'Potion limit reached';
-    else if (id === 'tome' && hero.level >= 15) reason = 'Maximum level reached';
-    else if (id === 'tome' && hero.tomeReady > time) reason = 'Restocks in ' + Math.ceil(hero.tomeReady - time) + 's';
-    else if (id !== 'potion' && id !== 'tome' && hero.inventory.length - plan.consumed.length >= 6) reason = 'Inventory full';
+    else if (hero.inventory.length - plan.consumed.length >= 6) reason = 'Inventory full';
     else if (hero.gold + 1e-6 < plan.cost) reason = 'Need ' + Math.ceil(plan.cost - hero.gold) + ' more gold';
     return { ...plan, reason };
   }

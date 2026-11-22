@@ -1108,8 +1108,8 @@
       const {x} = u, y = u.y - (u.lifted ? 22 : 0), color = COLORS[u.team], armor = HEROES[u.hero].color;
       this.oval(g,x+7,u.y+10,30,16,'#102125a5');
       this.oval(g,x,y+4,u.r+9,u.r+5,null,color,4);
-      for (const id of u.potionActive ? [...(u.buffs || []), 'potion'] : u.buffs || []) {
-        const buffColor = ORBS[id] || (id === 'potion' ? '#e2506a' : id === 'sprint' ? '#f0a23c' : armor);
+      for (const id of u.buffs || []) {
+        const buffColor = ORBS[id] || (id === 'sprint' ? '#f0a23c' : armor);
         g.globalAlpha = .5 + .3 * Math.sin(now * 8);
         ellipse(g,x,y,u.r+15,u.r+15,null,buffColor,3);
         g.globalAlpha = 1;

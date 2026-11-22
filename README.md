@@ -2,6 +2,8 @@
 
 A browser strategy game with a one-lane 1v1 duel and a separate three-lane 5v5 battlefield. Last-hit creeps, contest river runes, and build items as you take down towers and the enemy core.
 
+Insight runes grant 220 XP to the hero who picks one up.
+
 ## Heroes
 
 | Hero | Play style |
@@ -19,7 +21,7 @@ A browser strategy game with a one-lane 1v1 duel and a separate three-lane 5v5 b
 
 Hover over a hero on the home screen to read their kit. Select a hero and open **Abilities** for the same reference on touchscreens. Open **Item guide** to search shop items by name, effect, or recipe component and compare their full prices.
 
-Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest three count, in any order. **R** prepares a new recipe in **D**, moves the previous spell to **F**, and starts a 0.5s base cooldown. Re-invoking a prepared recipe brings it to **D** immediately and preserves the current **R** timer. **D** and **F** cast the prepared spells and spend their mana. Each spell keeps its own cooldown when it changes slots or is prepared again. Neris uses **V** for potions.
+Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest three count, in any order. **R** prepares a new recipe in **D**, moves the previous spell to **F**, and starts a 0.5s base cooldown. Re-invoking a prepared recipe brings it to **D** immediately and preserves the current **R** timer. **D** and **F** cast the prepared spells and spend their mana. Each spell keeps its own cooldown when it changes slots or is prepared again.
 
 | Marks | Spell |
 |---|---|
@@ -56,7 +58,7 @@ Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and cl
 | Cast a self-targeted ability or prepare Neris's marks | Ability key |
 | Use active items | 1–6 |
 | Attack the target under the cursor or attack-move / stop attacking | A / S |
-| Shop / potion / recall | B / F / T |
+| Shop / recall | B / T |
 | Pause a solo match | P / Esc |
 | Show or hide teams, hero levels, and equipment | Backtick (<kbd>`</kbd>) |
 | Change graphics / toggle sound | G / M |

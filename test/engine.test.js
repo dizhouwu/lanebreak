@@ -150,6 +150,14 @@ test('the server validates positions, slots, target ids, and stale prepared spel
   assert.equal(m.snapshot(0).projectiles.length,0);
 });
 
+test('experience tomes and healing potions are no longer shop items or valid orders', () => {
+  for (const id of ['tome', 'potion']) {
+    assert.equal(ITEMS[id],undefined);
+    assert.equal(validOrder({o:'buy',id}),false);
+  }
+  assert.equal(validOrder({o:'potion'}),false);
+});
+
 test('targeting previews distinguish point, self, and enemy hero spells', () => {
   const expected = {
     vesper:['point','point','self','point'], brakk:['point','self','self','self'],
