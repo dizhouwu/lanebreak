@@ -459,6 +459,116 @@
         "renewal"
       ]
     },
+    "morrow": {
+      "name": "Morrow",
+      "title": "Chain Warden",
+      "role": "Hook and rescue initiator",
+      "color": "#f0b77a",
+      "hp": 745,
+      "hpGrowth": 99,
+      "mana": 300,
+      "manaGrowth": 30,
+      "damage": 59,
+      "damageGrowth": 4.6,
+      "armor": 3.8,
+      "armorGrowth": 0.49,
+      "range": 145,
+      "interval": 1.2,
+      "speed": 298,
+      "speedGrowth": 0.022,
+      "regen": 3.15,
+      "manaRegen": 1.45,
+      "abilities": [
+        {
+          "name": "Grapnel Line",
+          "kind": "hook",
+          "mana": 98,
+          "cd": 15,
+          "range": 880,
+          "radius": 27,
+          "speed": 1180,
+          "reelSpeed": 1550,
+          "damage": 95,
+          "growth": 14,
+          "text": "Fire a grapnel toward the cursor. The first hero or creep it hits is reeled toward your launch point. Allies can be rescued and take no damage."
+        },
+        {
+          "name": "Bilge Sweep",
+          "kind": "nova",
+          "mana": 65,
+          "cd": 9,
+          "radius": 200,
+          "damage": 68,
+          "growth": 12,
+          "slow": 0.44,
+          "slowTime": 1.8,
+          "text": "Sweep a weighted chain around you, damaging and slowing nearby enemies."
+        },
+        {
+          "name": "Ballast Brace",
+          "kind": "buff",
+          "mana": 55,
+          "cd": 15,
+          "duration": 5,
+          "stats": {
+            "armor": 8,
+            "regen": 9
+          },
+          "text": "Brace your armor for 5s, gaining 8 armor and 9 health regeneration."
+        },
+        {
+          "name": "Winch Lock",
+          "kind": "unit",
+          "mana": 115,
+          "cd": 43,
+          "range": 210,
+          "damage": 105,
+          "growth": 17,
+          "stun": 1.1,
+          "burnTicks": 3,
+          "burnInterval": 0.45,
+          "burnScale": 0.24,
+          "text": "Catch a nearby enemy hero in the winch. Stun them for 1.1s and deal additional damage over time."
+        }
+      ],
+      "recommendedBuilds": [
+        {
+          "name": "Hook initiator",
+          "detail": "Blink into an angle, then control the target with a stun and enough armor to stay in the fight.",
+          "items": [
+            "rift",
+            "faultline",
+            "colossus",
+            "spellward",
+            "void",
+            "renewal"
+          ]
+        },
+        {
+          "name": "Rescue frontline",
+          "detail": "Protect teammates after pulling them to safety, then use close-range control to cover their retreat.",
+          "items": [
+            "wayfarer",
+            "spellward",
+            "galeglass",
+            "faultline",
+            "locket",
+            "colossus"
+          ]
+        }
+      ],
+      "build": [
+        "boots",
+        "charm",
+        "locket",
+        "vest",
+        "bulwark",
+        "rift",
+        "faultline",
+        "colossus",
+        "spellward"
+      ]
+    },
     "neris": {
       "name": "Neris",
       "title": "Loomkeeper",
@@ -599,16 +709,16 @@
           "text": "Send a piercing shockwave toward the selected point. It knocks enemies back along its path and disarms heroes for 1.2 seconds."
         },
         "QEE": {
-          "name": "Needle Post",
-          "kind": "sentry",
+          "name": "Fire Spirits",
+          "kind": "spirit",
           "mana": 85,
-          "cd": 20,
+          "cd": 24,
           "range": 610,
-          "duration": 10,
-          "health": 270,
-          "shot": 30,
-          "shotGrowth": 3,
-          "text": "Plant a destructible sentry for 10 seconds. It fires at nearby enemy heroes and creeps."
+          "duration": 20,
+          "health": 180,
+          "shot": 21,
+          "shotGrowth": 2,
+          "text": "Summon two controllable fire spirits for 20 seconds. Drag a box over them with the left mouse button, then right-click to move or attack. Recasting replaces any surviving spirits."
         },
         "WWW": {
           "name": "Hollow Seam",

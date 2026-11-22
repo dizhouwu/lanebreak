@@ -222,7 +222,7 @@ impl Match {
             let ultimate = slot == 3 && recipe.is_none();
             let mut target = None;
             let at = match spell.kind {
-                Kind::Bolt => {
+                Kind::Bolt | Kind::Hook => {
                     if reach < spell.range * 0.85
                         && (kill || mana > 0.35)
                         && (spell.piercing || self.clear_shot(id, enemy, spell.radius))
@@ -289,7 +289,7 @@ impl Match {
                         }
                     }
                 }
-                Kind::Sentry => ((push || reach < spell.range + 190.0) && mana > 0.52).then_some(
+                Kind::Spirit => ((push || reach < spell.range + 190.0) && mana > 0.52).then_some(
                     Point::new(pos.x + if enemy_team == 1 { 280.0 } else { -280.0 }, pos.y),
                 ),
                 Kind::Nova | Kind::Chains => ((reach < spell.radius * 0.8 && (kill || mana > 0.3))
@@ -504,7 +504,7 @@ impl Match {
             }
             let stats = &self.h(id).stats;
             let hit_damage = stat(stats, "damage") * stat(stats, "multiplier") * physical(c.armor);
-            if c.sentry {
+            if c.spirit.is_some() {
                 if c.team != team && c.hp <= hit_damage && score == 0.0 {
                     last_hit = Some(creep);
                     score = 1.0;

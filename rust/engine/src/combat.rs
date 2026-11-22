@@ -248,7 +248,7 @@ impl Match {
         } else {
             physical(b.armor)
         };
-        let audience = if veiled || (source_role != Role::Hero && !a.sentry) {
+        let audience = if veiled || (source_role != Role::Hero && a.spirit.is_none()) {
             target_team
         } else {
             team
@@ -365,8 +365,9 @@ impl Match {
         let u = self.u(id);
         let (team, pos) = (u.team, u.pos);
         let enemy_team = 1 - team;
-        let killer = if self.u(source).role == Role::Hero && self.u(source).team == enemy_team {
-            Some(source)
+        let credit = self.u(source).spirit.map_or(source, |spirit| spirit.owner);
+        let killer = if self.u(credit).role == Role::Hero && self.u(credit).team == enemy_team {
+            Some(credit)
         } else if !self.team_match {
             Some(self.heroes[enemy_team])
         } else {
@@ -374,12 +375,12 @@ impl Match {
         };
         match u.role {
             Role::Creep => {
-                if u.sentry {
+                if u.spirit.is_some() {
                     return;
                 }
                 let (gold, xp) = (u.gold, u.xp);
-                if killer == Some(source) && !deny {
-                    let hero = source;
+                if killer == Some(credit) && !deny {
+                    let hero = credit;
                     let alive = self.u(hero).hp > 0.0;
                     let h = self.h_mut(hero);
                     h.gold += gold;
@@ -429,6 +430,7 @@ impl Match {
                 u.sweep_origin = None;
                 u.windup = None;
                 u.dash = None;
+                u.hook_pull = None;
                 u.slows.clear();
                 u.stun_until = 0.0;
                 let h = u.hero.as_mut().unwrap();
@@ -810,8 +812,7 @@ impl Match {
                 )
             })
         };
-        if !b.sentry
-            && let Some(destination) = displacement
+        if let Some(destination) = displacement
             && destination != b.pos
         {
             b.pos = destination;

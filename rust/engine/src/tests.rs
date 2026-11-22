@@ -739,6 +739,79 @@ fn veyra_attacks_every_sweep_target_can_snare_mid_sweep_and_returns() {
 }
 
 #[test]
+fn grapnel_hits_the_first_unit_and_reels_to_its_launch_point() {
+    let mut m = duel(["morrow", "brakk"]);
+    place(&mut m, 1, 2000.0, 450.0);
+    place(&mut m, 2, 2580.0, 450.0);
+    m.command(1, Command::Stop).unwrap();
+    m.command(2, Command::Stop).unwrap();
+    let ally = m.insert(Unit {
+        team: 0,
+        role: Role::Creep,
+        kind: "melee",
+        r: 15.0,
+        hp: 400.0,
+        max_hp: 400.0,
+        pos: Point::new(2270.0, 450.0),
+        ..Unit::default()
+    });
+    m.creeps.push(ally);
+    let enemy_hp = m.u(2).hp;
+    cast(&mut m, 0, Point::new(2800.0, 450.0));
+    m.step(DT, 36);
+    assert_eq!(m.u(ally).hp, 400.0);
+    assert!((m.u(ally).pos.x - 2076.0).abs() < 1.0);
+    assert_eq!(m.u(2).hp, enemy_hp);
+    assert_eq!(m.u(2).pos.x, 2580.0);
+
+    m.u_mut(ally).hp = 0.0;
+    m.time = m.h(1).cd[0];
+    cast(&mut m, 0, Point::new(2800.0, 450.0));
+    place(&mut m, 1, 2000.0, 600.0);
+    m.step(DT, 60);
+    assert!(m.u(2).hp < enemy_hp);
+    assert!((m.u(2).pos.x - 2076.0).abs() < 1.0);
+    assert_eq!(m.u(2).pos.y, 450.0);
+
+    let mut training = training("morrow", true);
+    let anchor = training.u(1).pos;
+    let dummy = training.u(2).pos;
+    cast(&mut training, 0, dummy);
+    training.step(DT, 60);
+    assert_eq!(training.u(2).pos, Point::new(anchor.x + 76.0, anchor.y));
+    assert_eq!(training.training.as_ref().unwrap().hits, 1);
+}
+
+#[test]
+fn spirit_selection_orders_only_move_units_owned_by_the_issuing_player() {
+    let mut m = duel(["neris", "brakk"]);
+    place(&mut m, 1, 2000.0, 450.0);
+    m.command(1, Command::Stop).unwrap();
+    prepare(&mut m, "EEQ");
+    cast(&mut m, 4, Point::new(2180.0, 450.0));
+    let spirits = m.creeps.clone();
+    assert_eq!(spirits.len(), 2);
+    for (row, id) in view(&m, 0)["creeps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(&spirits)
+    {
+        assert_eq!(row[0], *id);
+        assert_eq!(row[11], 1);
+    }
+    let order = json!({"o":"group","ids":spirits,"action":"move","x":2450,"y":450}).to_string();
+    assert!(Match::valid_order(&order));
+    assert!(m.order_json(1, &order).unwrap().contains("control"));
+    assert_eq!(m.order_json(0, &order), None);
+    m.step(DT, 65);
+    assert_eq!(m.u(1).pos, Point::new(2000.0, 450.0));
+    for id in spirits {
+        assert!(m.u(id).pos.x > 2440.0);
+    }
+}
+
+#[test]
 fn ion_beacon_waits_for_enemy_contact_after_arming() {
     for enemy_is_hero in [false, true] {
         let mut m = training("kestrel", enemy_is_hero);

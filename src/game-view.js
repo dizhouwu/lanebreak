@@ -7,7 +7,7 @@
   const xpGoal = level => 200 + 100 * (level - 1);
   const owns = (object, id) => Object.hasOwn(object, id);
   const isVeiled = (unit, time) => unit.veilUntil > time;
-  const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, sentry: 8, lifted: 16, rooted: 32 };
+  const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, spirit: 8, lifted: 16, rooted: 32 };
   const spellDamage = (hero, spell) => spell.damage ? Math.round(
     (spell.damage + spell.growth * (hero.level - 1) + (spell.heatDamage || 0) * (hero.heat || 0)) * hero.stats.power
   ) : 0;
@@ -21,7 +21,7 @@
   function abilityCastMode(spell) {
     if (!spell || spell.fixed) return 'self';
     if (spell.kind === 'unit') return 'unit';
-    return (spell.kind === 'blast' ? spell.range > 0 : ['bolt', 'dash', 'blink', 'sentry', 'meteor', 'sweep', 'brand', 'brandReturn'].includes(spell.kind)) ?
+    return (spell.kind === 'blast' ? spell.range > 0 : ['bolt', 'hook', 'dash', 'blink', 'spirit', 'meteor', 'sweep', 'brand', 'brandReturn'].includes(spell.kind)) ?
       'point' : 'self';
   }
   const abilityNeedsTarget = spell => abilityCastMode(spell) !== 'self';
@@ -51,11 +51,11 @@
       y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, height - (ground ? 140 : 20)) };
   }
   function castPoint(hero, spell, x, y, height = HEIGHT) {
-    if (spell.fixed || spell.kind === 'bolt') {
+    if (spell.fixed || spell.kind === 'bolt' || spell.kind === 'hook') {
       const angle = spell.fixed || (x === hero.x && y === hero.y) ? hero.facing : Math.atan2(y - hero.y, x - hero.x);
       x = hero.x + Math.cos(angle) * spell.range;
       y = hero.y + Math.sin(angle) * spell.range;
-      if (spell.kind === 'bolt') return { x, y };
+      if (spell.kind === 'bolt' || spell.kind === 'hook') return { x, y };
     }
     return point(hero, x, y, spell.range, spell.kind === 'dash' ? 60 : 0, spell.kind !== 'blast', height);
   }

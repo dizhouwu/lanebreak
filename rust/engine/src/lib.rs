@@ -108,6 +108,16 @@ enum Order {
     Attack(Id),
 }
 #[derive(Clone, Copy)]
+struct Spirit {
+    owner: Id,
+    order: Order,
+}
+#[derive(Clone, Copy)]
+struct HookPull {
+    end: Point,
+    speed: f64,
+}
+#[derive(Clone, Copy)]
 struct Windup {
     target: Id,
     time: f64,
@@ -357,6 +367,7 @@ struct Unit {
     attack_ready: f64,
     windup: Option<Windup>,
     dash: Option<Dash>,
+    hook_pull: Option<HookPull>,
     stun_until: f64,
     disarmed_until: f64,
     veil_until: f64,
@@ -371,7 +382,7 @@ struct Unit {
     horn_until: f64,
     hero: Option<Hero>,
     dummy: bool,
-    sentry: bool,
+    spirit: Option<Spirit>,
     expires: f64,
     lane_y: f64,
     lane: usize,
@@ -421,6 +432,7 @@ enum Shot {
         left: f64,
         spell: &'static Spell,
         hit: BTreeMap<Id, f64>,
+        hook_origin: Option<Point>,
     },
 }
 struct Projectile {
@@ -555,7 +567,7 @@ impl Match {
         };
         let team_size = if m.team_match { 5 } else { 1 };
         let defaults = [
-            "brakk", "orrin", "kestrel", "veyra", "neris", "vesper", "cairn", "ecarg",
+            "brakk", "orrin", "kestrel", "veyra", "morrow", "neris", "vesper", "cairn", "ecarg",
         ];
         let keys = options.heroes.unwrap_or_default();
         let bots = options.bots.unwrap_or_default();
@@ -778,7 +790,7 @@ impl Match {
     }
     fn cast_point(&self, id: Id, spell: &Spell, mut at: Point) -> Point {
         let u = self.u(id);
-        if spell.fixed || spell.kind == Kind::Bolt {
+        if spell.fixed || matches!(spell.kind, Kind::Bolt | Kind::Hook) {
             let delta = at.delta(u.pos);
             let angle = if spell.fixed || at == u.pos {
                 u.facing
@@ -788,7 +800,7 @@ impl Match {
             at = u
                 .pos
                 .projected(Point::new(angle.cos(), angle.sin()), spell.range);
-            if spell.kind == Kind::Bolt {
+            if matches!(spell.kind, Kind::Bolt | Kind::Hook) {
                 return at;
             }
         }

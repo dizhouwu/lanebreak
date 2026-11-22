@@ -32,6 +32,10 @@ pub(super) enum Command {
     Buyback,
     Potion,
     Recall,
+    Group {
+        ids: Vec<Id>,
+        order: Order,
+    },
 }
 impl Command {
     pub(super) fn cast(slot: usize, at: Point, target: Option<Id>) -> Self {
@@ -70,6 +74,23 @@ impl Command {
             "recall" => Self::Recall,
             "fortify" => Self::Fortify,
             "buyback" => Self::Buyback,
+            "group" => {
+                let ids = cmd.get("ids")?.as_array()?;
+                if ids.is_empty() || ids.len() > 12 {
+                    return None;
+                }
+                let ids = ids
+                    .iter()
+                    .map(|id| Id::try_from(id.as_u64()?).ok().filter(|&n| n > 0))
+                    .collect::<Option<Vec<_>>>()?;
+                let order = match cmd.get("action")?.as_str()? {
+                    "move" => Order::Move(pos()?),
+                    "attack" => Order::Attack(target()?),
+                    "stop" => Order::Stop,
+                    _ => return None,
+                };
+                Self::Group { ids, order }
+            }
             "sell" => Self::Sell(slot()?),
             "item" => {
                 let (slot, at) = (slot()?, pos()?);
@@ -306,7 +327,11 @@ impl Match {
         if spec.cd == 0.0 {
             return Err("No active item in this slot".into());
         }
-        if u.stun_until > self.time || u.dash.is_some() || u.sweep_origin.is_some() {
+        if u.stun_until > self.time
+            || u.dash.is_some()
+            || u.sweep_origin.is_some()
+            || u.hook_pull.is_some()
+        {
             return Err("Unable to act".into());
         }
         if h.items_ready.get(&key).is_some_and(|&t| t > self.time) {
@@ -446,6 +471,9 @@ impl Match {
         let team = self.u(id).team;
         if self.ended() || (self.training.is_some() && team != 0) {
             return Err("Invalid order".into());
+        }
+        if let Command::Group { ids, order } = &cmd {
+            return self.group_order(id, ids, *order);
         }
         if self.h(id).cast_channel.is_some() && !matches!(cmd, Command::Stop) {
             return Err("Channeling · press S to cancel".into());
@@ -591,7 +619,11 @@ impl Match {
                 if h.channel != 0.0 {
                     return Err("Recall already active".into());
                 }
-                if u.stun_until > time || u.dash.is_some() || u.sweep_origin.is_some() {
+                if u.stun_until > time
+                    || u.dash.is_some()
+                    || u.sweep_origin.is_some()
+                    || u.hook_pull.is_some()
+                {
                     return Err("Unable to act".into());
                 }
                 if h.recall_ready > time {
@@ -605,10 +637,73 @@ impl Match {
             | Command::Sell(_)
             | Command::Fortify
             | Command::Buyback
+            | Command::Group { .. }
             | Command::TrainingHero(_)
             | Command::TrainingCooldowns(_) => unreachable!(),
         }
         Ok(())
+    }
+
+    fn group_order(&mut self, owner: Id, ids: &[Id], order: Order) -> Result<(), String> {
+        let team = self.u(owner).team;
+        let units: Vec<_> = ids
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .filter(|&id| {
+                self.units.get(&id).is_some_and(|u| {
+                    u.hp > 0.0 && (id == owner || u.spirit.is_some_and(|s| s.owner == owner))
+                })
+            })
+            .collect();
+        if units.is_empty() {
+            return Err("No selected units under your control".into());
+        }
+        if let Order::Attack(id) = order
+            && !self.units.get(&id).is_some_and(|u| {
+                u.team != team
+                    && u.hp > 0.0
+                    && !u.veiled(self.time)
+                    && !u.invulnerable(self.time)
+                    && !self.protected(id)
+            })
+        {
+            return Err("Invalid group attack target".into());
+        }
+        let spread = (units.len() - 1) as f64 * 19.0;
+        let mut hero_result = Ok(());
+        let mut controlled_spirit = false;
+        for (i, id) in units.into_iter().enumerate() {
+            let action = if let Order::Move(at) = order {
+                let lane = Point::new(at.x, at.y + i as f64 * 38.0 - spread);
+                Order::Move(
+                    self.u(id)
+                        .pos
+                        .towards(lane, f64::INFINITY, 0.0, true, self.height()),
+                )
+            } else {
+                order
+            };
+            if id == owner {
+                let command = match action {
+                    Order::Move(at) => Command::Move(at),
+                    Order::Attack(target) => Command::Attack(target),
+                    _ => Command::Stop,
+                };
+                hero_result = self.command(owner, command);
+            } else {
+                let u = self.u_mut(id);
+                u.windup = None;
+                u.spirit.as_mut().unwrap().order = action;
+                controlled_spirit = true;
+            }
+        }
+        if controlled_spirit {
+            Ok(())
+        } else {
+            hero_result
+        }
     }
 
     fn fortify(&mut self, team: usize) -> Result<(), String> {
@@ -684,8 +779,8 @@ impl Match {
             hero: Some(hero),
             ..Unit::default()
         };
-        for sentry in self.creeps.drain(..) {
-            self.units.remove(&sentry);
+        for creep in self.creeps.drain(..) {
+            self.units.remove(&creep);
         }
         self.areas.clear();
         self.projectiles.clear();
@@ -714,7 +809,7 @@ impl Match {
     ) -> Result<(), String> {
         let u = self.u(id);
         let time = self.time;
-        if u.stun_until > time || u.dash.is_some() {
+        if u.stun_until > time || u.dash.is_some() || u.hook_pull.is_some() {
             return Err("Unable to act".into());
         }
         let h = self.h(id);
@@ -862,7 +957,7 @@ impl Match {
             "ultimate": ultimate, "audience": recast.then_some(team)}),
         );
         match spell.kind {
-            Kind::Bolt => {
+            Kind::Bolt | Kind::Hook => {
                 let pid = self.id();
                 self.projectiles.push(Projectile {
                     id: pid,
@@ -876,6 +971,7 @@ impl Match {
                         left: spell.range,
                         spell,
                         hit: BTreeMap::new(),
+                        hook_origin: (spell.kind == Kind::Hook).then_some(origin),
                     },
                 });
             }
@@ -950,7 +1046,7 @@ impl Match {
                     targets,
                 });
             }
-            Kind::Sentry => {
+            Kind::Spirit => {
                 let level = f64::from(self.h(id).level - 1);
                 let hp = spell.health + level * 15.0;
                 let pos = self.cast_point(id, spell, at);
@@ -959,22 +1055,43 @@ impl Match {
                     pos,
                     json!({"team": team, "hero": self.h(id).key, "ability": spell.name, "radius": 55}),
                 );
-                let sentry = self.insert(Unit {
-                    kind: "ranged",
-                    team,
-                    pos,
-                    r: 17.0,
-                    hp,
-                    max_hp: hp,
-                    armor: 2.0,
-                    range: 420.0,
-                    interval: 1.05,
-                    damage: spell.shot + level * spell.shot_growth,
-                    sentry: true,
-                    expires: time + spell.duration,
-                    ..Unit::default()
-                });
-                self.creeps.push(sentry);
+                for u in self
+                    .units
+                    .values_mut()
+                    .filter(|u| u.spirit.is_some_and(|s| s.owner == id))
+                {
+                    u.hp = 0.0;
+                }
+                let height = self.height();
+                for offset in [-24.0, 24.0] {
+                    let start = pos.towards(
+                        Point::new(pos.x, pos.y + offset),
+                        f64::INFINITY,
+                        0.0,
+                        true,
+                        height,
+                    );
+                    let spirit = self.insert(Unit {
+                        kind: "ranged",
+                        team,
+                        pos: start,
+                        r: 15.0,
+                        hp,
+                        max_hp: hp,
+                        armor: 2.0,
+                        range: 385.0,
+                        interval: 1.25,
+                        speed: 295.0,
+                        damage: spell.shot + level * spell.shot_growth,
+                        spirit: Some(Spirit {
+                            owner: id,
+                            order: Order::None,
+                        }),
+                        expires: time + spell.duration,
+                        ..Unit::default()
+                    });
+                    self.creeps.push(spirit);
+                }
             }
             Kind::Nova => self.blast(id, spell, origin, damage),
             Kind::Dash => {

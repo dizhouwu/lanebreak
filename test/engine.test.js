@@ -134,6 +134,7 @@ test('targeting previews distinguish point, self, and enemy hero spells', () => 
     vesper:['point','point','self','point'], brakk:['point','self','self','self'],
     orrin:['point','point','point','point'], kestrel:['self','unit','self','point'],
     veyra:['self','point','self','point'],
+    morrow:['point','self','self','unit'],
     neris:['self','self','self','self'],
     cairn:['self','self','self','self'], ecarg:['point','point','self','point']
   };

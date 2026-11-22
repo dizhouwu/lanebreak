@@ -12,6 +12,7 @@ pub enum Kind {
     Mark,
     Invoke,
     Bolt,
+    Hook,
     Blast,
     Wall,
     Nova,
@@ -19,7 +20,7 @@ pub enum Kind {
     Blink,
     Buff,
     Unit,
-    Sentry,
+    Spirit,
     Meteor,
     Veil,
     Passive,
@@ -38,6 +39,7 @@ impl Kind {
             Self::Mark => "mark",
             Self::Invoke => "invoke",
             Self::Bolt => "bolt",
+            Self::Hook => "hook",
             Self::Blast => "blast",
             Self::Wall => "wall",
             Self::Nova => "nova",
@@ -45,7 +47,7 @@ impl Kind {
             Self::Blink => "blink",
             Self::Buff => "buff",
             Self::Unit => "unit",
-            Self::Sentry => "sentry",
+            Self::Spirit => "spirit",
             Self::Meteor => "meteor",
             Self::Veil => "veil",
             Self::Passive => "passive",
@@ -102,6 +104,7 @@ pub struct Spell {
     pub health: f64,
     pub shot: f64,
     pub shot_growth: f64,
+    pub reel_speed: f64,
 }
 
 impl Spell {
@@ -123,9 +126,10 @@ impl Spell {
             Kind::Unit => "unit",
             Kind::Blast if !self.fixed && self.range > 0.0 => "point",
             Kind::Bolt
+            | Kind::Hook
             | Kind::Dash
             | Kind::Blink
-            | Kind::Sentry
+            | Kind::Spirit
             | Kind::Meteor
             | Kind::Sweep
             | Kind::Brand

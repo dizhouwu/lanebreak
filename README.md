@@ -11,6 +11,7 @@ A browser strategy game with a one-lane 1v1 duel and a separate three-lane 5v5 b
 | Orrin, Gravity Sage | Burst caster with delayed impacts and a blink |
 | Kestrel, Arc Runner | Mobile lightning skirmisher with a magnetic pull, charged basic attacks, and a distance-priced dash |
 | Veyra, Cinder Pilgrim | Melee fire skirmisher who can root nearby enemies during a flurry of basic attacks. Place up to three fire brands with R, then press D and click the ground to detonate them all, ending at the brand nearest the click. |
+| Morrow, Chain Warden | Melee initiator who grapples the first unit in his line of fire to catch an enemy or rescue an ally |
 | Neris, Loomkeeper | Weaves ten spells from three-mark combinations and casts them from two slots |
 | Cairn, Kiln Keeper | Ranged burst carry who builds Heat by last-hitting creeps |
 | Ecarg, String Virtuoso | Bowed notes mark heroes for stronger follow-up spells |
@@ -26,7 +27,7 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 | Q + Q + E | Frost Loom, an instant ice wall perpendicular to your facing. It slows enemies and deals damage each second. |
 | Q + W + W | Crosswind, a click-aimed tornado that damages and briefly lifts enemies in its path |
 | Q + W + E | Spool Break, a piercing shockwave that knocks enemies back along its path and disarms heroes |
-| Q + E + E | Needle Post, a stationary sentry |
+| Q + E + E | Fire Spirits, two mobile summons you can select and command |
 | W + W + W | Hollow Seam, a delayed mana drain |
 | W + W + E | Tighten Thread, a temporary attack-speed and damage buff |
 | W + E + E | Emberfall, a meteor that lands, rolls forward, and burns enemies in its path |
@@ -66,6 +67,8 @@ Order a basic attack on the enemy hero near enemy creeps to draw their aggro. Ri
 Click **End match** in a solo game to end your run early and see your stats. In an online game, confirm **Surrender** to award the opponent a win and show the result to both players.
 
 Click an item name in the shop to expand its recipe and buy components individually. The recipe highlights components you own and deducts their value from the finished item's price. Use the gold button to buy an item or click an item in your inventory to sell it. After pausing a solo match, press **P** or **Esc**, or click the overlay to resume.
+
+Drag a selection box with the left mouse button to select your hero and owned summons. Right-click to move or attack with the group, and press **S** to stop them. **Z** or **F1** selects your hero. **X** or **F2** selects all units you control. Use **Z/X** if your browser captures the function keys.
 
 Open **Abilities & builds** when choosing your hero, or expand **Recommended builds** in the match shop. Each hero has two six-item loadouts for different playstyles. In the shop, click an item in a loadout to view its recipe and purchase options.
 

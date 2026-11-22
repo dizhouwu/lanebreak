@@ -48,7 +48,7 @@ impl Match {
 
     fn walk(&mut self, id: Id, target: Point, speed: f64, dt: f64) {
         let u = self.u(id);
-        if u.root_until > self.time && u.dash.is_none() {
+        if u.root_until > self.time && u.dash.is_none() && u.hook_pull.is_none() {
             return;
         }
         let origin = u.pos;
@@ -58,6 +58,7 @@ impl Match {
             let clearance = b.r + u.r;
             let delta = pos.delta(b.pos);
             if u.dash.is_some()
+                || u.hook_pull.is_some()
                 || b.hp <= 0.0
                 || delta.x.abs() >= clearance
                 || delta.y.abs() >= clearance
@@ -228,6 +229,10 @@ impl Match {
         if u.hp <= 0.0 || u.sweep_origin.is_some() {
             return;
         }
+        if self.update_hook_pull(id, dt) {
+            return;
+        }
+        let u = self.u(id);
         if let Some(channel) = self.h(id).cast_channel {
             if u.stun_until > time || u.lift_until > time || u.dash.is_some() {
                 self.h_mut(id).cast_channel = None;
@@ -357,10 +362,14 @@ impl Match {
 
     fn update_creep(&mut self, id: Id, dt: f64) {
         let u = self.u(id);
-        if u.sentry && self.time >= u.expires {
+        if u.spirit.is_some() && self.time >= u.expires {
             self.u_mut(id).hp = 0.0;
             return;
         }
+        if self.update_hook_pull(id, dt) {
+            return;
+        }
+        let u = self.u(id);
         if u.stun_until > self.time {
             self.u_mut(id).windup = None;
             return;
@@ -369,8 +378,31 @@ impl Match {
             return;
         }
         let u = self.u(id);
-        if u.sentry {
-            self.attack(id, self.nearest(id, u.range, |b| b.role != Role::Building));
+        if let Some(spirit) = u.spirit {
+            match spirit.order {
+                Order::Move(at) => {
+                    self.walk(id, at, u.move_speed(u.speed), dt);
+                    if self.u(id).pos.dist(at) < 2.0 {
+                        self.u_mut(id).spirit.as_mut().unwrap().order = Order::None;
+                    }
+                }
+                Order::Attack(target)
+                    if self.units.get(&target).is_some_and(|b| {
+                        b.hp > 0.0
+                            && !b.veiled(self.time)
+                            && !b.invulnerable(self.time)
+                            && !self.protected(target)
+                    }) =>
+                {
+                    if !self.attack(id, Some(target)) {
+                        let u = self.u(id);
+                        self.walk(id, self.u(target).pos, u.move_speed(u.speed), dt);
+                    }
+                }
+                _ => {
+                    self.attack(id, self.nearest(id, u.range, |_| true));
+                }
+            }
             return;
         }
         let mut target = u.target.filter(|&t| {
@@ -459,9 +491,9 @@ impl Match {
             .values()
             .filter(|u| u.hp > 0.0 && u.sweep_origin.is_none())
         {
-            let flags =
-                u32::from(!(u.role == Role::Building || u.dash.is_some() || u.dummy || u.sentry))
-                    | (u32::from(u.veiled(self.time)) << 1);
+            let flags = u32::from(
+                !(u.role == Role::Building || u.dash.is_some() || u.hook_pull.is_some() || u.dummy),
+            ) | (u32::from(u.veiled(self.time)) << 1);
             self.collision_ids.push(u.id);
             self.collision_rows
                 .extend([u.pos.x, u.pos.y, u.r, u.team as f64, f64::from(flags)]);
@@ -500,13 +532,15 @@ impl Match {
                 left,
                 spell,
                 hit,
+                hook_origin,
             } => {
                 let length = left.min(p.speed * dt);
                 let mut rows = Vec::new();
                 let mut ids = Vec::new();
                 for u in self.units.values().filter(|u| {
                     u.hp > 0.0
-                        && u.team != p.team
+                        && (u.team != p.team || hook_origin.is_some())
+                        && (hook_origin.is_none() || (u.id != p.from && !u.veiled(self.time)))
                         && !u.invulnerable(self.time)
                         && u.role != Role::Building
                         && hit
@@ -531,6 +565,13 @@ impl Match {
                     .collect();
                 hits.sort_by(|a, b| a.1.total_cmp(&b.1));
                 for (id, _) in hits {
+                    if let Some(origin) = *hook_origin {
+                        self.magic(id, p.from, spell, p.damage, None);
+                        if self.u(id).hp > 0.0 {
+                            self.hook_target(id, origin, spell.reel_speed);
+                        }
+                        return false;
+                    }
                     let ready = if spell.repeat_hit > 0.0 {
                         self.time + spell.repeat_hit
                     } else {
@@ -549,6 +590,38 @@ impl Match {
                     && (0.0..=self.height()).contains(&p.pos.y)
             }
         }
+    }
+
+    fn hook_target(&mut self, id: Id, origin: Point, speed: f64) {
+        let pos = self.u(id).pos;
+        let distance = (pos.dist(origin) - 76.0).max(0.0);
+        let end = pos.towards(origin, distance, 0.0, true, self.height());
+        let u = self.u_mut(id);
+        u.hook_pull = Some(HookPull { end, speed });
+        u.windup = None;
+        if !u.dash.is_some_and(|dash| dash.brand_route.is_some()) {
+            u.dash = None;
+        }
+        if let Some(hero) = &mut u.hero {
+            hero.channel = 0.0;
+            hero.cast_channel = None;
+        }
+        self.effect(
+            "grapple",
+            pos,
+            json!({"target":id,"fromX":origin.x,"fromY":origin.y}),
+        );
+    }
+
+    fn update_hook_pull(&mut self, id: Id, dt: f64) -> bool {
+        let Some(pull) = self.u(id).hook_pull else {
+            return false;
+        };
+        self.walk(id, pull.end, pull.speed, dt);
+        if self.u(id).pos.squared(pull.end) < 1e-8 {
+            self.u_mut(id).hook_pull = None;
+        }
+        true
     }
 
     fn update_area(&mut self, a: &mut Area) -> bool {
@@ -652,6 +725,7 @@ impl Match {
                     left: a.spell.roll,
                     spell: a.spell,
                     hit: BTreeMap::new(),
+                    hook_origin: None,
                 },
             });
             self.effect(
@@ -809,7 +883,11 @@ impl Match {
         }
         for seat in 0..self.heroes.len() {
             let id = self.heroes[seat];
-            if !self.u(id).dummy {
+            if self.u(id).dummy {
+                if self.u(id).hp > 0.0 {
+                    self.update_hook_pull(id, dt);
+                }
+            } else {
                 self.update_hero(id, dt);
             }
         }

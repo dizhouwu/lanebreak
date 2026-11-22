@@ -28,7 +28,8 @@
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
-  let cameraDrag = null, resultShown = false;
+  let cameraDrag = null, selectionDrag = null, resultShown = false;
+  const selectedUnits = new Set();
   let pendingCast = null;
   let heroPreviewCard = null;
   let socket, seat, room, roomTeamMatch = false, waiting = false, retry = 0, networkAction = null;
@@ -43,7 +44,8 @@
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
     veil: [520,.24,'sine',.05,.52], chant: [135,.48,'triangle',.058,1.4],
     meteor: [170,.38,'triangle',.07,.4], unit: [580,.17,'triangle',.05,.68],
-    blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5], sentry: [370,.16,'triangle',.052,1.3]
+    blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5], spirit: [370,.16,'triangle',.052,1.3],
+    hook: [320,.22,'sawtooth',.045,.60]
   };
 
   function make(tag, text, className) {
@@ -379,6 +381,8 @@
     hintTimer = setTimeout(() => { $('hint').hidden = true; }, 2450);
   }
   function enter() {
+    selectedUnits.clear();
+    stopSelectionDrag();
     hideHeroGuide();
     setPendingCast(null);
     $('lobby').hidden = true;
@@ -553,6 +557,7 @@
   function switchTrainingHero(hero) {
     $('trainingHeroPicker').close();
     if (!local || !snapshot?.training || !issue({ o:'trainingHero', hero })) return;
+    selectedUnits.clear();
     renderMark = null;
     renderer.displayed = null;
     updateHud(snapshot);
@@ -627,7 +632,7 @@
     if (remote) {
       if (socket?.readyState !== WebSocket.OPEN) { hint('Reconnecting…'); return false; }
       const h = snapshot.heroes[team];
-      if (h.hp <= 0 && !['buy', 'sell', 'fortify', 'buyback'].includes(cmd.o)) return false;
+      if (h.hp <= 0 && !['buy', 'sell', 'fortify', 'buyback', 'group'].includes(cmd.o)) return false;
       if (cmd.o === 'cast' && !HEROES[h.hero].weaves) {
         error = abilityError(h, cmd.i, snapshot.time);
       }
@@ -770,6 +775,13 @@
     if (arena.hasPointerCapture(id)) arena.releasePointerCapture(id);
   }
   function arenaPointerDown(event) {
+    if (event.button === 0 && event.pointerType === 'mouse' && !pendingCast && !game.hidden &&
+        !paused && !demo && snapshot?.mode === 'match' && $('matchRoster').hidden) {
+      event.preventDefault();
+      selectionDrag = { id:event.pointerId, x:event.clientX, y:event.clientY };
+      arena.setPointerCapture(event.pointerId);
+      return;
+    }
     if (event.button !== 1) return canvasOrder(event);
     if (!game.hidden) event.preventDefault();
     if (!cameraInputEnabled()) return;
@@ -781,6 +793,17 @@
   function arenaPointerMove(event) {
     hovered = { x: event.clientX, y: event.clientY };
     cursorOnArena = true;
+    if (selectionDrag?.id === event.pointerId) {
+      const { x, y } = selectionDrag;
+      const box = $('selectionBox');
+      const width = Math.abs(x-event.clientX), height = Math.abs(y-event.clientY);
+      box.hidden = Math.max(width,height) <= 5;
+      if (!box.hidden) {
+        Object.assign(box.style, {left:Math.min(x,event.clientX)+'px',top:Math.min(y,event.clientY)+'px',
+          width:width+'px',height:height+'px'});
+      }
+      return;
+    }
     if (cameraDrag?.id !== event.pointerId) return;
     if (!(event.buttons & 4) || !cameraInputEnabled()) return stopCameraDrag();
     const { x, y } = cameraDrag;
@@ -788,6 +811,40 @@
     moveCamera((x - event.clientX) * scale, (y - event.clientY) * scale);
     cameraDrag.x = event.clientX;
     cameraDrag.y = event.clientY;
+  }
+  function stopSelectionDrag() {
+    const drag = selectionDrag;
+    selectionDrag = null;
+    $('selectionBox').hidden = true;
+    if (drag && arena.hasPointerCapture(drag.id)) arena.releasePointerCapture(drag.id);
+  }
+  function controlledUnits(s) {
+    const hero = s.heroes[team], owned = hero.hp > 0 ? [hero] : [];
+    for (const row of s.creeps) {
+      if (row[11] === hero.id && row[5] > 0) owned.push({id:row[0],x:row[3],y:row[4]});
+    }
+    return owned;
+  }
+  function chooseUnits(ids) {
+    selectedUnits.clear();
+    for (const id of ids) selectedUnits.add(id);
+    selectUnit(null);
+  }
+  function finishSelectionDrag(event) {
+    const drag = selectionDrag;
+    stopSelectionDrag();
+    if (event.type !== 'pointerup' || !snapshot) return;
+    if (Math.max(Math.abs(drag.x-event.clientX),Math.abs(drag.y-event.clientY)) <= 5) return canvasOrder(event);
+    const a = renderer.toWorld(drag.x,drag.y), b = renderer.toWorld(event.clientX,event.clientY);
+    const left = Math.min(a.x,b.x), right = Math.max(a.x,b.x), top = Math.min(a.y,b.y), bottom = Math.max(a.y,b.y);
+    chooseUnits(controlledUnits(renderer.displayed || snapshot)
+      .filter(u => u.x >= left && u.x <= right && u.y >= top && u.y <= bottom).map(u => u.id));
+  }
+  function selectedGroup() {
+    if (!selectedUnits.size || !snapshot) return [];
+    const hero = snapshot.heroes[team];
+    const ids = controlledUnits(snapshot).filter(u => selectedUnits.has(u.id)).map(u => u.id);
+    return ids.some(id => id !== hero.id) ? ids : [];
   }
   function toggleShop() {
     if (!snapshot || demo || paused || snapshot.mode !== 'match') return;
@@ -930,7 +987,7 @@
     const unit = hero || building || { team: creep[1], kind: creep[2], hp: creep[5], maxHp: creep[6] };
     const name = hero?.dummy ? hero.name : hero ? HEROES[hero.hero].name : unit.kind[0].toUpperCase() + unit.kind.slice(1) + (creep ? ' creep' : '');
     $('inspectPanel').hidden = false;
-    $('inspectName').textContent = creep && (creep[10] & CREEP_FLAGS.sentry) ? 'Needle Post' :
+    $('inspectName').textContent = creep && (creep[10] & CREEP_FLAGS.spirit) ? 'Fire Spirit' :
       hero && hero.name !== name ? hero.name + ' · ' + name : name;
     $('inspectSide').textContent = hero?.dummy ? 'Stationary target' :
       TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.fortified ? ' · Fortified' : building?.protected ? ' · Protected' : '');
@@ -953,6 +1010,10 @@
   function updateHud(s) {
     const h = s.heroes[team], hero = HEROES[h.hero], time = s.time;
     const side = h.team;
+    const group = $('groupStatus');
+    const groupSize = selectedUnits.size ? controlledUnits(s).filter(u => selectedUnits.has(u.id)).length : 0;
+    group.hidden = !groupSize;
+    if (groupSize) group.textContent = groupSize + (groupSize === 1 ? ' unit selected' : ' units selected');
     const foe = s.heroes.find(other => other.team !== side);
     if (!$('matchRoster').hidden) updateRoster(s);
     if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || currentCast(h, pendingCast) !== pendingCast.spell)) setPendingCast(null);
@@ -1219,16 +1280,23 @@
       return;
     }
     if (event.button === 0 && event.pointerType !== 'touch') {
-      selectUnit(pickUnit(visible, p)?.id ?? null);
+      const id = pickUnit(visible, p)?.id;
+      chooseUnits(controlledUnits(visible).some(u => u.id === id) ? [id] : []);
+      selectUnit(id ?? null);
       return;
     }
-    if (demo || snapshot.heroes[team].hp <= 0) return;
+    if (demo) return;
     battleOrder(p,'move');
   }
   function battleOrder(p, fallback) {
     if (!snapshot) return;
-    const target = pickTarget(renderer.displayed || snapshot, team, p, true);
-    if (issue(target ? { o:'attack', id:target.id } : { o:fallback, ...p })) {
+    const ids = selectedGroup();
+    if (!ids.length && snapshot.heroes[team].hp <= 0) return;
+    const candidate = pickTarget(renderer.displayed || snapshot, team, p, !ids.length);
+    const target = ids.length && candidate?.team === snapshot.heroes[team].team ? null : candidate;
+    const order = ids.length ? (target ? {o:'group',ids,action:'attack',id:target.id} : {o:'group',ids,action:'move',...p}) :
+      target ? {o:'attack',id:target.id} : {o:fallback,...p};
+    if (issue(order)) {
       const color = target?.team === snapshot.heroes[team].team ? '#c9a0ff' : target || fallback === 'amove' ? '#ff6b6b' : '#8dffb0';
       renderMark = { ...(target || p), at:performance.now(), color };
     }
@@ -1395,6 +1463,12 @@
   function hotkey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]') || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
+    if (!game.hidden && snapshot?.mode === 'match' && ['f1','f2','z','x'].includes(k)) {
+      event.preventDefault();
+      if (!event.repeat && !demo) chooseUnits(k === 'f1' || k === 'z' ? [snapshot.heroes[team].id] :
+        controlledUnits(snapshot).map(u => u.id));
+      return;
+    }
     if (!game.hidden && snapshot && (k === '`' || event.code === 'Backquote') && !event.shiftKey) {
       event.preventDefault();
       if (!event.repeat) showRoster($('matchRoster').hidden);
@@ -1458,7 +1532,10 @@
     else if (k === 'b') toggleShop();
     else if (k === (weaver ? 'v' : 'f')) issue({o:'potion'});
     else if (k === 't') issue({o:'recall'});
-    else if (k === 's') issue({o:'stop'});
+    else if (k === 's') {
+      const ids = selectedGroup();
+      issue(ids.length ? {o:'group',ids,action:'stop'} : {o:'stop'});
+    }
     else if (k === 'a') battleOrder(aimPoint(),'amove');
     else if (k === 'p' || k === 'escape') {
       if (!$('shop').hidden && k === 'escape') toggleShop();
@@ -1474,6 +1551,7 @@
     arena.addEventListener('pointerleave', () => { cursorOnArena = false; });
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
       arena.addEventListener(type, event => {
+        if (selectionDrag?.id === event.pointerId) finishSelectionDrag(event);
         if (cameraDrag?.id === event.pointerId) stopCameraDrag();
       });
     }
@@ -1508,6 +1586,7 @@
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
     const resetCameraInput = () => {
       stopCameraDrag();
+      stopSelectionDrag();
       setPendingCast(null);
       panKeys.clear();
       cursorOnArena = false;
@@ -1624,7 +1703,7 @@
             Math.max(previousLocalSnapshot.time, Math.min(snapshot.time, localTime - localSnapshotInterval))) : snapshot;
         panCamera(elapsed);
         renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,
-          inspectedId,pendingCast?.spell);
+          inspectedId,pendingCast?.spell,selectedUnits);
         playEvents(visible);
         if (now - lastUi > 90) {
           updateHud(snapshot);

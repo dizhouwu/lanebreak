@@ -178,11 +178,19 @@ impl Serialize for ProjectileRow<'_> {
         row.serialize_element(&quant(p.pos.x, 10.0))?;
         row.serialize_element(&quant(p.pos.y, 10.0))?;
         row.serialize_element(self.1)?;
-        if let Shot::Bolt { dir, spell, .. } = &p.shot {
+        if let Shot::Bolt {
+            dir,
+            spell,
+            hook_origin,
+            ..
+        } = &p.shot
+        {
             row.serialize_element(&quant(dir.x, 100.0))?;
             row.serialize_element(&quant(dir.y, 100.0))?;
             row.serialize_element(&spell.radius)?;
-            let trail = if spell.lift > 0.0 {
+            let trail = if hook_origin.is_some() {
+                Some("hook")
+            } else if spell.lift > 0.0 {
                 Some("wind")
             } else if spell.push > 0.0 {
                 Some("shockwave")
@@ -193,6 +201,9 @@ impl Serialize for ProjectileRow<'_> {
             };
             row.serialize_element(&trail)?;
             row.serialize_element(&spell.name)?;
+            if let Some(origin) = hook_origin {
+                row.serialize_element(origin)?;
+            }
         }
         row.end()
     }
@@ -237,7 +248,8 @@ impl Serialize for AreaRow<'_> {
     }
 }
 
-type CreepRow = (
+#[derive(Serialize)]
+struct CreepRow(
     Id,
     usize,
     &'static str,
@@ -249,6 +261,7 @@ type CreepRow = (
     f64,
     f64,
     u8,
+    #[serde(skip_serializing_if = "Option::is_none")] Option<Id>,
 );
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -432,11 +445,11 @@ impl Match {
                     let c = self.u(id);
                     let flags = u8::from(c.stun_until > t)
                         | (u8::from(c.horn_until > t) << 1)
-                        | (u8::from(c.hp < c.max_hp / 2.0 && !c.sentry) << 2)
-                        | (u8::from(c.sentry) << 3)
+                        | (u8::from(c.hp < c.max_hp / 2.0 && c.spirit.is_none()) << 2)
+                        | (u8::from(c.spirit.is_some()) << 3)
                         | (u8::from(c.lift_until > t) << 4)
                         | (u8::from(c.root_until > t) << 5);
-                    (
+                    CreepRow(
                         id,
                         c.team,
                         c.kind,
@@ -448,6 +461,7 @@ impl Match {
                         quant(c.r, 10.0),
                         quant(c.facing, 100.0),
                         flags,
+                        c.spirit.map(|s| s.owner),
                     )
                 })
                 .collect(),

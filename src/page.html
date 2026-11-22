@@ -9,6 +9,8 @@
 </head>
 <body>
   <canvas id="arena" aria-label="Lanebreak battlefield"></canvas>
+  <div id="arenaShade" aria-hidden="true"></div>
+  <div id="selectionBox" aria-hidden="true" hidden></div>
   <main id="lobby">
     <header class="mast">
       <div class="brand"><span class="mark" aria-hidden="true"></span> LANEBREAK</div>
@@ -20,7 +22,7 @@
     </section>
     <div class="lobbyControls">
       <section class="draft">
-        <div class="sectionHeader"><h2>Choose your hero</h2><div class="draftActions"><button type="button" id="openHeroGuide" class="iconButton">Abilities &amp; builds</button><span class="keyHint"><kbd>1</kbd>–<kbd>8</kbd></span></div></div>
+        <div class="sectionHeader"><h2>Choose your hero</h2><div class="draftActions"><button type="button" id="openHeroGuide" class="iconButton">Abilities &amp; builds</button><span class="keyHint"><kbd>1</kbd>–<kbd>9</kbd></span></div></div>
         <div id="heroes" class="heroGrid"></div>
         <div id="heroPreview" class="panel heroPreview" role="tooltip" hidden></div>
       </section>
@@ -63,6 +65,7 @@
     <header class="matchTop">
       <div class="matchReadout">
         <div id="combatStats"></div><div id="opponentStatus"></div>
+        <div id="groupStatus" hidden></div>
         <button id="fortify" class="iconButton" type="button" title="Protect allied towers for 5 seconds and let them fire at up to five enemy creeps per volley. Shared team cooldown." hidden>Fortify towers</button>
         <div id="trainingAutoRefill" hidden>Auto-refill active</div>
         <div id="trainingActions" hidden>
@@ -136,8 +139,9 @@
   <dialog id="controls" class="panel">
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
-      <dt>Left click</dt><dd>Inspect a unit. Click a hero to see their equipment.</dd>
-      <dt>Right click</dt><dd>Move or attack. Target an enemy hero to draw nearby creep aggro. Target an allied creep to transfer aggro or deny it below 50% HP.</dd>
+      <dt>Left click / drag</dt><dd>Click to inspect or select a unit. Drag a box to select your hero and summons inside it.</dd>
+      <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Select your hero or all units you control. F1 and F2 also work when the browser passes them through.</dd>
+      <dt>Right click</dt><dd>Move or attack with the selected units. Your hero can draw creep aggro by targeting a hero, or deny weakened allied creeps.</dd>
       <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>The camera follows your hero by default. Press C to toggle free camera, or Space to recenter it on your hero. In free mode, pan with the screen edges, arrow keys, middle-mouse drag, or minimap.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Select a targeted ability, then click the battlefield to cast. Right-click or Esc cancels. Self-casts and Cairn's directional blasts trigger immediately.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>

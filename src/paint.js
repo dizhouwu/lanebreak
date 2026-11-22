@@ -12,6 +12,7 @@
     orrin: { lean:-.08, step:0, lift:8 },
     kestrel: { lean:.18, step:7, lift:6 },
     veyra: { lean:.27, step:10, lift:3 },
+    morrow: { lean:.20, step:8, lift:2 },
     neris: { lean:-.1, step:0, lift:8 },
     cairn: { lean:-.2, step:-7, lift:2 },
     ecarg: { lean:.12, step:0, lift:2 }
@@ -69,6 +70,10 @@
     if (key === 'kestrel') {
       poly(g,[[-8,15],[-5,-10],[0,-26],[6,-26],[9,-7],[15,-21],[21,-17],[15,11],[4,22]],'#234e67',color,2);
       line(g,[[5,-23],[2,-8],[13,-10],[8,11]],'#e6fdff',2.5);
+    } else if (key === 'morrow') {
+      line(g,[[-12,20],[-18,4],[-10,-11],[5,-7],[9,-21]],'#604335',7);
+      line(g,[[-12,20],[-18,4],[-10,-11],[5,-7],[9,-21]],color,2.5);
+      poly(g,[[5,-15],[2,-32],[9,-39],[22,-36],[26,-25],[17,-20],[19,-29],[13,-30]],'#b6845e','#fff0c5',2);
     } else if (key === 'veyra') {
       for (const offset of [-15, 7]) {
         poly(g, [[offset-3,20],[offset-5,6],[offset+2,-21],[offset+17,-34],[offset+15,-13],[offset+4,8],[offset+4,20]],
@@ -158,6 +163,7 @@
       const shape = {
         kestrel: { cloak:'#21394b', mask:'#94cee1', shoulders:[57,285], head:[[126,84],[168,63],[197,47],[230,70],[230,103],[216,135],[155,134]], weapon:[264,113,3] },
         veyra: { cloak:'#3f2020', mask:'#af6f59', shoulders:[64,282], head:[[130,91],[151,72],[189,49],[221,65],[240,91],[226,123],[194,144],[147,132]], weapon:[260,114,2.7] },
+        morrow: { cloak:'#3a3630', mask:'#a68d6e', shoulders:[53,292], head:[[135,104],[142,76],[178,53],[219,72],[230,104],[216,137],[148,143]], weapon:[273,120,2.7] },
         neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] },
         cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] },
         ecarg: { cloak:'#2e355e', mask:'#d7b9a0', shoulders:[88,284], head:[[128,110],[139,76],[160,58],[185,62],[211,42],[206,78],[225,104],[208,140],[167,143]], weapon:[255,150,2.7] }
@@ -319,7 +325,7 @@
       this.map = null;
       this.teamMap = null;
       this.height = HEIGHT;
-      this.vignette = null;
+      this.nameplates = new Map();
       this.buildingSprites = new Map();
       this.creepSprites = new Map();
       this.cam = 0;
@@ -340,7 +346,6 @@
       const w = Math.round(clientWidth * dpr), h = Math.round(clientHeight * dpr);
       if (w !== this.canvas.width || h !== this.canvas.height) {
         this.canvas.width = w; this.canvas.height = h; this.dirty = true;
-        this.vignette = null;
       }
       this.scale = h / (this.focus ? FREE_VIEW_HEIGHT : HEIGHT);
     }
@@ -372,7 +377,7 @@
       const followX = (hero.sweepOrigin?.x ?? hero.x) + (hero.team ? -1 : 1) * Math.min(200, view * .18);
       return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
-    frame(s, team, now, mark, dt, pointer, selectedId, spell) {
+    frame(s, team, now, mark, dt, pointer, selectedId, spell, selectedUnits) {
       this.resize();
       const g = this.g, w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
@@ -407,8 +412,10 @@
       const viewWidth = w / this.scale, viewHeight = h / this.scale;
       this.camY = clamp((this.focus?.y ?? player.sweepOrigin?.y ?? player.y) - viewHeight / 2, 0, this.height - viewHeight);
       this.displayed = s;
-      g.setTransform(1, 0, 0, 1, 0, 0);
-      g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
+      if (viewWidth > WIDTH) {
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
+      }
       g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
       const crop = map.width / WIDTH;
       const drawWidth = Math.min(viewWidth, WIDTH - this.cam);
@@ -519,6 +526,7 @@
         s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
       for (const u of fighters) {
+        if (selectedUnits?.has(u.id)) ellipse(g,u.x,u.y+5,u.r+6,u.r*.65+3,null,'#89efad',2.5);
         if (u.dummy) this.dummy(g, u, now);
         else if (u.type === 'hero') this.hero(g, u, side, now, casts.get(u.id));
         else this.creep(g, u);
@@ -527,10 +535,14 @@
         const hpColor = u.team !== side ? '#ff6464' : u.flags & Lanebreak.CREEP_FLAGS.deniable ? '#c9a0ff' : '#6fd37a';
         this.bar(g,u,u.y-u.r-11,34,hpColor,5);
       }
-      for (const [, side, kind, x, y, source, dx, dy, width, trail, ability] of s.projectiles) {
-        if (!inView(x, y, 220)) continue;
+      for (const [, side, kind, x, y, source, dx, dy, width, trail, ability, origin] of s.projectiles) {
+        if (!inView(x, y, 220) && !(origin && inView(origin.x,origin.y,60))) continue;
         const color = source === 'building' ? '#fff0b0' : HEROES[source]?.color || COLORS[side];
-        if (trail === 'wind') {
+        if (trail === 'hook') {
+          line(g,[[origin.x,origin.y-12],[x,y-12]],'#573f31',7);
+          line(g,[[origin.x,origin.y-12],[x,y-12]],'#dfb786',2.5);
+          ellipse(g,x,y-12,9,9,null,'#fff0c5',3);
+        } else if (trail === 'wind') {
           ellipse(g, x, y + 3, 30, 12, '#101f3273');
           for (let i = 0; i < 4; i++) {
             const spin = Math.sin(now * 31 + i * 1.5) * (5 + i * 2);
@@ -569,6 +581,15 @@
           line(g, [[e.x,e.y-29],[e.toX,e.toY-14]], '#fff6d9', 5);
           ellipse(g, e.toX, e.toY-14, 12 + age * 110, 8 + age * 70, null, '#fff6d9', 3);
           g.globalAlpha = 1;
+          continue;
+        }
+        if (e.kind === 'grapple' && age >= 0 && age < .72) {
+          const target = fighters.find(u => u.id === e.target);
+          if (target) {
+            g.globalAlpha = clamp((.72-age)*3,0,1);
+            line(g, [[e.fromX,e.fromY-12],[target.x,target.y-12]], '#edca91', 3);
+            g.globalAlpha = 1;
+          }
           continue;
         }
         if (age < 0 || age > 1.08 || !inView(e.x, e.y, (e.radius || 65) + 100)) continue;
@@ -622,9 +643,6 @@
         }
       }
       g.setTransform(1, 0, 0, 1, 0, 0);
-      this.vignette ||= gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
-      g.fillStyle = this.vignette;
-      g.fillRect(0, 0, w, h);
       this.minimapElapsed += dt;
       if (this.minimapElapsed >= 1 / 15 - .001) {
         this.minimap(s, side, viewWidth, viewHeight);
@@ -638,6 +656,10 @@
       const ink = impact ? '#fff1cf' : color;
       const travel = 27 + progress * 67;
       switch (hero) {
+        case 'morrow':
+          ellipse(g,0,0,travel,travel*.63,'#c89a5430','#eac88a',3);
+          for (const y of [-12,10]) line(g,[[-travel,y],[0,y-13],[travel,y+5]],'#f6ddb1',3);
+          break;
         case 'vesper':
           if (ability === 'Piercing Shot') {
             for (const angle of [-.55, 0, .55]) {
@@ -868,6 +890,19 @@
       g.lineWidth = 3; g.strokeStyle = '#10191be0'; g.strokeText(text, x, y);
       g.fillStyle = color; g.fillText(text, x, y);
     }
+    nameplate(g, text, x, y, size, color) {
+      const key = size + ':' + color + ':' + text;
+      let sprite = this.nameplates.get(key);
+      if (!sprite) {
+        g.font = '700 ' + size + 'px system-ui';
+        const width = Math.ceil(g.measureText(text).width) + 8, height = size + 10;
+        sprite = makeSprite({left:0,top:0,width,height}, ctx => this.label(ctx,text,width/2,size+3,size,color));
+        if (this.nameplates.size >= 64) this.nameplates.delete(this.nameplates.keys().next().value);
+        this.nameplates.set(key, sprite);
+      }
+      const width = sprite.width / SPRITE_SCALE, height = sprite.height / SPRITE_SCALE;
+      g.drawImage(sprite,x-width/2,y-size-3,width,height);
+    }
     bar(g, u, y, width, color, height = 5, fraction = u.hp / u.maxHp) {
       g.fillStyle = '#0a1416'; g.fillRect(u.x - width / 2 - 1, y - 1, width + 2, height + 2);
       g.fillStyle = '#283332'; g.fillRect(u.x - width / 2, y, width, height);
@@ -1041,8 +1076,8 @@
       this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);
       g.fillStyle = '#0008';
       for (let k = 250; k < u.maxHp; k += 250) g.fillRect(x-37+74*k/u.maxHp,y-55,1,8);
-      this.label(g,String(u.level),x-47,y-46,14,'#ffe08a');
-      this.label(g,u.name,x,y-62,14,'#f1f1dd');
+      this.nameplate(g,String(u.level),x-47,y-46,14,'#ffe08a');
+      this.nameplate(g,u.name,x,y-62,14,'#f1f1dd');
     }
     creep(g, u) {
       const {x,y,r} = u, color = COLORS[u.team], flags = Lanebreak.CREEP_FLAGS;
@@ -1050,8 +1085,8 @@
       const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
       const direction = Math.cos(facing) < 0 ? -1 : 1;
       const lift = u.flags & flags.lifted ? 16 : 0;
-      const kind = u.flags & flags.sentry ? 'sentry' : u.kind;
-      const key = `${kind}:${u.team}:${r}:${kind === 'sentry' ? 0 : direction}`;
+      const kind = u.flags & flags.spirit ? 'spirit' : u.kind;
+      const key = `${kind}:${u.team}:${r}:${kind === 'spirit' ? 0 : direction}`;
       let sprite = this.creepSprites.get(key);
       const bounds = CREEP_SPRITE;
       if (!sprite) {
@@ -1067,10 +1102,9 @@
     }
     creepBody(g, kind, color, r, direction) {
       const x = 0, y = 0;
-      if (kind === 'sentry') {
-        poly(g,[[x-16,y+8],[x-9,y-9],[x+9,y-9],[x+16,y+8]],'#3c3025',color,2);
-        line(g,[[x,y+5],[x,y-20]],'#eac98b',2.5);
-        this.crystal(g,x,y-16,9,'#f0c865');
+      if (kind === 'spirit') {
+        poly(g,[[-13,5],[-16,-11],[-7,-6],[-3,-28],[5,-16],[12,-22],[15,-3],[9,8]],'#e46237',color,2);
+        poly(g,[[-7,1],[-5,-11],[0,-7],[4,-16],[8,-3],[5,3]],'#ffe29f');
       } else if (kind === 'siege') {
         poly(g,[[x-r,y-9],[x-r*.4,y-15],[x+r,y-10],[x+r,y+10],[x-r,y+10]],'#374d4c',color,2);
         ellipse(g,x-r*.64,y+7,7,7,'#18282b',color+'a9',1.4);
