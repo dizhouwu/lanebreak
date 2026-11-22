@@ -15,7 +15,7 @@
     ['Masterworks', id => ITEMS[id].master]
   ];
   const arena = $('arena');
-  const renderer = new Renderer(arena, $('minimap'));
+  const renderer = new Renderer(arena, $('minimap'), $('arenaGround'), $('arenaSprites'));
   const hosted = /^(http|https):$/.test(location.protocol);
   const prefs = {
     load(key) { try { return localStorage.getItem('lanebreak:' + key); } catch { return null; } },

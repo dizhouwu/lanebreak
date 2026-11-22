@@ -25,7 +25,7 @@ const wasm = fs.readFileSync(path.join(target, 'wasm32-unknown-unknown', 'wasm-r
 const read = name => fs.readFileSync(path.join(root, 'src', name), 'utf8').trimEnd();
 const scripts = '<script>const LanebreakEngineWasm = ' + JSON.stringify(wasm) + ';\n' +
   'globalThis.LanebreakRules = ' + JSON.stringify(require('./src/rules.json')).replaceAll('<', '\\u003c') + ';</script>\n' +
-  ['match.js', 'game-view.js', 'paint.js', 'client.js']
+  ['match.js', 'game-view.js', 'sprite-batch.js', 'paint.js', 'client.js']
   .map(file => '<script>\n' + read(file) + '\n</script>').join('\n');
 const html = read('page.html')
   .replace('<!-- STYLE -->', () => '<style>\n' + read('style.css') + '\n</style>')

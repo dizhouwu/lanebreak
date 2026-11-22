@@ -124,6 +124,8 @@ Check `/healthz`, then use two devices to host, join, and reconnect after a refr
 
 `rust/engine` runs the match, including movement, damage, abilities, items, objectives, creeps, and AI. It uses `rust/physics` for collision and projectile queries and reads the shared hero, item, and difficulty tables from `src/rules.json`. The browser runs that engine through WebAssembly. The server loads the same engine through the native bindings in `rust/node` and handles rooms, reconnections, and WebSockets. JavaScript handles input, previews, and rendering.
 
+Battlefields batch unit sprites, health bars, and basic-attack projectiles with WebGL 2. Canvas 2D draws terrain and ability effects and provides a fallback when the WebGL context is unavailable.
+
 The [cross-platform build](https://github.com/dizhouwu/lanebreak/actions/workflows/build.yml) checks Windows, Linux, Apple Silicon, and Intel macOS. After changing source or tuning tables, run `npm run build` and restart the server.
 
 ```sh

@@ -7,6 +7,8 @@
   const SPRITE_SCALE = 2;
   const BUILDING_SPRITE = { left:108, top:124, width:216, height:200 };
   const CREEP_SPRITE = { left:48, top:30, width:96, height:56 };
+  const HERO_SPRITE = { left:58, top:56, width:116, height:112 };
+  const DUMMY_SPRITE = { left:38, top:48, width:76, height:62 };
   const CAIRN_JETS = { Flashpan:1, 'Flue Burst':2, 'Chimney Shot':3, 'Furnace Vent':5 };
   const CAST_POSES = {
     vesper: { lean:-.13, step:-7, lift:3 },
@@ -326,15 +328,22 @@
     return canvas;
   }
   class Renderer {
-    constructor(canvas, minimap) {
+    constructor(canvas, minimap, ground, sprites) {
       this.canvas = canvas;
       this.mini = minimap;
-      this.g = canvas.getContext('2d', { alpha: false });
+      this.g = canvas.getContext('2d', { alpha: Boolean(ground) });
       this.miniContext = minimap.getContext('2d');
+      this.ground = ground;
+      this.spriteCanvas = sprites;
+      this.batch = null;
+      this.activeBatch = null;
       this.map = null;
       this.teamMap = null;
       this.height = HEIGHT;
       this.nameplates = new Map();
+      this.combatLabels = new Map();
+      this.heroSprites = new Map();
+      this.ovalSprites = new Map();
       this.buildingSprites = new Map();
       this.creepSprites = new Map();
       this.cam = 0;
@@ -364,10 +373,19 @@
       this.scale = h / this.viewHeight();
     }
     title() {
+      this.layers(false);
       this.resize();
       if (!this.dirty) return;
       titleScene(this.g, this.canvas.width, this.canvas.height);
       this.dirty = false;
+    }
+    layers(enabled) {
+      if (!this.ground || this.usingLayers === enabled) return;
+      this.usingLayers = enabled;
+      this.ground.hidden = !enabled;
+      this.spriteCanvas.hidden = !enabled;
+      this.canvas.dataset.renderer = enabled ? 'webgl' : 'canvas';
+      if (!enabled) this.dirty = true;
     }
     toWorld(x, y) {
       return { x: this.cam + x * this.canvas.width / this.canvas.clientWidth / this.scale,
@@ -395,7 +413,7 @@
     frame(s, team, now, mark, dt, pointer, selectedId, spell, selectedUnits) {
       this.height = s.teamMatch ? TEAM_MAP.height : HEIGHT;
       this.resize();
-      const g = this.g, w = this.canvas.width, h = this.canvas.height;
+      const w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
       const map = s.teamMatch ? (this.teamMap ||= teamTerrain()) : (this.map ||= terrain());
       if (dt > 0 && dt <= .25) {
@@ -427,6 +445,17 @@
       const viewWidth = w / this.scale, viewHeight = this.viewHeight();
       this.camY = clamp((this.focus?.y ?? player.sweepOrigin?.y ?? player.y) - viewHeight / 2, 0, this.height - viewHeight);
       this.displayed = s;
+      if (this.spriteCanvas) this.batch ??= new LanebreakSpriteBatch(this.spriteCanvas);
+      const sprites = this.batch?.begin(w, h, this.cam, this.camY, this.scale);
+      this.layers(Boolean(sprites));
+      let g = this.g;
+      if (sprites) {
+        if (this.ground.width !== w || this.ground.height !== h) {
+          this.ground.width = w;
+          this.ground.height = h;
+        }
+        g = this.groundContext ??= this.ground.getContext('2d', {alpha:false});
+      }
       if (viewWidth > WIDTH) {
         g.setTransform(1, 0, 0, 1, 0, 0);
         g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
@@ -540,8 +569,16 @@
       const selected = selectedId != null && (fighters.find(u => u.id === selectedId) ||
         s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
+      if (sprites) {
+        // Ground effects stay below unit sprites. Cast previews and spell trails use the top canvas.
+        g = this.g;
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.clearRect(0, 0, w, h);
+        g.setTransform(this.scale, 0, 0, this.scale, -this.cam * this.scale, -this.camY * this.scale);
+        this.activeBatch = this.batch;
+      }
       for (const u of fighters) {
-        if (selectedUnits?.has(u.id)) ellipse(g,u.x,u.y+5,u.r+6,u.r*.65+3,null,'#89efad',2.5);
+        if (selectedUnits?.has(u.id)) this.oval(g,u.x,u.y+5,u.r+6,u.r*.65+3,null,'#89efad',2.5);
         if (u.dummy) this.dummy(g, u, now);
         else if (u.type === 'hero') this.hero(g, u, side, now, casts.get(u.id));
         else this.creep(g, u);
@@ -585,8 +622,12 @@
           this.spellBolt(g, x, y, dx, dy, width, source, ability, color, now);
         } else {
           const r = source === 'creep' ? 4 : 6;
-          ellipse(g, x, y, r, r, color);
+          this.oval(g, x, y, r, r, color);
         }
+      }
+      if (sprites) {
+        this.batch.draw();
+        this.activeBatch = null;
       }
       const markAge = mark && performance.now() - mark.at;
       if (mark && markAge < 550 && visible(mark)) {
@@ -663,8 +704,9 @@
         }
         g.globalAlpha = clamp((1 - age) * 1.3, 0, 1);
         if (['gold','hit','level'].includes(e.kind)) {
-          this.label(g, e.text, e.x + (e.id % 3 - 1) * 13, e.y - 31 - age * 30,
-            e.kind === 'hit' ? 15 : 19, e.text === 'Denied' ? '#c9a0ff' : e.kind === 'hit' ? '#f1ded0' : '#ffd48b');
+          this.nameplate(g, e.text, e.x + (e.id % 3 - 1) * 13, e.y - 31 - age * 30,
+            e.kind === 'hit' ? 15 : 19, e.text === 'Denied' ? '#c9a0ff' : e.kind === 'hit' ? '#f1ded0' : '#ffd48b',
+            this.combatLabels, 128);
         }
         g.globalAlpha = 1;
       }
@@ -935,23 +977,53 @@
       g.lineWidth = 3; g.strokeStyle = '#10191be0'; g.strokeText(text, x, y);
       g.fillStyle = color; g.fillText(text, x, y);
     }
-    nameplate(g, text, x, y, size, color) {
+    sprite(g, image, x, y, width, height) {
+      if (!this.activeBatch?.image(image,x+width/2,y+height/2,width,height)) {
+        g.drawImage(image,x,y,width,height);
+      }
+    }
+    oval(g, x, y, rx, ry, fill, stroke, thickness = 1) {
+      if (!this.activeBatch) {
+        ellipse(g,x,y,rx,ry,fill,stroke,thickness);
+        return;
+      }
+      const key = `${rx}:${ry}:${fill}:${stroke}:${thickness}`;
+      let oval = this.ovalSprites.get(key);
+      if (!oval) {
+        const left = Math.ceil(rx + thickness / 2 + 1);
+        const top = Math.ceil(ry + thickness / 2 + 1);
+        const width = left * 2, height = top * 2;
+        const image = makeSprite({left,top,width,height},ctx=>ellipse(ctx,0,0,rx,ry,fill,stroke,thickness));
+        oval = {image,left,top,width,height};
+        this.ovalSprites.set(key, oval);
+      }
+      this.sprite(g,oval.image,x-oval.left,y-oval.top,oval.width,oval.height);
+    }
+    nameplate(g, text, x, y, size, color, cache = this.nameplates, limit = 64) {
       const key = size + ':' + color + ':' + text;
-      let sprite = this.nameplates.get(key);
+      let sprite = cache.get(key);
       if (!sprite) {
         g.font = '700 ' + size + 'px system-ui';
         const width = Math.ceil(g.measureText(text).width) + 8, height = size + 10;
         sprite = makeSprite({left:0,top:0,width,height}, ctx => this.label(ctx,text,width/2,size+3,size,color));
-        if (this.nameplates.size >= 64) this.nameplates.delete(this.nameplates.keys().next().value);
-        this.nameplates.set(key, sprite);
+        if (cache.size >= limit) cache.delete(cache.keys().next().value);
+        cache.set(key, sprite);
       }
       const width = sprite.width / SPRITE_SCALE, height = sprite.height / SPRITE_SCALE;
-      g.drawImage(sprite,x-width/2,y-size-3,width,height);
+      this.sprite(g,sprite,x-width/2,y-size-3,width,height);
+    }
+    rect(g, x, y, width, height, color) {
+      if (this.activeBatch) this.activeBatch.rect(x,y,width,height,color);
+      else {
+        g.fillStyle = color;
+        g.fillRect(x,y,width,height);
+      }
     }
     bar(g, u, y, width, color, height = 5, fraction = u.hp / u.maxHp) {
-      g.fillStyle = '#0a1416'; g.fillRect(u.x - width / 2 - 1, y - 1, width + 2, height + 2);
-      g.fillStyle = '#283332'; g.fillRect(u.x - width / 2, y, width, height);
-      g.fillStyle = color; g.fillRect(u.x - width / 2, y, width * clamp(fraction,0,1), height);
+      const x = u.x - width / 2;
+      this.rect(g,x-1,y-1,width+2,height+2,'#0a1416');
+      this.rect(g,x,y,width,height,'#283332');
+      this.rect(g,x,y,width*clamp(fraction,0,1),height,color);
     }
     crystal(g, x, y, r, color) {
       poly(g, [[x,y-r],[x+r*.59,y-r*.15],[x+r*.40,y+r*.55],[x,y+r*.78],[x-r*.45,y+r*.52],[x-r*.58,y-r*.16]], color, '#f1e7cbe0', 1.3);
@@ -1014,14 +1086,18 @@
     }
     dummy(g, u, now) {
       const { x } = u, y = u.y - (u.lifted ? 22 : 0);
-      ellipse(g,x,u.y+7,37,15,'#171a18a0');
-      line(g,[[x-24,y+9],[x+24,y+9]],'#956b49',7);
-      line(g,[[x,y+9],[x,y-43]],'#b08457',9);
-      line(g,[[x-32,y-28],[x+32,y-28]],'#b08457',6);
-      ellipse(g,x,y-15,23,21,'#785438','#efd194',3);
-      ellipse(g,x,y-15,14,13,null,'#d2775b',3);
-      ellipse(g,x,y-15,6,6,'#ead29d');
-      this.label(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
+      this.oval(g,x,u.y+7,37,15,'#171a18a0');
+      const bounds = DUMMY_SPRITE;
+      this.dummySprite ??= makeSprite(bounds,ctx=>{
+        line(ctx,[[-24,9],[24,9]],'#956b49',7);
+        line(ctx,[[0,9],[0,-43]],'#b08457',9);
+        line(ctx,[[-32,-28],[32,-28]],'#b08457',6);
+        ellipse(ctx,0,-15,23,21,'#785438','#efd194',3);
+        ellipse(ctx,0,-15,14,13,null,'#d2775b',3);
+        ellipse(ctx,0,-15,6,6,'#ead29d');
+      });
+      this.sprite(g,this.dummySprite,x-bounds.left,y-bounds.top,bounds.width,bounds.height);
+      this.nameplate(g,'Training dummy · ∞',x,y-61,16,'#f6d9a1');
       if (u.stitched) ellipse(g,x,y-15,29,27,null,'#d5bfea',2);
       if (u.burning) ellipse(g,x,y-15,26,25,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-15,32,29,null,HEROES.ecarg.color,3);
@@ -1030,8 +1106,8 @@
     }
     hero(g, u, team, now, cast) {
       const {x} = u, y = u.y - (u.lifted ? 22 : 0), color = COLORS[u.team], armor = HEROES[u.hero].color;
-      ellipse(g,x+7,u.y+10,30,16,'#102125a5');
-      ellipse(g,x,y+4,u.r+9,u.r+5,null,color,4);
+      this.oval(g,x+7,u.y+10,30,16,'#102125a5');
+      this.oval(g,x,y+4,u.r+9,u.r+5,null,color,4);
       for (const id of u.potionActive ? [...(u.buffs || []), 'potion'] : u.buffs || []) {
         const buffColor = ORBS[id] || (id === 'potion' ? '#e2506a' : id === 'sprint' ? '#f0a23c' : armor);
         g.globalAlpha = .5 + .3 * Math.sin(now * 8);
@@ -1075,38 +1151,31 @@
         }
         g.globalAlpha = 1;
       }
-      g.save();
-      if (u.veiled) g.globalAlpha = .44;
       const step = lunge + pose.step * effort;
-      g.translate(x + Math.cos(facing)*step,y + Math.sin(facing)*step - pose.lift * effort);
-      g.scale(Math.cos(facing) < 0 ? -1 : 1,1);
-      g.rotate(pose.lean * effort);
-      g.translate(-x,-y);
-      poly(g, [[x-25,y+10],[x-18,y-23],[x-5,y-31],[x+12,y-27],[x+23,y-17],[x+25,y+10],[x+7,y+22],[x-12,y+20]], '#1d333b', armor, 2.7);
-      poly(g, [[x-22,y],[x-15,y-19],[x+6,y-20],[x+18,y-7],[x+14,y+13],[x-5,y+18]], armor + '95');
-      ellipse(g,x,y-27,13,13,'#18232b',armor,2.7);
-      if (u.hero === 'brakk') {
-        poly(g,[[x-11,y-31],[x-25,y-49],[x-23,y-35],[x-16,y-25]],'#e0cba6');
-        poly(g,[[x+11,y-31],[x+25,y-49],[x+23,y-35],[x+16,y-25]],'#e0cba6');
-        poly(g,[[x+18,y-11],[x+30,y-4],[x+39,y+13],[x+27,y+18],[x+19,y+8]],'#c78756','#eed4a5',1);
-      } else if (u.hero === 'vesper') {
-        g.beginPath();g.arc(x+18,y-9,18,-1.17,1.17);g.lineWidth=3;g.strokeStyle='#b6e2c4';g.stroke();
-        line(g,[[x+25,y-25],[x+25,y+8]],'#a4dec8',1);
-        poly(g,[[x-14,y-24],[x-5,y-44],[x+11,y-36],[x+16,y-23],[x+2,y-28]],'#488c87',armor,1.3);
-      } else if (u.hero === 'orrin') {
-        line(g,[[x+24,y+16],[x+27,y-35]],'#9b83c4',3);
-        this.crystal(g,x+27,y-38,11,'#b494f7');
-      } else {
-        const bowStroke = cast && u.hero === 'ecarg' ? 15 * Math.sin(progress * 2 * Math.PI) * effort : 0;
-        const critReady = u.finisherHits === HEROES[u.hero].abilities[3].critHits - 1;
-        if (u.hero === 'calyx') {
-          poly(g,[[x-13,y-24],[x-17,y-40],[x-5,y-34],[x+3,y-43],[x+12,y-26],[x+3,y-16]],'#24433b',armor,1.6);
-          line(g,[[x-9,y-29],[x+8,y-27]],'#d7ffdf',2);
-          if (critReady) ellipse(g,x+34,y-28,22,17,'#b3ffb752',null);
-        }
-        weapon(g,u.hero,x+23,y-9,.8,critReady ? '#edffb8' : armor,bowStroke);
+      const bodyX = x + Math.cos(facing)*step;
+      const bodyY = y + Math.sin(facing)*step - pose.lift * effort;
+      const flip = Math.cos(facing) < 0 ? -1 : 1;
+      const lean = pose.lean * effort;
+      const alpha = u.veiled ? .44 : 1;
+      const critReady = u.finisherHits === HEROES[u.hero].abilities[3].critHits - 1;
+      const bowStroke = cast && u.hero === 'ecarg' ?
+        2 * Math.round(7.5 * Math.sin(progress * 2 * Math.PI) * effort) : 0;
+      const bounds = HERO_SPRITE;
+      const key = critReady ? u.hero + ':crit' : bowStroke ? u.hero + ':' + bowStroke : u.hero;
+      let image = this.heroSprites.get(key);
+      if (!image) {
+        image = makeSprite(bounds,ctx=>this.heroBody(ctx,u.hero,0,0,armor,critReady,bowStroke));
+        this.heroSprites.set(key,image);
       }
-      g.restore();
+      if (!this.activeBatch?.image(image,bodyX,bodyY,bounds.width,bounds.height,lean*flip,flip,alpha)) {
+        g.save();
+        g.globalAlpha = alpha;
+        g.translate(bodyX,bodyY);
+        g.scale(flip,1);
+        g.rotate(lean);
+        g.drawImage(image,-bounds.left,-bounds.top,bounds.width,bounds.height);
+        g.restore();
+      }
       if (u.marks?.length) {
         for (const [index, mark] of u.marks.entries()) {
           const angle = now * 2.5 + index * Math.PI * 2 / 3;
@@ -1116,7 +1185,7 @@
       const teamView = this.height === TEAM_MAP.height;
       const nameSize = teamView ? 19 : 14;
       const nameY = y - 62;
-      if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
+      if (u.attack) this.oval(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,nameY-nameSize-1,teamView ? 22 : 17,'#fff29a');
       if (u.rooted) ellipse(g,x,y+4,u.r+5,u.r*.55,null,'#ffa35f',3);
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
@@ -1131,14 +1200,37 @@
       const hpY = y - 55;
       this.bar(g,u,hpY,barWidth,u.team === team ? '#58d86a' : '#ff5a5a',hpHeight);
       this.bar(g,u,hpY+hpHeight+2,barWidth,'#5a9bff',teamView ? 5 : 4,u.mana / u.maxMana);
-      g.fillStyle = '#0008';
-      for (let k = 250; k < u.maxHp; k += 250) g.fillRect(x-barWidth/2+barWidth*k/u.maxHp,hpY,1,hpHeight);
+      for (let k = 250; k < u.maxHp; k += 250) this.rect(g,x-barWidth/2+barWidth*k/u.maxHp,hpY,1,hpHeight,'#0008');
       this.nameplate(g,String(u.level),x-barWidth/2-10,hpY+hpHeight+1,nameSize,'#ffe08a');
       this.nameplate(g,u.name,x,nameY,nameSize,'#f1f1dd');
     }
+    heroBody(g, hero, x, y, armor, critReady, bowStroke) {
+      poly(g, [[x-25,y+10],[x-18,y-23],[x-5,y-31],[x+12,y-27],[x+23,y-17],[x+25,y+10],[x+7,y+22],[x-12,y+20]], '#1d333b', armor, 2.7);
+      poly(g, [[x-22,y],[x-15,y-19],[x+6,y-20],[x+18,y-7],[x+14,y+13],[x-5,y+18]], armor + '95');
+      ellipse(g,x,y-27,13,13,'#18232b',armor,2.7);
+      if (hero === 'brakk') {
+        poly(g,[[x-11,y-31],[x-25,y-49],[x-23,y-35],[x-16,y-25]],'#e0cba6');
+        poly(g,[[x+11,y-31],[x+25,y-49],[x+23,y-35],[x+16,y-25]],'#e0cba6');
+        poly(g,[[x+18,y-11],[x+30,y-4],[x+39,y+13],[x+27,y+18],[x+19,y+8]],'#c78756','#eed4a5',1);
+      } else if (hero === 'vesper') {
+        g.beginPath();g.arc(x+18,y-9,18,-1.17,1.17);g.lineWidth=3;g.strokeStyle='#b6e2c4';g.stroke();
+        line(g,[[x+25,y-25],[x+25,y+8]],'#a4dec8',1);
+        poly(g,[[x-14,y-24],[x-5,y-44],[x+11,y-36],[x+16,y-23],[x+2,y-28]],'#488c87',armor,1.3);
+      } else if (hero === 'orrin') {
+        line(g,[[x+24,y+16],[x+27,y-35]],'#9b83c4',3);
+        this.crystal(g,x+27,y-38,11,'#b494f7');
+      } else {
+        if (hero === 'calyx') {
+          poly(g,[[x-13,y-24],[x-17,y-40],[x-5,y-34],[x+3,y-43],[x+12,y-26],[x+3,y-16]],'#24433b',armor,1.6);
+          line(g,[[x-9,y-29],[x+8,y-27]],'#d7ffdf',2);
+          if (critReady) ellipse(g,x+34,y-28,22,17,'#b3ffb752',null);
+        }
+        weapon(g,hero,x+23,y-9,.8,critReady ? '#edffb8' : armor,bowStroke);
+      }
+    }
     creep(g, u) {
       const {x,y,r} = u, color = COLORS[u.team], flags = Lanebreak.CREEP_FLAGS;
-      ellipse(g,x+4,y+6,r+3,r*.63,'#111e2385');
+      this.oval(g,x+4,y+6,r+3,r*.63,'#111e2385');
       const facing = u.facing ?? (u.team ? Math.PI : 0), lunge = u.kind === 'melee' && u.attack ? 5 : 0;
       const direction = Math.cos(facing) < 0 ? -1 : 1;
       const lift = u.flags & flags.lifted ? 16 : 0;
@@ -1150,9 +1242,9 @@
         sprite = makeSprite(bounds, ctx => this.creepBody(ctx, kind, color, r, direction));
         this.creepSprites.set(key, sprite);
       }
-      g.drawImage(sprite, x + Math.cos(facing) * lunge - bounds.left,
+      this.sprite(g, sprite, x + Math.cos(facing) * lunge - bounds.left,
         y + Math.sin(facing) * lunge - lift - bounds.top, bounds.width, bounds.height);
-      if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
+      if (u.attack) this.oval(g,x,y,15,8,null,color+'a0',1.4);
       if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17-lift,16,'#fff29a');
       if (u.flags & flags.rooted) ellipse(g,x,y+4,r+5,r*.55,null,'#ffa35f',2);
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
