@@ -1,138 +1,164 @@
 # Lanebreak
 
-A browser strategy game with a one-lane 1v1 duel and a separate three-lane 5v5 battlefield. Last-hit creeps, contest river runes, and build items as you take down towers and the enemy core.
+**A Dota-inspired browser MOBA with one-lane duels, three-lane 5v5, and an offline practice arena.**
 
-Insight runes grant 220 XP to the hero who picks one up.
+[Play offline](#play-offline) · [Controls](#controls) · [Heroes](#heroes) · [Run a server](#run-a-server)
+
+[![Cross-platform build](https://github.com/dizhouwu/lanebreak/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/dizhouwu/lanebreak/actions/workflows/build.yml)
+
+![Lanebreak gameplay showing the battlefield, minimap, and ability bar](docs/images/gameplay.webp)
+
+## Pick a mode
+
+| Mode | What you play |
+| --- | --- |
+| **1v1 Duel** | Last-hit and deny creeps, contest river runes, and push through a single lane. Play against a bot or challenge another player online. |
+| **5v5 Battlefield** | Fight from opposite corners of a three-lane map. Play with bots or invite friends to a private room. Bots fill open seats. |
+| **Training** | Try any hero, test full builds, and practice combos against an unlimited-health dummy or in an empty arena. Switch heroes without leaving. |
+
+Build six-slot loadouts with active items for blinks, cyclones, stuns, and detection. Fortify allied towers, buy back into a fight, and track every player's K/D/A and items with the backtick key. Kill streaks and multikills appear as on-screen banners.
+
+## Play offline
+
+1. Open [lanebreak.html](lanebreak.html) on GitHub and click **Download raw file**.
+2. Open the downloaded file in a desktop browser. The standalone game includes the engine, graphics, and audio.
+3. Choose a hero, then start **Solo 1v1**, **5v5** with bots, or **Training**.
+
+To jump straight into a mode, add a fragment to the URL. Try `#play=brakk,hard` for a duel, `#teams=cairn` for 5v5, or `#training=neris` for practice. Add `&dummy=off` to train in an empty arena. Use `#demo=brakk,normal,300` to spectate a bot duel starting at the five-minute mark.
+
+## Controls
+
+| Action | Controls |
+| --- | --- |
+| Move, attack, or deny | Right-click |
+| Inspect a unit / select owned units | Left-click / drag a selection box |
+| Use an ability / confirm a target / cancel | Ability key / left-click / right-click or Esc |
+| Attack the unit under the cursor or attack-move / stop | A / S |
+| Use an active item / open the shop / recall | 1–6 / B / T |
+| Select your hero / select all owned units | Z or F1 / X or F2 |
+| Toggle follow camera / recenter on your hero | C / Space |
+| Pan the free camera | Arrow keys, middle-mouse drag, minimap, or screen edges |
+| Open the scoreboard while playing | Backtick (<kbd>`</kbd>) |
+| Pause a solo game / change graphics / toggle sound | P or Esc / G / M |
+
+The camera follows your hero by default, and 5v5 uses a wider view. Use **Z/X** if your browser captures the function keys. Click **End match** to finish a solo game and see your stats. In online 1v1, confirm **Surrender** to award the win to your opponent.
 
 ## Heroes
 
+Hover over a hero on the home screen for a kit preview, or open **Abilities & builds** to see abilities and two recommended six-item loadouts. **Item guide** lets you search by name, effect, or recipe component.
+
 | Hero | Play style |
-|---|---|
-| Vesper, Tide Archer | Ranged pressure with piercing arrows and snares |
-| Brakk, Iron Ram | Durable melee brawler with a charge and lifesteal |
-| Orrin, Gravity Sage | Burst caster with delayed impacts and a blink |
-| Kestrel, Arc Runner | Mobile lightning skirmisher with a magnetic pull, charged basic attacks, and a distance-priced dash |
-| Veyra, Cinder Pilgrim | Melee fire skirmisher who can root nearby enemies during a flurry of basic attacks. Place up to three fire brands with R, then press D and click the ground to detonate them all, ending at the brand nearest the click. |
-| Morrow, Chain Warden | Melee initiator who grapples the first unit in his line of fire to catch an enemy or rescue an ally |
-| Calyx, Glassknife | Melee assassin who slows with a tracking shard, blinks to another unit, and lands a critical strike on every fourth hit against the same hero |
-| Neris, Loomkeeper | Weaves ten spells from three-mark combinations and casts them from two slots |
-| Cairn, Kiln Keeper | Ranged burst carry who builds Heat by last-hitting creeps |
-| Ecarg, String Virtuoso | Bowed notes mark heroes for stronger follow-up spells |
+| --- | --- |
+| **Vesper**, Tide Archer | Ranged pressure with piercing arrows and snares |
+| **Brakk**, Iron Ram | Durable melee brawler with a charge and lifesteal |
+| **Orrin**, Gravity Sage | Burst caster with delayed impacts and a blink |
+| **Kestrel**, Arc Runner | Lightning skirmisher with charged attacks and a dash that spends mana based on distance |
+| **Veyra**, Cinder Pilgrim | Fire skirmisher who dashes through up to three planted brands |
+| **Morrow**, Chain Warden | Chain initiator who can pull in an enemy or rescue an ally |
+| **Calyx**, Glassknife | Blink assassin with a tracking dagger and a critical strike every fourth hit on the same hero |
+| **Neris**, Loomkeeper | Spell weaver with ten recipes and two prepared spell slots |
+| **Cairn**, Kiln Keeper | Facing-based burst carry who builds Heat by last-hitting creeps |
+| **Ecarg**, String Virtuoso | Violinist who marks targets for stronger follow-up spells |
 
-Hover over a hero on the home screen to read their kit. Select a hero and open **Abilities** for the same reference on touchscreens. Open **Item guide** to search shop items by name, effect, or recipe component and compare their full prices.
+<details>
+<summary><strong>Neris's spell recipes and combos</strong></summary>
 
-Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest three count, in any order. **R** prepares a new recipe in **D**, moves the previous spell to **F**, and starts a 0.5s base cooldown. Re-invoking a prepared recipe brings it to **D** immediately and preserves the current **R** timer. **D** and **F** cast the prepared spells and spend their mana. Each spell keeps its own cooldown when it changes slots or is prepared again.
+Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only the latest three count, in any order. **R** prepares a new recipe in **D**, moves the previous spell to **F**, and starts a 0.5-second base cooldown. Re-invoking a prepared recipe brings it to **D** immediately and preserves the current **R** timer. Each spell keeps its own cooldown when it changes slots or is prepared again.
 
 | Marks | Spell |
-|---|---|
-| Q + Q + Q | Pin Stitch, an instant click on an enemy hero that staggers them and marks them for follow-up staggers |
-| Q + Q + W | Veil Stitch, self-cast invisibility that ends when you attack or cast another spell |
-| Q + Q + E | Frost Loom, an instant ice wall perpendicular to your facing. It slows enemies and deals damage each second. |
-| Q + W + W | Crosswind, a click-aimed tornado that damages and briefly lifts enemies in its path |
-| Q + W + E | Spool Break, a piercing shockwave that knocks enemies back along its path and disarms heroes |
-| Q + E + E | Fire Spirits, two mobile summons you can select and command |
-| W + W + W | Hollow Seam, a delayed mana drain |
-| W + W + E | Tighten Thread, a temporary attack-speed and damage buff |
-| W + E + E | Emberfall, a meteor that lands, rolls forward, and burns enemies in its path |
-| E + E + E | Sky Needle, a long-range delayed strike |
+| --- | --- |
+| QQQ | **Pin Stitch** locks onto an enemy hero and marks them for follow-up staggers. |
+| QQW | **Veil Stitch** grants temporary invisibility that ends when you attack or cast. |
+| QQE | **Frost Loom** places an ice wall just ahead of you, perpendicular to your facing. |
+| QWW | **Crosswind** sends a click-aimed tornado that damages and lifts enemies. |
+| QWE | **Spool Break** knocks enemies back along the shockwave's path and disarms heroes. |
+| QEE | **Fire Spirits** summons two units you can select and command. |
+| WWW | **Hollow Seam** drains mana after a delay. |
+| WWE | **Tighten Thread** grants temporary attack speed and attack damage. |
+| WEE | **Emberfall** drops a rolling meteor that burns enemies in its path. |
+| EEE | **Sky Needle** strikes a distant target area after a delay. |
 
-Prepare **WWQ** and **WWW** before a fight. Lift the opponent with Crosswind, then time Hollow Seam to burst as they land. Prepare **EEW** for Emberfall, then **QWE** to push them along the rolling meteor's path. Emberfall can hit the same target again if the target stays with it.
+Prepare **QWW** and **WWW** before a fight. Lift the target with Crosswind and time Hollow Seam to burst as they land. Follow with **WEE** and aim **QWE** to knock the target along the meteor's path for repeat hits.
 
-For a Galeglass combo, prepare **EEE** in F and **EEW** in D. Lift the opponent with the scepter, cast Sky Needle from F with about one second left, then prepare **QWE** with R. Cast Emberfall from F with about half a second left. Aim Spool Break from D so it reaches the opponent just after the meteor lands. The shockwave's flight time depends on your distance.
+For a Galeglass combo, prepare **EEE** in F and **WEE** in D. Lift the target with Galeglass, then cast Sky Needle from F with about one second left. Prepare **QWE**, cast Emberfall from F with about half a second left, and time Spool Break from D to arrive after the meteor lands.
 
-Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units ahead, **W** lands 460 units ahead, and **E** lands 700 units ahead. Turn Cairn with movement or an attack order, then press the ability key to cast along his facing. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
+</details>
 
-Ecarg's **Downbow** marks enemy heroes with Resonance. Land **Overtone** or **Grand Cadence** while the mark is active to consume it for extra damage and a short stun. **Countertempo** gives Ecarg a burst of movement and attack speed.
+<details>
+<summary><strong>Veyra, Cairn, and Ecarg mechanics</strong></summary>
 
-## Play solo
+- **Veyra** plants up to three fire brands with **R**. Press **D** and click the ground to detonate them all, ending at the brand nearest the click.
+- **Cairn** casts **Q**, **W**, and **E** at 235, 460, and 700 units along his facing. Turn with a move or attack order first. Enemy creep last hits grant up to six Heat for 3 attack damage each. Death removes half the stored Heat, and **R** spends all of it to strengthen his channeled blast.
+- **Ecarg** marks enemy heroes with **Downbow**. **Overtone** and **Grand Cadence** consume that mark for extra damage and a short stun. **Countertempo** boosts movement and attack speed.
 
-Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and click **Start match**. The HTML includes the rules, graphics, and sound and works offline.
+</details>
 
-| Action | Controls |
-|---|---|
-| Move, attack, transfer creep aggro, or deny | Right-click |
-| Inspect unit health and hero items | Left-click |
-| Toggle follow / recenter the free camera on your hero | C / Space |
-| Pan in free camera mode | Arrow keys, middle-mouse drag, click or drag on the minimap, or move the cursor to a screen edge |
-| Select a targeted ability / confirm it / cancel it | Ability key / left-click / right-click or Esc |
-| Cast a self-targeted ability or prepare Neris's marks | Ability key |
-| Use active items | 1–6 |
-| Attack the target under the cursor or attack-move / stop attacking | A / S |
-| Shop / recall | B / T |
-| Pause a solo match | P / Esc |
-| Show or hide teams, hero levels, and equipment | Backtick (<kbd>`</kbd>) |
-| Change graphics / toggle sound | G / M |
+## Match and training details
 
-The camera follows your hero at the start of each match. 5v5 uses a wider view for team fights. Press **C** to switch to free camera.
+<details>
+<summary><strong>Lane objectives, shop, and combat</strong></summary>
 
-Order a basic attack on the enemy hero near enemy creeps to draw their aggro. Right-click or press **A** over a nearby allied creep to redirect enemy creeps that are attacking you. You can deny an allied creep when its health bar turns purple.
+- **Creeps and runes.** Attack an enemy hero near their creeps to draw aggro. Right-click or press **A** over an allied creep to redirect creeps attacking you. Allied creeps can be denied when their health bars turn purple. The hero who collects an Insight rune gains 220 XP.
+- **5v5 map.** Azure starts in the southwest and Crimson in the northeast. Destroy the outer and inner towers in any one lane to expose the enemy core. Enemy fountains fire high-damage beams at intruders.
+- **Fortify and buyback.** Fortification protects allied towers for five seconds and lets each tower fire at up to five creeps per volley. The 180-second cooldown is shared by the team. Buyback costs 200 gold plus 50 per hero level and has a 240-second cooldown per hero.
+- **Shop recipes.** Click an item to see its components. The shop deducts the value of parts you already own. **Recommended builds** links each loadout to its recipes, and **Builds into** shows possible upgrades. Click an inventory item to sell it at the fountain.
+- **Active items.** Use **Rift Stone** to blink toward a clicked point, **Galeglass** to lift a target, **Faultline Maul** to stun, and **Revelation Dust** to reveal invisible enemies.
 
-Click **End match** in a solo game to end your run early and see your stats. In an online game, confirm **Surrender** to award the opponent a win and show the result to both players.
+</details>
 
-Click an item name in the shop to expand its recipe and buy components individually. The recipe highlights components you own and deducts their value from the finished item's price. Use the gold button to buy an item or click an item in your inventory to sell it. After pausing a solo match, press **P** or **Esc**, or click the overlay to resume.
+<details>
+<summary><strong>Training settings</strong></summary>
 
-Drag a selection box with the left mouse button to select your hero and owned summons. Right-click to move or attack with the group, and press **S** to stop them. **Z** or **F1** selects your hero. **X** or **F2** selects all units you control. Use **Z/X** if your browser captures the function keys.
+Training starts at level 15 with gold for testing builds. Abilities cost no mana and resources refill automatically. **Zero cooldowns** starts on. Turn it off to practice normal ability, item, and recall timings, and use **Renewal Orb** to refresh abilities and other item actives. The dummy stays put unless moved by an ability, and the damage counter tracks your session total.
 
-Open **Abilities & builds** when choosing your hero, or expand **Recommended builds** in the match shop. Each hero has two six-item loadouts for different playstyles. In the shop, click an item in a loadout to view its recipe and purchase options.
+**Change hero** keeps your location, items, and session totals. Active abilities, summons, and temporary statuses clear when you switch.
 
-Follow **Builds into** to compare equipment upgrades. Gravemark Hammer builds toward Faultline Maul for a targeted stun. Spellward Mantle trades Mending Locket's heal for an allied spell barrier. Wayfarer's Spur turns Storm Striders into a combat reposition, and Wellsplitter adds mana burn and a targeted slow to Frost Brand. Press the item slot key, then click the appropriate hero or ground location. Rift Stone blinks toward the clicked point within its range.
+</details>
 
-Append `#play=brakk,hard` to the URL to start a match immediately, or append `#demo=brakk,normal,300` to spectate a bot match starting at the five-minute mark.
+## Run a server
 
-## Play 5v5
-
-Choose **5v5** and select **Play with bots**, or host a private 5v5 room on a running server. Share the room code or invite link. The host can start at any time, and bots fill the remaining seats. Players can join either side or let the lobby balance the teams. A bot takes over an online player who disconnects.
-
-Azure starts in the southwest and Crimson in the northeast. Each lane has its own outer and inner towers. Destroy both towers in any one lane to expose the enemy core. Enemy fountains fire high-damage beams at intruders. Press the backtick key (<kbd>`</kbd>) to compare hero levels and items across both teams.
-
-In both 1v1 and 5v5, click **Fortify towers** to make every surviving allied tower invulnerable for 5 seconds. During that time each tower can shoot up to five enemy creeps in range per volley. Teammates share the 180-second cooldown.
-
-While dead, click **Buyback** to spend 200 plus 50 gold per hero level and respawn immediately at your fountain with full health and mana. Buyback has a 240-second cooldown per hero.
-
-## Training
-
-Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a target with unlimited health. The dummy stays in place unless moved by an ability. Uncheck the option for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities cost no mana and resources refill automatically. **Zero cooldowns** starts on. Turn it off to practice with normal ability, equipment, and recall cooldowns. Buy **Renewal Orb** to refresh abilities and other equipment actives while normal cooldowns are enabled. The damage counter keeps your session total.
-
-Click **Change hero** during training to try another kit in the same arena. Your location, items, and session totals carry over. Active abilities, summons, and temporary statuses clear when you switch.
-
-Append `#training=neris` to jump straight into training with Neris. Add `&dummy=off` to start in an empty arena.
-
-## Run a two-player server
-
-The build runs on Windows, macOS (Apple Silicon or Intel), and Linux. Install Node.js 22 or newer, stable Rust through [rustup](https://rustup.rs/), and the platform linker. Use the Visual Studio C++ build tools on Windows, the Xcode Command Line Tools on macOS, or your distribution's C compiler and build tools on Linux.
+Install Node.js 22 or newer and stable Rust through [rustup](https://rustup.rs/). Use the Visual Studio C++ build tools on Windows, Xcode Command Line Tools on macOS, or your distribution's C compiler and build tools on Linux.
 
 ```sh
+git clone https://github.com/dizhouwu/lanebreak.git
+cd lanebreak
 rustup target add wasm32-unknown-unknown
 npm run build
 npm start
 ```
 
-The build compiles the Rust engine as a native add-on for the current operating system and embeds its WebAssembly build in the standalone game HTML. Build again on the destination platform when moving the server to another machine. On Windows, `Start-Lanebreak.cmd` builds and starts the server using the same tools.
+Open [localhost:8377](http://127.0.0.1:8377/). In **Online 1v1**, host and share a room link or code, or use **Find opponent**. For a private **5v5** match, pick a team or let the lobby balance the sides. The host can start at any time, with bots filling the remaining seats.
 
-For a test on one computer, open `http://127.0.0.1:8377/` in two browser tabs. Under **Online 1v1**, one player clicks **Host match** and the other opens the invite link or enters the four-letter room code and clicks **Join room**. Both players can also click **Find opponent**. To play from two devices on the same LAN, run `node lanebreak_server.js --host=0.0.0.0` and open the host's LAN address on port 8377 from the other device.
+The build bundles WebAssembly into the standalone HTML and compiles a native add-on for the server. Build on the destination operating system when moving to another machine. Windows users can also double-click `Start-Lanebreak.cmd` after installing the prerequisites.
 
-The server simulates the match at 60 Hz and sends snapshots at approximately 30 Hz. Refreshing the page reconnects to the match using the current tab's seat token. A bot takes over while the player is disconnected. Restarting the server clears active rooms.
+<details>
+<summary><strong>LAN play and Cloudflare Tunnel</strong></summary>
 
-## Deploy with Cloudflare Tunnel
+For LAN play, run `node lanebreak_server.js --host=0.0.0.0` and open the host's LAN address on port 8377 from a second device.
 
-Run `npm start` and `cloudflared` on the same host. In the tunnel's **Published application** settings, point the public hostname to `http://127.0.0.1:8377`. Keep the default loopback listener and preserve the public Host header through the tunnel. The HTTPS page connects automatically to `/ws` over a secure WebSocket on the same hostname.
+For Cloudflare Tunnel, run `npm start` and `cloudflared` on the same host. Point the public hostname to `http://127.0.0.1:8377` in **Published application** settings. Keep the default loopback listener and preserve the public Host header through the tunnel. The HTTPS page connects to `/ws` on the same hostname.
 
-Check `/healthz`, then use two devices to host, join, and reconnect after a refresh through the public hostname.
+Check `/healthz`, then use two devices to host, join, and reconnect after a refresh. The tab's seat token enables reconnects. A bot takes over while a player is disconnected. Restarting the server clears active rooms.
 
 - [Cloudflare Tunnel setup](https://developers.cloudflare.com/tunnel/get-started/)
-- [Cloudflare WebSocket documentation](https://developers.cloudflare.com/network/websockets/)
+- [Cloudflare WebSockets](https://developers.cloudflare.com/network/websockets/)
 
-## Source and tests
+</details>
 
-`rust/engine` runs the match, including movement, damage, abilities, items, objectives, creeps, and AI. It uses `rust/physics` for collision and projectile queries and reads the shared hero, item, and difficulty tables from `src/rules.json`. The browser runs that engine through WebAssembly. The server loads the same engine through the native bindings in `rust/node` and handles rooms, reconnections, and WebSockets. JavaScript handles input, previews, and rendering.
+## How it works
 
-Battlefields batch unit sprites, health bars, and basic-attack projectiles with WebGL 2. Canvas 2D draws terrain and ability effects and provides a fallback when the WebGL context is unavailable.
+| Layer | Implementation |
+| --- | --- |
+| **Match simulation** | [Rust engine](rust/engine) runs movement, combat, abilities, items, objectives, and rule-based bots. [Rust physics](rust/physics) handles collision and projectile queries. |
+| **Browser** | WebAssembly runs solo and training matches. JavaScript handles input and presentation. WebGL 2 batches units, health bars, and basic-attack projectiles. Canvas 2D draws terrain and spell effects and provides a fallback. |
+| **Online** | Node.js loads the same engine through [native bindings](rust/node), simulates at 60 Hz, and sends snapshots over WebSockets at roughly 30 Hz. |
+| **Balance** | Heroes, items, and bot difficulty share one [rules table](src/rules.json). |
 
-The [cross-platform build](https://github.com/dizhouwu/lanebreak/actions/workflows/build.yml) checks Windows, Linux, Apple Silicon, and Intel macOS. After changing source or tuning tables, run `npm run build` and restart the server.
+The cross-platform workflow builds and tests on Windows, Linux, Apple Silicon, and Intel macOS. After changing source or rules, rebuild and restart the server.
 
 ```sh
-npm test
-npm run balance
+npm test         # Engine and network tests
+npm run balance  # Bot matchups and match length
 ```
 
-The tests cover hero abilities, recipes and refunds, active item cooldowns, denies, recall, match results, private rooms, public matchmaking, and reconnects. The rules and interface were reconstructed from screenshots. Source screenshots confirmed the Void Core recipe and stats. It costs 2,300 gold total (Arcane Core, Focus Rune, and 550 gold) and grants 40% ability damage, 320 mana, 3 mana per second, and 20% ability cooldown reduction. The bot match script measures hero balance and match length.
+[Apache-2.0 license](LICENSE)
