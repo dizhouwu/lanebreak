@@ -962,6 +962,16 @@
         const start = -Math.PI / 2, progress = clamp(1 - (u.channel - now) / 3, 0, 1);
         g.beginPath(); g.arc(x,y,u.r+24,start,start+2*Math.PI*progress); g.strokeStyle=color; g.lineWidth=5; g.stroke();
       }
+      if (u.castChannel && u.castChannel[2] > now) {
+        const [, began, until] = u.castChannel;
+        const progress = clamp((now-began)/(until-began),0,1);
+        const radius = HEROES[u.hero].abilities[u.castChannel[0]].radius;
+        ellipse(g,x,y,radius,radius,'#70221922','#ffa66188',2);
+        ellipse(g,x,y,34+progress*33,22+progress*21,'#ea642341','#ffaf70',3);
+        g.beginPath(); g.arc(x,y,u.r+22,-Math.PI/2,-Math.PI/2+2*Math.PI*progress);
+        g.strokeStyle='#ffe5ad'; g.lineWidth=4; g.stroke();
+        this.label(g, 'Chanting', x, y+30, 15, '#ffe8bf');
+      }
       const facing = u.facing ?? (u.team ? Math.PI : 0);
       const lunge = u.attack && HEROES[u.hero].range < 200 ? 8 : 0;
       const progress = cast ? clamp((now - cast.time) / .38, 0, 1) : 1;

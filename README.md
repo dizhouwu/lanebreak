@@ -67,6 +67,8 @@ Click **End match** in a solo game to end your run early and see your stats. In 
 
 Click an item name in the shop to expand its recipe and buy components individually. The recipe highlights components you own and deducts their value from the finished item's price. Use the gold button to buy an item or click an item in your inventory to sell it. After pausing a solo match, press **P** or **Esc**, or click the overlay to resume.
 
+Open **Abilities & builds** when choosing your hero, or expand **Recommended builds** in the match shop. Each hero has two six-item loadouts for different playstyles. In the shop, click an item in a loadout to view its recipe and purchase options.
+
 Follow **Builds into** to compare equipment upgrades. Gravemark Hammer builds toward Faultline Maul for a targeted stun. Spellward Mantle trades Mending Locket's heal for an allied spell barrier. Wayfarer's Spur turns Storm Striders into a combat reposition, and Wellsplitter adds mana burn and a targeted slow to Frost Brand. Press the item slot key, then click the appropriate hero or ground location. Rift Stone blinks toward the clicked point within its range.
 
 Append `#play=brakk,hard` to the URL to start a match immediately, or append `#demo=brakk,normal,300` to spectate a bot match starting at the five-minute mark.

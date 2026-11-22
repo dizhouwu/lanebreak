@@ -439,6 +439,7 @@ impl Match {
                 h.respawn = t + 5.0 + 2.2 * f64::from(h.level);
                 h.order = Order::None;
                 h.channel = 0.0;
+                h.cast_channel = None;
                 h.potion_until = 0.0;
                 h.buffs.clear();
                 h.spell_barrier = None;

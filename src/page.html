@@ -20,7 +20,7 @@
     </section>
     <div class="lobbyControls">
       <section class="draft">
-        <div class="sectionHeader"><h2>Choose your hero</h2><div class="draftActions"><button type="button" id="openHeroGuide" class="iconButton">Abilities</button><span class="keyHint"><kbd>1</kbd>–<kbd>8</kbd></span></div></div>
+        <div class="sectionHeader"><h2>Choose your hero</h2><div class="draftActions"><button type="button" id="openHeroGuide" class="iconButton">Abilities &amp; builds</button><span class="keyHint"><kbd>1</kbd>–<kbd>8</kbd></span></div></div>
         <div id="heroes" class="heroGrid"></div>
         <div id="heroPreview" class="panel heroPreview" role="tooltip" hidden></div>
       </section>
@@ -90,7 +90,7 @@
       <header><div><h2>Item shop</h2><div id="shopStatus" class="muted"></div></div><button id="closeShop">Close <kbd>B</kbd></button></header>
       <div id="shopFeedback" role="status" hidden></div>
       <div class="shopContent">
-        <div id="shopItems"></div>
+        <div id="shopItems"><details id="shopBuilds"><summary>Recommended builds</summary><div id="shopBuildList"></div></details></div>
         <div id="shopDetails" class="shopDetails"><div id="shopDetailsText"></div><section id="shopRecipe" hidden></section></div>
       </div>
       <div id="sellItems"></div>
@@ -126,7 +126,7 @@
     <div id="itemCatalog"></div>
   </dialog>
   <dialog id="heroGuide" class="panel" aria-labelledby="heroGuideTitle">
-    <header><h2 id="heroGuideTitle">Hero abilities</h2><button type="button" id="closeHeroGuide" autofocus>Close <kbd>Esc</kbd></button></header>
+    <header><h2 id="heroGuideTitle">Abilities &amp; builds</h2><button type="button" id="closeHeroGuide" autofocus>Close <kbd>Esc</kbd></button></header>
     <div id="selectedHeroGuide"></div>
   </dialog>
   <dialog id="trainingHeroPicker" class="panel" aria-labelledby="trainingHeroTitle">

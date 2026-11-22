@@ -41,7 +41,7 @@
   const game = $('game');
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
-    veil: [520,.24,'sine',.05,.52],
+    veil: [520,.24,'sine',.05,.52], chant: [135,.48,'triangle',.058,1.4],
     meteor: [170,.38,'triangle',.07,.4], unit: [580,.17,'triangle',.05,.68],
     blink: [900,.15,'sine',.05,.5], buff: [500,.20,'triangle',.06,1.5], sentry: [370,.16,'triangle',.052,1.3]
   };
@@ -52,10 +52,31 @@
     if (className) el.className = className;
     return el;
   }
-  function renderHeroGuide(panel, id) {
+  function renderBuilds(panel, hero, onSelect) {
+    panel.replaceChildren(...hero.recommendedBuilds.map(build => {
+      const section = make('section', null, 'heroBuild');
+      const items = make('ol', null, 'heroBuildItems');
+      for (const id of build.items) {
+        const item = ITEMS[id], row = make('li');
+        const label = make(onSelect ? 'button' : 'span', item.name);
+        label.title = item.text;
+        label.style.setProperty('--build-item', item.color);
+        if (onSelect) {
+          label.type = 'button';
+          label.addEventListener('click', () => onSelect(id));
+        }
+        row.append(label);
+        items.append(row);
+      }
+      section.append(make('h4', build.name), make('p', build.detail), items);
+      return section;
+    }));
+  }
+  function renderHeroGuide(panel, id, showBuilds = false) {
     const hero = HEROES[id];
     const list = make('ul', null, 'heroGuideSpells');
-    for (const [i, spell] of hero.abilities.slice(0, 4).entries()) {
+    const spells = hero.weaves ? hero.abilities.slice(0, 4) : hero.abilities;
+    for (const [i, spell] of spells.entries()) {
       const row = make('li');
       const copy = make('div');
       copy.append(make('strong', spell.name), make('p', spell.text));
@@ -68,6 +89,11 @@
     if (hero.heat) panel.append(make('p', 'Heat · Last hits on enemy creeps add +' + hero.heat.attack +
       ' attack damage per stack, up to ' + hero.heat.max + '. On death, you lose half your Heat.', 'heroTrait'));
     if (hero.weaves) panel.append(make('p', 'Cast prepared spells with D and F. Use V for potions.', 'heroTrait'));
+    if (showBuilds) {
+      const builds = make('div');
+      renderBuilds(builds, hero);
+      panel.append(make('h3', 'Recommended builds', 'heroBuildHeading'), builds);
+    }
   }
   function hideHeroGuide(card) {
     if (card && card !== heroPreviewCard) return;
@@ -593,6 +619,10 @@
   }
   function issue(cmd) {
     if (!snapshot || paused || demo || snapshot.mode !== 'match') return false;
+    if (snapshot.heroes[team].castChannel && cmd.o !== 'stop') {
+      hint('Channeling · press S to cancel');
+      return false;
+    }
     let error;
     if (remote) {
       if (socket?.readyState !== WebSocket.OPEN) { hint('Reconnecting…'); return false; }
@@ -852,6 +882,11 @@
   }
   function updateShop(h, time) {
     $('shopStatus').textContent = h.canShop ? Math.floor(h.gold) + ' gold available' : 'Purchase at your fountain or while dead';
+    const builds = $('shopBuildList');
+    if (builds.dataset.hero !== h.hero) {
+      renderBuilds(builds, HEROES[h.hero], selectShopItem);
+      builds.dataset.hero = h.hero;
+    }
     for (const button of $('shopItems').querySelectorAll('[data-item]')) {
       const id = button.dataset.item, item = ITEMS[id];
       button.lastElementChild.textContent = [HEROES[h.hero].build.includes(id) ? '★' : '', item.cd ? 'Active' : '', item.parts ? 'Recipe' : ''].filter(Boolean).join(' · ');
@@ -1024,12 +1059,14 @@
     const abilities = $('abilities');
     abilities.dataset.weaves = !!hero.weaves;
     abilities.dataset.slots = hero.abilities.length;
+    abilities.dataset.channeling = !!h.castChannel;
     abilities.style.setProperty('--hero',hero.color);
     for (const [i, tile] of [...abilities.children].entries()) {
       tile.hidden = i >= hero.abilities.length;
       if (tile.hidden) continue;
       const button = tile.lastElementChild;
       const spell = abilitySpell(h, i), level = abilityLevel(h, i);
+      const cast = h.castChannel?.[0] === i ? h.castChannel : null;
       const cd = Math.max(0, abilityReadyAt(h, i) - time), locked = h.level < level;
       const charges = spell.kind === 'brand' ? h.brandChargeReady.filter(ready => ready <= time).length : null;
       const placed = spell.kind === 'brandReturn' ? h.brands?.length || 0 : null;
@@ -1038,10 +1075,11 @@
       const passive = spell.kind === 'passive';
       const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked || empty || placed === 0 || (awaitingMarks && !cd) ? 'locked' : passive ? (h.charged ? 'ready' : 'passive') :
+      button.dataset.state = cast ? 'channeling' : locked || empty || placed === 0 || (awaitingMarks && !cd) ? 'locked' : passive ? (h.charged ? 'ready' : 'passive') :
         cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
-      button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
+      button.lastElementChild.textContent = cast ? 'Chant ' + Math.max(0, cast[2] - time).toFixed(1) + 's' :
+        locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
         awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : passive ? (h.charged ? 'Charged' : 'Passive') :
         charges !== null ? charges + '/' + h.brandChargeReady.length : placed !== null ? placed + ' marked' : manaLabel || '';
       const cooldown = s.training?.noCooldowns ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
@@ -1519,7 +1557,7 @@
     $('itemSearch').addEventListener('input', filterItemGuide);
     $('openHeroGuide').onclick = () => {
       hideHeroGuide();
-      renderHeroGuide($('selectedHeroGuide'), selected);
+      renderHeroGuide($('selectedHeroGuide'), selected, true);
       $('heroGuide').showModal();
     };
     $('closeHeroGuide').onclick = () => $('heroGuide').close();

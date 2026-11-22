@@ -251,6 +251,12 @@ impl Match {
                         && spell.wall_covers(center, forward, enemy_pos, self.u(enemy).r))
                     .then_some(pos)
                 }
+                Kind::Blast if spell.channel_time > 0.0 => (enemy_alive
+                    && reach <= spell.radius
+                    && (kill || health > 0.5 && enemy_health < 0.65 && mana > 0.4))
+                    .then(|| self.aim(enemy, spell.channel_time, difficulty))
+                    .filter(|end| pos.dist(*end) < spell.radius)
+                    .map(|_| pos),
                 Kind::Meteor | Kind::Blast | Kind::Sweep => {
                     let want = kill
                         || if ultimate {

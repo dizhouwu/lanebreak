@@ -74,6 +74,10 @@
           "text": "Rain six volleys of arrows onto the target area."
         }
       ],
+      "recommendedBuilds": [
+        {"name": "Kiting carry", "detail": "Attack speed, slows, and repositioning keep enemies at bow range.", "items": ["wayfarer","wellsplitter","executioner","crown","faultline","colossus"]},
+        {"name": "Protected backline", "detail": "Play behind your team with a spell barrier, cyclone, and sustained attacks.", "items": ["galeglass","executioner","spellward","crown","wellsplitter","colossus"]}
+      ],
       "build": [
         "boots",
         "gloves",
@@ -160,6 +164,10 @@
           "text": "Gain attack speed, lifesteal, and movement speed for 8 seconds."
         }
       ],
+      "recommendedBuilds": [
+        {"name": "Frontline initiator", "detail": "Blink into fights with health, armor, and an extra stun.", "items": ["rift","faultline","colossus","spellward","crown","wayfarer"]},
+        {"name": "Brawling carry", "detail": "Lifesteal and splash reward staying in melee through long fights.", "items": ["striders","reaver","executioner","faultline","crown","colossus"]}
+      ],
       "build": [
         "boots",
         "charm",
@@ -242,6 +250,10 @@
           "growth": 38,
           "text": "Bring down a star after a 1.4-second delay."
         }
+      ],
+      "recommendedBuilds": [
+        {"name": "Spell burst", "detail": "Mana, cooldown reduction, and a refresh support back-to-back gravity combos.", "items": ["galeglass","void","renewal","rift","spellward","locket"]},
+        {"name": "Control caster", "detail": "A cyclone, active slow, and spell barrier help control space in longer fights.", "items": ["galeglass","void","wellsplitter","wayfarer","spellward","colossus"]}
       ],
       "build": [
         "boots",
@@ -332,6 +344,10 @@
           "growth": 13,
           "text": "Dash toward the selected point and deal damage on arrival. Costs 55 mana plus 11.5 per 100 units traveled. You can take damage during the dash."
         }
+      ],
+      "recommendedBuilds": [
+        {"name": "Long-dash caster", "detail": "A large mana pool and regen let you use Current Run repeatedly.", "items": ["galeglass","void","renewal","wayfarer","locket","spellward"]},
+        {"name": "Spellweave skirmisher", "detail": "Mix charged attacks with spells and use the active slow to keep targets close.", "items": ["wayfarer","wellsplitter","executioner","void","crown","spellward"]}
       ],
       "build": [
         "boots",
@@ -427,6 +443,10 @@
           "growth": 15,
           "text": "Click anywhere on the ground to dash through all active fire brands. Each explodes as you reach it. The brand nearest the click is the final stop."
         }
+      ],
+      "recommendedBuilds": [
+        {"name": "Cinder Step carry", "detail": "Attack damage, critical strikes, and lifesteal all work with the sweep.", "items": ["wayfarer","executioner","crown","faultline","reaver","colossus"]},
+        {"name": "Brand combo", "detail": "Stack mana and spell power for repeated fire-brand routes, with a cyclone for setup.", "items": ["galeglass","void","renewal","rift","spellward","locket"]}
       ],
       "build": [
         "boots",
@@ -647,6 +667,10 @@
           "text": "Call down a narrow, delayed strike up to 1,420 units away."
         }
       },
+      "recommendedBuilds": [
+        {"name": "Cyclone combo", "detail": "Lift a target to set up your spells, then refresh for a second sequence.", "items": ["galeglass","void","renewal","rift","spellward","locket"]},
+        {"name": "Surviving the dive", "detail": "Spell barrier, health, and two repositioning tools buy time to prepare spells.", "items": ["wayfarer","void","spellward","colossus","rift","wellsplitter"]}
+      ],
       "build": [
         "boots",
         "prism",
@@ -736,12 +760,16 @@
           "cd": 68,
           "range": 0,
           "radius": 340,
-          "delay": 0.7,
+          "channelTime": 1.65,
           "damage": 135,
           "growth": 26,
           "heatDamage": 18,
-          "text": "Release a delayed blast around the point where you cast. Spend all Heat for 18 extra base damage per stack."
+          "text": "Channel for 1.65s, then erupt around yourself. Each Heat adds 18 base damage. Stuns or knockups interrupt the channel. Press S to cancel it. Mana, cooldown, and Heat are spent on release."
         }
+      ],
+      "recommendedBuilds": [
+        {"name": "Furnace Vent setup", "detail": "Blink into a group and build spell power for a high-damage release.", "items": ["rift","void","spellward","colossus","renewal","galeglass"]},
+        {"name": "Heat carry", "detail": "Turn last-hit Heat into sustained ranged damage with attack speed and crits.", "items": ["wayfarer","executioner","wellsplitter","crown","faultline","colossus"]}
       ],
       "build": [
         "boots",
@@ -835,6 +863,10 @@
           "accentStun": 0.7,
           "text": "Play three notes over a target area. The first note to hit a marked hero consumes Resonance for bonus damage and a brief stun."
         }
+      ],
+      "recommendedBuilds": [
+        {"name": "Resonance burst", "detail": "Power, mana, and a refresh give you more chances to chain your phrases.", "items": ["galeglass","void","renewal","rift","locket","spellward"]},
+        {"name": "Team support", "detail": "Protect and reposition allies, then follow up with a cyclone or active slow.", "items": ["wayfarer","spellward","galeglass","wellsplitter","void","colossus"]}
       ],
       "build": [
         "boots",

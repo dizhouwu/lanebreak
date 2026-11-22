@@ -81,6 +81,7 @@ pub struct Spell {
     pub stun: f64,
     pub lift: f64,
     pub delay: f64,
+    pub channel_time: f64,
     pub hits: u32,
     pub interval: f64,
     pub duration: f64,

@@ -70,6 +70,8 @@ struct PublicHero<'a> {
     level: u32,
     computer: bool,
     channel: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cast_channel: Option<(usize, f64, f64)>,
     mana: f64,
     max_mana: f64,
     deaths: u32,
@@ -313,6 +315,7 @@ impl Match {
                     level: h.level,
                     computer: h.bot.is_some(),
                     channel: h.channel,
+                    cast_channel: h.cast_channel.map(|c| (c.slot, c.began, c.until)),
                     mana: h.mana,
                     max_mana: h.max_mana,
                     deaths: h.deaths,

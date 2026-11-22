@@ -113,6 +113,14 @@ struct Windup {
     time: f64,
 }
 #[derive(Clone, Copy)]
+struct CastChannel {
+    slot: usize,
+    at: Point,
+    target: Option<Id>,
+    began: f64,
+    until: f64,
+}
+#[derive(Clone, Copy)]
 struct Dash {
     pos: Point,
     spell: &'static Spell,
@@ -216,6 +224,7 @@ struct Hero {
     respawn: f64,
     buyback_ready: f64,
     channel: f64,
+    cast_channel: Option<CastChannel>,
     recall_ready: f64,
     order: Order,
 }
@@ -265,6 +274,7 @@ impl Hero {
             respawn: 0.0,
             buyback_ready: 0.0,
             channel: 0.0,
+            cast_channel: None,
             recall_ready: 0.0,
             order: Order::None,
         }

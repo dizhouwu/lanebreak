@@ -447,6 +447,9 @@ impl Match {
         if self.ended() || (self.training.is_some() && team != 0) {
             return Err("Invalid order".into());
         }
+        if self.h(id).cast_channel.is_some() && !matches!(cmd, Command::Stop) {
+            return Err("Channeling · press S to cancel".into());
+        }
         match &cmd {
             Command::Fortify => return self.fortify(team),
             Command::Buyback => return self.buyback(id),
@@ -543,6 +546,7 @@ impl Match {
             Command::Stop => {
                 self.h_mut(id).order = Order::Stop;
                 self.h_mut(id).channel = 0.0;
+                self.h_mut(id).cast_channel = None;
                 self.u_mut(id).windup = None;
             }
             Command::Cast {
@@ -561,7 +565,7 @@ impl Match {
                 {
                     return Err("Spell changed. Select the ability again.".into());
                 }
-                return self.cast(id, slot, at, target);
+                return self.cast(id, slot, at, target, false);
             }
             Command::Item(i, at) => return self.use_item(id, i, at, None, None),
             Command::PointItem { slot, key, at } => {
@@ -700,12 +704,13 @@ impl Match {
         Ok(())
     }
 
-    fn cast(
+    pub(super) fn cast(
         &mut self,
         id: Id,
         slot: usize,
         mut at: Point,
         target: Option<Id>,
+        channel_complete: bool,
     ) -> Result<(), String> {
         let u = self.u(id);
         let time = self.time;
@@ -777,6 +782,28 @@ impl Match {
                 .filter(|&target| self.targetable_hero(id, target, spell))
                 .ok_or("Select an enemy hero in range")?;
             at = self.u(target).pos;
+        }
+        if spell.channel_time > 0.0 && !channel_complete {
+            let u = self.u_mut(id);
+            let (origin, team) = (u.pos, u.team);
+            u.windup = None;
+            let h = u.hero.as_mut().unwrap();
+            h.order = Order::Stop;
+            h.channel = 0.0;
+            h.cast_channel = Some(CastChannel {
+                slot,
+                at,
+                target,
+                began: time,
+                until: time + spell.channel_time,
+            });
+            self.effect(
+                "cast",
+                origin,
+                json!({"team":team,"caster":id,"hero":self.h(id).key,
+                "spell":"chant","ability":spell.name,"ultimate":true}),
+            );
+            return Ok(());
         }
         if spell.kind == Kind::Mark {
             let marks = &mut self.h_mut(id).marks;

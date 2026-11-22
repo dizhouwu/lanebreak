@@ -228,6 +228,15 @@ impl Match {
         if u.hp <= 0.0 || u.sweep_origin.is_some() {
             return;
         }
+        if let Some(channel) = self.h(id).cast_channel {
+            if u.stun_until > time || u.lift_until > time || u.dash.is_some() {
+                self.h_mut(id).cast_channel = None;
+            } else if time + 1e-8 >= channel.until {
+                self.h_mut(id).cast_channel = None;
+                let _ = self.cast(id, channel.slot, channel.at, channel.target, true);
+            }
+            return;
+        }
         if u.lift_until > time && !u.dash.is_some_and(|dash| dash.brand_route.is_some()) {
             self.u_mut(id).dash = None;
         }
@@ -265,7 +274,10 @@ impl Match {
         if h.bot.is_some() && time >= h.think {
             self.think(id);
         }
-        if self.u(id).dash.is_some() || self.u(id).sweep_origin.is_some() {
+        if self.u(id).dash.is_some()
+            || self.u(id).sweep_origin.is_some()
+            || self.h(id).cast_channel.is_some()
+        {
             return;
         }
         let channel = self.h(id).channel;

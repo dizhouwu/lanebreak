@@ -1035,10 +1035,79 @@ fn cairn_casts_three_ranges_along_facing_and_training_restores_heat() {
         assert_eq!(m.areas[slot].pos.y, start.y);
     }
     cast(&mut m, 3, start);
+    assert_eq!(m.h(1).heat, 6);
+    m.step(DT, 99);
     assert_eq!(m.h(1).heat, 0);
     m.step(DT, 1);
     assert_eq!(m.h(1).heat, 6);
     assert_eq!(m.training.as_ref().unwrap().hits, 0);
+}
+
+#[test]
+fn furnace_vent_requires_a_full_channel_and_commits_resources_on_release() {
+    let mut m = duel(["cairn", "brakk"]);
+    m.h_mut(1).level = 6;
+    m.refresh(1);
+    m.h_mut(1).mana = m.h(1).max_mana;
+    m.h_mut(1).heat = 3;
+    let at = Point::new(2200.0, 450.0);
+    place(&mut m, 1, at.x, at.y);
+    place(&mut m, 2, at.x + 160.0, at.y);
+    let mana = m.h(1).mana;
+
+    cast(&mut m, 3, at);
+    assert_eq!(view(&m, 0)["heroes"][0]["castChannel"][2], 1.65);
+    assert_eq!(m.h(1).mana, mana);
+    assert_eq!(m.h(1).heat, 3);
+    for cmd in [
+        Command::Move(Point::new(2400.0, 450.0)),
+        Command::Attack(2),
+        Command::cast(0, at, None),
+        Command::Potion,
+        Command::Recall,
+        Command::Item(0, at),
+    ] {
+        assert!(m.command(1, cmd).unwrap_err().contains("Channeling"));
+    }
+    m.command(1, Command::Stop).unwrap();
+    assert!(m.h(1).cast_channel.is_none());
+
+    cast(&mut m, 3, at);
+    m.step(DT, 30);
+    m.magic(
+        1,
+        2,
+        &Spell {
+            stun: 0.25,
+            ..Spell::default()
+        },
+        0.0,
+        None,
+    );
+    m.step(DT, 20);
+    assert!(m.h(1).cast_channel.is_none());
+    assert_eq!(m.h(1).cd[3], 0.0);
+    assert_eq!(m.h(1).mana, mana);
+    assert_eq!(m.h(1).heat, 3);
+    assert!(
+        !m.effects
+            .iter()
+            .any(|e| e["kind"] == "burst" && e["ability"] == "Furnace Vent")
+    );
+
+    cast(&mut m, 3, at);
+    m.step(DT, 98);
+    assert_eq!(m.u(1).pos, at);
+    assert!(m.h(1).cast_channel.is_some());
+    m.step(DT, 1);
+    assert_eq!(m.h(1).mana, mana - 145.0);
+    assert_eq!(m.h(1).heat, 0);
+    assert!(m.h(1).cd[3] > m.time);
+    assert!(
+        m.effects
+            .iter()
+            .any(|e| e["kind"] == "burst" && e["ability"] == "Furnace Vent")
+    );
 }
 
 #[test]
