@@ -6,7 +6,9 @@
 
 [![Cross-platform build](https://github.com/dizhouwu/lanebreak/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/dizhouwu/lanebreak/actions/workflows/build.yml)
 
-![Lanebreak gameplay showing the battlefield, minimap, and ability bar](docs/images/gameplay.webp)
+![Neris lifts the training dummy with Crosswind, drops Emberfall, and knocks it into the rolling meteor with Spool Break](docs/images/neris-combo.gif)
+
+**Neris training combo** · Crosswind (`QWW`) → Emberfall (`WEE`) → Spool Break (`QWE`)
 
 ## Pick a mode
 
@@ -17,6 +19,8 @@
 | **Training** | Try any hero, test full builds, and practice combos against an unlimited-health dummy or in an empty arena. Switch heroes without leaving. |
 
 Build six-slot loadouts with active items for blinks, cyclones, stuns, and detection. Fortify allied towers, buy back into a fight, and track every player's K/D/A and items with the backtick key. Kill streaks and multikills appear as on-screen banners.
+
+![Neris faces Cairn in a 1v1 duel by the river](docs/images/gameplay.webp)
 
 ## Play offline
 
