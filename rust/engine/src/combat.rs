@@ -221,7 +221,7 @@ impl Match {
     pub(super) fn hurt(&mut self, target: Id, raw: f64, source: Id, ability: bool, attack: bool) {
         let b = self.u(target);
         if b.hp <= 0.0
-            || b.cyclone_until > self.time
+            || b.invulnerable(self.time)
             || raw <= 0.0
             || self.protected(target)
             || self.fortified(b)
@@ -425,6 +425,8 @@ impl Match {
                 u.veil_until = 0.0;
                 u.lift_until = 0.0;
                 u.cyclone_until = 0.0;
+                u.root_until = 0.0;
+                u.sweep_origin = None;
                 u.windup = None;
                 u.dash = None;
                 u.slows.clear();
@@ -477,7 +479,7 @@ impl Match {
         }
     }
 
-    fn damage_at_launch(&mut self, id: Id) -> f64 {
+    pub(super) fn damage_at_launch(&mut self, id: Id) -> f64 {
         let u = self.u(id);
         let (damage, crit) = if let Some(h) = &u.hero {
             (
@@ -506,7 +508,7 @@ impl Match {
             && a.team != b.team
             && b.role != Role::Building
             && b.hp > 0.0
-            && b.cyclone_until <= self.time
+            && !b.invulnerable(self.time)
             && a.hero.as_ref().is_some_and(|h| h.charge_until > self.time))
         .then_some(b.pos);
         if charge_at.is_some() {
@@ -537,7 +539,7 @@ impl Match {
         let (a, b) = (self.u(from), self.u(target));
         let time = self.time;
         if b.hp <= 0.0
-            || b.cyclone_until > time
+            || b.invulnerable(time)
             || b.veiled(time)
             || a.reach(b) > a.attack_range()
             || self.protected(target)
@@ -620,6 +622,7 @@ impl Match {
         if !self.units.get(&shot.target).is_some_and(|b| {
             b.hp > 0.0
                 && !b.veiled(self.time)
+                && !b.invulnerable(self.time)
                 && a.reach(b) <= a.attack_range() + 140.0
                 && !self.protected(shot.target)
         }) {
@@ -657,7 +660,7 @@ impl Match {
                             && creep.team != tower.team
                             && creep.hp > 0.0
                             && !creep.veiled(self.time)
-                            && creep.cyclone_until <= self.time
+                            && !creep.invulnerable(self.time)
                             && tower.reach(creep) <= range
                     })
                     .take(FORTIFY_CREEP_TARGETS - usize::from(primary_creep))
@@ -703,7 +706,7 @@ impl Match {
         let (team, pos, role, radius) = (b.team, b.pos, b.role, b.r);
         let a_team = self.u(from).team;
         let origin = self.u(from).pos;
-        if team == a_team || b.hp <= 0.0 || b.cyclone_until > self.time || role == Role::Building {
+        if team == a_team || b.hp <= 0.0 || b.invulnerable(self.time) || role == Role::Building {
             return;
         }
         let time = self.time;

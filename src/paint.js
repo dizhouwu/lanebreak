@@ -369,7 +369,7 @@
     }
     camera(hero) {
       const view = this.canvas.width / this.scale;
-      const followX = hero.x + (hero.team ? -1 : 1) * Math.min(200, view * .18);
+      const followX = (hero.sweepOrigin?.x ?? hero.x) + (hero.team ? -1 : 1) * Math.min(200, view * .18);
       return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
     frame(s, team, now, mark, dt, pointer, selectedId, spell) {
@@ -405,7 +405,7 @@
       const side = player.team;
       this.cam = this.camera(player);
       const viewWidth = w / this.scale, viewHeight = h / this.scale;
-      this.camY = clamp((this.focus?.y ?? player.y) - viewHeight / 2, 0, this.height - viewHeight);
+      this.camY = clamp((this.focus?.y ?? player.sweepOrigin?.y ?? player.y) - viewHeight / 2, 0, this.height - viewHeight);
       this.displayed = s;
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#142529'; g.fillRect(0, 0, w, h);
@@ -563,6 +563,13 @@
           continue;
         }
         if (age < 0 || age > 1.08 || !inView(e.x, e.y, (e.radius || 65) + 100)) continue;
+        if (e.kind === 'chains' && age < .45) {
+          g.globalAlpha = 1 - age / .45;
+          line(g, [[e.fromX,e.fromY-15],[e.x,e.y-8]], '#fa8d50', 3.5);
+          ellipse(g,e.x,e.y,24,12,null,'#ffc47f',3);
+          g.globalAlpha = 1;
+          continue;
+        }
         if (e.kind === 'sweep' && age < .24) {
           g.globalAlpha = 1 - age / .24;
           line(g,[[e.fromX,e.fromY-12],[e.x,e.y-12]],'#ff754578',10);
@@ -1003,6 +1010,7 @@
       }
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
       if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
+      if (u.rooted) ellipse(g,x,y+4,u.r+5,u.r*.55,null,'#ffa35f',3);
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
       if (u.burning) ellipse(g,x,y-19,30,28,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
@@ -1035,6 +1043,7 @@
         y + Math.sin(facing) * lunge - lift - bounds.top, bounds.width, bounds.height);
       if (u.attack) ellipse(g,x,y,15,8,null,color+'a0',1.4);
       if (u.flags & flags.stunned) this.label(g,'✦',x,y-r-17-lift,16,'#fff29a');
+      if (u.flags & flags.rooted) ellipse(g,x,y+4,r+5,r*.55,null,'#ffa35f',2);
       if (u.flags & flags.rallied) ellipse(g,x,y,r+5,r+5,null,'#ffd95a',2);
     }
     creepBody(g, kind, color, r, direction) {

@@ -281,7 +281,7 @@ impl Match {
                 Kind::Sentry => ((push || reach < spell.range + 190.0) && mana > 0.52).then_some(
                     Point::new(pos.x + if enemy_team == 1 { 280.0 } else { -280.0 }, pos.y),
                 ),
-                Kind::Nova => ((reach < spell.radius * 0.8 && (kill || mana > 0.3))
+                Kind::Nova | Kind::Chains => ((reach < spell.radius * 0.8 && (kill || mana > 0.3))
                     || (push
                         && mana > 0.7
                         && self

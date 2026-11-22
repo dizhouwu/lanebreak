@@ -364,18 +364,17 @@
       "abilities": [
         {
           "name": "Ash Snare",
-          "kind": "blast",
+          "kind": "chains",
           "mana": 70,
           "cd": 9,
-          "range": 370,
-          "radius": 145,
-          "delay": 0.22,
-          "damage": 58,
-          "growth": 9,
-          "stun": 0.45,
-          "slow": 0.42,
-          "slowTime": 1.5,
-          "text": "Mark a point with a ring of ash. It erupts after 0.22s, damaging, briefly stunning, and slowing nearby enemies."
+          "radius": 230,
+          "delay": 0.5,
+          "interval": 0.5,
+          "hits": 3,
+          "duration": 1.5,
+          "damage": 25,
+          "growth": 4,
+          "text": "Instantly root up to two nearby enemies for 1.5s and deal damage every 0.5s. You can cast Ash Snare during Cinder Step."
         },
         {
           "name": "Cinder Step",
@@ -384,12 +383,11 @@
           "cd": 8,
           "range": 500,
           "radius": 205,
-          "delay": 0.12,
-          "interval": 0.11,
-          "hits": 4,
-          "damage": 84,
-          "growth": 11,
-          "text": "Send out a flurry of slashes at the selected point. Strike up to four enemies once each while you stay in place."
+          "delay": 0.05,
+          "interval": 0.18,
+          "damage": 32,
+          "growth": 5,
+          "text": "Dash between all enemies in the selected area, attacking each once, then return to your starting point. Attacks deal bonus physical damage to heroes. You are invulnerable during the flurry."
         },
         {
           "name": "Kiln Mantle",

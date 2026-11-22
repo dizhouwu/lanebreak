@@ -133,7 +133,7 @@ test('targeting previews distinguish point, self, and enemy hero spells', () => 
   const expected = {
     vesper:['point','point','self','point'], brakk:['point','self','self','self'],
     orrin:['point','point','point','point'], kestrel:['point','unit','self','point'],
-    veyra:['point','point','self','point'],
+    veyra:['self','point','self','point'],
     neris:['self','self','self','self'],
     cairn:['self','self','self','self'], ecarg:['point','point','self','point']
   };

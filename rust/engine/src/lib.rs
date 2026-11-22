@@ -352,6 +352,8 @@ struct Unit {
     veil_until: f64,
     lift_until: f64,
     cyclone_until: f64,
+    root_until: f64,
+    sweep_origin: Option<Point>,
     slows: Vec<Slow>,
     stitch: Option<Stitch>,
     resonance: Option<Resonance>,
@@ -372,6 +374,10 @@ struct Unit {
     aggro_ready: f64,
 }
 impl Unit {
+    fn invulnerable(&self, time: f64) -> bool {
+        self.cyclone_until > time || self.sweep_origin.is_some()
+    }
+
     fn veiled(&self, time: f64) -> bool {
         self.veil_until > time
     }
@@ -429,7 +435,7 @@ struct Area {
     damage: f64,
     dir: Point,
     scan_due: f64,
-    sweep_targets: Vec<Id>,
+    targets: Vec<Id>,
 }
 #[derive(Clone, Copy, Serialize)]
 struct Orb {
@@ -791,7 +797,7 @@ impl Match {
                 && u.team != a.team
                 && u.hp > 0.0
                 && !u.veiled(self.time)
-                && u.cyclone_until <= self.time
+                && !u.invulnerable(self.time)
                 && a.reach(u) <= spell.range
         })
     }

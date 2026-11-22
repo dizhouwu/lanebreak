@@ -7,7 +7,7 @@
   const xpGoal = level => 200 + 100 * (level - 1);
   const owns = (object, id) => Object.hasOwn(object, id);
   const isVeiled = (unit, time) => unit.veilUntil > time;
-  const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, sentry: 8, lifted: 16 };
+  const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, sentry: 8, lifted: 16, rooted: 32 };
   const spellDamage = (hero, spell) => spell.damage ? Math.round(
     (spell.damage + spell.growth * (hero.level - 1) + (spell.heatDamage || 0) * (hero.heat || 0)) * hero.stats.power
   ) : 0;

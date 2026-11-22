@@ -1045,9 +1045,10 @@
         awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : passive ? (h.charged ? 'Charged' : 'Passive') :
         charges !== null ? charges + '/' + h.brandChargeReady.length : placed !== null ? placed + ' marked' : manaLabel || '';
       const cooldown = s.training?.noCooldowns ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
-      const damage = spellDamage(h, spell);
+      const damage = spell.kind === 'sweep' ? spell.damage + spell.growth * (h.level - 1) : spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaLabel ? ' · ' + manaLabel + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
-        (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
+        (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage +
+          (spell.kind === 'sweep' ? ' bonus attack damage vs. heroes' : ' ability damage' + (spell.hits ? ' per hit' : '')) : '') +
         (spell.kind === 'unit' ? '\nClick an enemy hero to cast' : abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');

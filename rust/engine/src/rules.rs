@@ -24,6 +24,7 @@ pub enum Kind {
     Veil,
     Passive,
     Sweep,
+    Chains,
     Mantle,
     Brand,
     #[serde(rename = "brandReturn")]
@@ -49,6 +50,7 @@ impl Kind {
             Self::Veil => "veil",
             Self::Passive => "passive",
             Self::Sweep => "sweep",
+            Self::Chains => "chains",
             Self::Mantle => "mantle",
             Self::Brand => "brand",
             Self::BrandReturn => "brandReturn",

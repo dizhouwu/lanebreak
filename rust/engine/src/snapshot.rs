@@ -15,6 +15,8 @@ struct Basic {
     max_hp: f64,
     attack: bool,
     stunned: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    rooted: bool,
 }
 impl Basic {
     fn new(u: &Unit, time: f64) -> Self {
@@ -28,6 +30,7 @@ impl Basic {
             max_hp: u.max_hp,
             attack: u.windup.is_some(),
             stunned: u.stun_until > time,
+            rooted: u.root_until > time,
         }
     }
 }
@@ -103,6 +106,8 @@ struct PublicHero<'a> {
     charged: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     brands: Vec<Brand>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sweep_origin: Option<Point>,
 }
 
 #[derive(Serialize)]
@@ -329,6 +334,7 @@ impl Match {
                     disarmed: u.disarmed_until > time,
                     charged: h.charge_until > time,
                     brands: h.live_brands(time).map(|(_, brand)| brand).collect(),
+                    sweep_origin: u.sweep_origin,
                 };
                 let private = (id == player || full).then(|| PrivateHero {
                     gold: h.gold,
@@ -419,7 +425,8 @@ impl Match {
                         | (u8::from(c.horn_until > t) << 1)
                         | (u8::from(c.hp < c.max_hp / 2.0 && !c.sentry) << 2)
                         | (u8::from(c.sentry) << 3)
-                        | (u8::from(c.lift_until > t) << 4);
+                        | (u8::from(c.lift_until > t) << 4)
+                        | (u8::from(c.root_until > t) << 5);
                     (
                         id,
                         c.team,
@@ -443,6 +450,7 @@ impl Match {
             areas: self
                 .areas
                 .iter()
+                .filter(|a| a.spell.kind != Kind::Chains)
                 .map(|a| AreaRow(a, self.u(a.from).source_name()))
                 .collect(),
         }

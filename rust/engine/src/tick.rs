@@ -25,7 +25,7 @@ impl Match {
         for other in self.units.values() {
             if other.hp <= 0.0
                 || other.team == u.team
-                || other.cyclone_until > self.time
+                || other.invulnerable(self.time)
                 || other.veiled(self.time)
             {
                 continue;
@@ -48,6 +48,9 @@ impl Match {
 
     fn walk(&mut self, id: Id, target: Point, speed: f64, dt: f64) {
         let u = self.u(id);
+        if u.root_until > self.time && u.dash.is_none() {
+            return;
+        }
         let origin = u.pos;
         let mut pos = origin.towards(target, speed * dt, 0.0, true, self.height());
         for &building in &self.buildings {
@@ -221,10 +224,10 @@ impl Match {
                 .max_mana
                 .min(h.mana + dt * (stat(&h.stats, "manaRegen") + h.max_mana * fountain));
         }
-        if self.u(id).hp <= 0.0 {
+        let u = self.u(id);
+        if u.hp <= 0.0 || u.sweep_origin.is_some() {
             return;
         }
-        let u = self.u(id);
         if u.lift_until > time && !u.dash.is_some_and(|dash| dash.brand_route.is_some()) {
             self.u_mut(id).dash = None;
         }
@@ -262,7 +265,7 @@ impl Match {
         if h.bot.is_some() && time >= h.think {
             self.think(id);
         }
-        if self.u(id).dash.is_some() {
+        if self.u(id).dash.is_some() || self.u(id).sweep_origin.is_some() {
             return;
         }
         let channel = self.h(id).channel;
@@ -321,7 +324,7 @@ impl Match {
             self.units.get(&id).is_some_and(|b| {
                 b.hp > 0.0
                     && !b.veiled(time)
-                    && b.cyclone_until <= time
+                    && !b.invulnerable(time)
                     && !self.protected(id)
                     && (b.team != u.team || b.hp < b.max_hp * 0.5)
             })
@@ -363,7 +366,7 @@ impl Match {
                 b.hp > 0.0
                     && !self.protected(t)
                     && !b.veiled(self.time)
-                    && b.cyclone_until <= self.time
+                    && !b.invulnerable(self.time)
                     && u.pos.dist(b.pos) <= 720.0
             })
         });
@@ -407,7 +410,7 @@ impl Match {
             h.team != u.team
                 && h.hp > 0.0
                 && !h.veiled(self.time)
-                && h.cyclone_until <= self.time
+                && !h.invulnerable(self.time)
                 && u.reach(h) <= u.range
                 && self.time - self.h(enemy).recent_aggro <= 2.5
         });
@@ -420,7 +423,7 @@ impl Match {
             .and_then(|target| self.units.get(&target))
             .is_some_and(|b| {
                 b.hp > 0.0
-                    && b.cyclone_until <= self.time
+                    && !b.invulnerable(self.time)
                     && !b.veiled(self.time)
                     && u.reach(b) <= u.range
             })
@@ -439,7 +442,11 @@ impl Match {
     fn collide(&mut self) {
         self.collision_rows.clear();
         self.collision_ids.clear();
-        for u in self.units.values().filter(|u| u.hp > 0.0) {
+        for u in self
+            .units
+            .values()
+            .filter(|u| u.hp > 0.0 && u.sweep_origin.is_none())
+        {
             let flags =
                 u32::from(!(u.role == Role::Building || u.dash.is_some() || u.dummy || u.sentry))
                     | (u32::from(u.veiled(self.time)) << 1);
@@ -463,7 +470,7 @@ impl Match {
                 let Some(b) = self.units.get(target) else {
                     return false;
                 };
-                if b.hp <= 0.0 || b.cyclone_until > self.time || b.veiled(self.time) {
+                if b.hp <= 0.0 || b.invulnerable(self.time) || b.veiled(self.time) {
                     return false;
                 }
                 let d = p.pos.dist(b.pos);
@@ -488,7 +495,7 @@ impl Match {
                 for u in self.units.values().filter(|u| {
                     u.hp > 0.0
                         && u.team != p.team
-                        && u.cyclone_until <= self.time
+                        && !u.invulnerable(self.time)
                         && u.role != Role::Building
                         && hit
                             .get(&u.id)
@@ -552,7 +559,7 @@ impl Match {
                     .filter(|u| {
                         u.team != a.team
                             && u.hp > 0.0
-                            && u.cyclone_until <= self.time
+                            && !u.invulnerable(self.time)
                             && u.role != Role::Building
                             && a.spell.wall_covers(a.pos, a.dir, u.pos, u.r)
                     })
@@ -570,22 +577,37 @@ impl Match {
             return true;
         }
         if a.spell.kind == Kind::Sweep {
-            while let Some(id) = a.sweep_targets.pop() {
-                let Some(target) = self.units.get(&id).filter(|u| {
-                    u.hp > 0.0
-                        && !u.veiled(self.time)
-                        && u.cyclone_until <= self.time
-                        && u.pos.squared(a.pos) <= (a.spell.radius + u.r / 2.0).powi(2)
-                }) else {
+            while let Some(id) = a.targets.pop() {
+                let Some(target) = self
+                    .units
+                    .get(&id)
+                    .filter(|u| u.hp > 0.0 && !u.veiled(self.time) && !u.invulnerable(self.time))
+                else {
                     continue;
                 };
                 let pos = target.pos;
                 let origin = self.u(a.from).pos;
+                let bonus = if target.role == Role::Hero {
+                    a.spell.damage + a.spell.growth * f64::from(self.h(a.from).level - 1)
+                } else {
+                    0.0
+                };
+                let stop = pos.towards(origin, target.r + 22.0, 0.0, true, self.height());
+                let caster = self.u_mut(a.from);
+                caster.pos = stop;
+                caster.facing = (pos.y - stop.y).atan2(pos.x - stop.x);
+                self.h_mut(a.from).jump += 1;
                 self.effect("sweep", pos, json!({"fromX":origin.x, "fromY":origin.y}));
-                self.magic(id, a.from, a.spell, a.damage, None);
+                let damage = self.damage_at_launch(a.from) + bonus;
+                self.attack_hit(a.from, id, damage);
                 a.time += a.spell.interval;
                 a.duration = a.spell.interval;
-                return !a.sweep_targets.is_empty();
+                return true;
+            }
+            let u = self.u_mut(a.from);
+            if let Some(origin) = u.sweep_origin.take() {
+                u.pos = origin;
+                self.h_mut(a.from).jump += 1;
             }
             return false;
         }
@@ -612,7 +634,13 @@ impl Match {
             );
             return false;
         }
-        if a.spell.kind != Kind::Wall {
+        if a.spell.kind == Kind::Chains {
+            for &target in &a.targets {
+                if self.units.contains_key(&target) {
+                    self.hurt(target, a.damage, a.from, true, false);
+                }
+            }
+        } else if a.spell.kind != Kind::Wall {
             self.blast(a.from, a.spell, a.pos, a.damage);
         }
         a.hits -= 1;
@@ -692,7 +720,7 @@ impl Match {
                     u.team != team
                         && u.hp > 0.0
                         && u.role != Role::Building
-                        && u.cyclone_until <= self.time
+                        && !u.invulnerable(self.time)
                         && home.dist(u.pos) <= 420.0
                 })
                 .min_by(|a, b| home.squared(a.pos).total_cmp(&home.squared(b.pos)));

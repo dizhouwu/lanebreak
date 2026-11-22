@@ -306,7 +306,7 @@ impl Match {
         if spec.cd == 0.0 {
             return Err("No active item in this slot".into());
         }
-        if u.stun_until > self.time || u.dash.is_some() {
+        if u.stun_until > self.time || u.dash.is_some() || u.sweep_origin.is_some() {
             return Err("Unable to act".into());
         }
         if h.items_ready.get(&key).is_some_and(|&t| t > self.time) {
@@ -334,7 +334,7 @@ impl Match {
                             && b.hp > 0.0
                             && allowed
                             && (ally || !b.veiled(self.time))
-                            && b.cyclone_until <= self.time
+                            && !b.invulnerable(self.time)
                             && u.reach(b) <= spec.range
                     })
                 })
@@ -348,6 +348,9 @@ impl Match {
         };
         match key.as_str() {
             "rift" => {
+                if u.root_until > self.time {
+                    return Err("Unable to blink while rooted".into());
+                }
                 if self.time - h.last_threat < 2.5 {
                     return Err("Rift Stone is disabled in combat".into());
                 }
@@ -499,7 +502,7 @@ impl Match {
                 let b = self.units.get(&target).ok_or("Invalid attack target")?;
                 if b.hp <= 0.0
                     || b.veiled(time)
-                    || b.cyclone_until > time
+                    || b.invulnerable(time)
                     || self.protected(target)
                     || (b.team == team && b.role != Role::Creep)
                 {
@@ -584,7 +587,7 @@ impl Match {
                 if h.channel != 0.0 {
                     return Err("Recall already active".into());
                 }
-                if u.stun_until > time || u.dash.is_some() {
+                if u.stun_until > time || u.dash.is_some() || u.sweep_origin.is_some() {
                     return Err("Unable to act".into());
                 }
                 if h.recall_ready > time {
@@ -688,6 +691,7 @@ impl Match {
         dummy.disarmed_until = 0.0;
         dummy.lift_until = 0.0;
         dummy.cyclone_until = 0.0;
+        dummy.root_until = 0.0;
         dummy.slows.clear();
         dummy.stitch = None;
         dummy.resonance = None;
@@ -710,6 +714,20 @@ impl Match {
         }
         let h = self.h(id);
         let spell = h.spell(slot).ok_or("Invalid ability")?;
+        if u.sweep_origin.is_some() && !matches!(spell.kind, Kind::Chains | Kind::Mantle) {
+            return Err("Cinder Step is still in progress".into());
+        }
+        if spell.kind == Kind::Sweep && u.disarmed_until > time {
+            return Err("Unable to attack while disarmed".into());
+        }
+        if u.root_until > time
+            && matches!(
+                spell.kind,
+                Kind::Dash | Kind::Blink | Kind::BrandReturn | Kind::Sweep
+            )
+        {
+            return Err("Unable to move while rooted".into());
+        }
         let level = h.unlock(slot);
         let free_mana = self.training.is_some();
         let no_cooldowns = self.no_cooldowns();
@@ -842,15 +860,15 @@ impl Match {
                     until: time + spell.duration,
                 });
             }
-            Kind::Meteor | Kind::Blast | Kind::Wall | Kind::Sweep | Kind::Mantle => {
+            Kind::Meteor | Kind::Blast | Kind::Wall | Kind::Sweep | Kind::Chains | Kind::Mantle => {
                 let area_id = self.id();
                 let pos = match spell.kind {
                     Kind::Wall => origin.projected(dir, spell.range),
-                    Kind::Mantle => origin,
+                    Kind::Mantle | Kind::Chains => origin,
                     _ => self.cast_point(id, spell, at),
                 };
-                let mut sweep_targets = Vec::new();
-                if spell.kind == Kind::Sweep {
+                let mut targets = Vec::new();
+                if matches!(spell.kind, Kind::Sweep | Kind::Chains) {
                     let mut nearby: Vec<_> = self
                         .units
                         .values()
@@ -859,18 +877,29 @@ impl Match {
                                 && u.hp > 0.0
                                 && u.role != Role::Building
                                 && !u.veiled(time)
-                                && u.cyclone_until <= time
+                                && !u.invulnerable(time)
                                 && u.pos.squared(pos) <= (spell.radius + u.r / 2.0).powi(2)
                         })
+                        .map(|u| (u.id, u.pos.squared(pos)))
                         .collect();
-                    nearby.sort_by(|a, b| a.pos.squared(pos).total_cmp(&b.pos.squared(pos)));
-                    sweep_targets.extend(
-                        nearby
-                            .into_iter()
-                            .take(spell.hits as usize)
-                            .rev()
-                            .map(|u| u.id),
-                    );
+                    if nearby.is_empty() {
+                        return Ok(());
+                    }
+                    if spell.kind == Kind::Sweep {
+                        nearby.sort_by(|a, b| a.1.total_cmp(&b.1));
+                        targets.extend(nearby.into_iter().rev().map(|(id, _)| id));
+                        self.u_mut(id).sweep_origin = Some(origin);
+                    } else {
+                        for _ in 0..nearby.len().min(2) {
+                            let index = (self.random() * nearby.len() as f64) as usize;
+                            let (target, _) = nearby.swap_remove(index);
+                            let b = self.u_mut(target);
+                            b.root_until = b.root_until.max(time + spell.duration);
+                            let pos = b.pos;
+                            self.effect("chains", pos, json!({"fromX":origin.x, "fromY":origin.y}));
+                            targets.push(target);
+                        }
+                    }
                 }
                 if spell.kind == Kind::Mantle {
                     self.h_mut(id).spell_barrier = Some(SpellBarrier {
@@ -891,7 +920,7 @@ impl Match {
                     damage,
                     dir,
                     scan_due: time,
-                    sweep_targets,
+                    targets,
                 });
             }
             Kind::Sentry => {

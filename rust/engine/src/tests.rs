@@ -659,10 +659,46 @@ fn veyra_detonates_all_three_brands_and_ends_at_the_one_nearest_the_click() {
 }
 
 #[test]
-fn veyra_sweeps_distinct_targets_and_her_mantle_follows_her() {
+fn veyra_snare_roots_two_nearby_targets_and_ticks_without_stunning() {
+    let mut m = duel(["veyra", "brakk"]);
+    let origin = Point::new(2000.0, 450.0);
+    let enemy = Point::new(2150.0, 450.0);
+    place(&mut m, 1, origin.x, origin.y);
+    place(&mut m, 2, enemy.x, enemy.y);
+    let nearby = m.insert(Unit {
+        team: 1,
+        pos: Point::new(1920.0, 500.0),
+        hp: 400.0,
+        ..Unit::default()
+    });
+    let distant = m.insert(Unit {
+        team: 1,
+        pos: Point::new(2600.0, 450.0),
+        hp: 400.0,
+        ..Unit::default()
+    });
+    let hp = m.u(2).hp;
+    cast(&mut m, 0, Point::default());
+    assert!(m.u(2).root_until > m.time && m.u(nearby).root_until > m.time);
+    assert_eq!(m.u(distant).root_until, 0.0);
+    assert_eq!(m.u(2).stun_until, 0.0);
+    assert_eq!(m.u(2).hp, hp);
+    m.command(2, Command::Move(Point::new(2350.0, 450.0)))
+        .unwrap();
+    m.step(DT, 31);
+    assert_eq!(m.u(2).pos, enemy);
+    assert!(m.u(2).hp < hp);
+    m.step(DT, 65);
+    assert!(m.u(2).pos.x > enemy.x);
+}
+
+#[test]
+fn veyra_attacks_every_sweep_target_can_snare_mid_sweep_and_returns() {
     let mut m = training("veyra", true);
     let target = m.u(2).pos;
-    place(&mut m, 1, target.x - 440.0, target.y);
+    let start = Point::new(target.x - 440.0, target.y);
+    place(&mut m, 1, start.x, start.y);
+    m.command(1, Command::Buy("frost".into())).unwrap();
     for (i, dx) in [-145.0, -85.0, 85.0, 145.0, 180.0].into_iter().enumerate() {
         m.insert(Unit {
             team: 1,
@@ -675,19 +711,31 @@ fn veyra_sweeps_distinct_targets_and_her_mantle_follows_her() {
             ..Unit::default()
         });
     }
-    cast(&mut m, 0, target);
-    m.step(DT, 15);
-    assert!(m.u(2).stun_until > m.time);
     cast(&mut m, 1, target);
-    m.step(DT, 31);
-    assert_eq!(m.effects.iter().filter(|e| e["kind"] == "sweep").count(), 4);
-    assert_eq!(m.training.as_ref().unwrap().hits, 2);
+    m.step(DT, 5);
+    assert_ne!(m.u(1).pos, start);
+    assert_eq!(m.u(1).sweep_origin, Some(start));
+    assert!(m.u(2).slows.iter().any(|slow| slow.id == "frost"));
+    let hp = m.u(1).hp;
+    m.hurt(1, 100.0, 2, true, false);
+    assert_eq!(m.u(1).hp, hp);
+    cast(&mut m, 0, Point::default());
+    assert_eq!(
+        m.effects.iter().filter(|e| e["kind"] == "chains").count(),
+        2
+    );
+    m.step(DT, 69);
+    assert_eq!(m.effects.iter().filter(|e| e["kind"] == "sweep").count(), 6);
+    assert_eq!(m.u(1).pos, start);
+    assert!(m.u(1).sweep_origin.is_none());
 
     cast(&mut m, 2, Point::default());
     assert_eq!(m.h(1).spell_barrier.as_ref().unwrap().health, 220.0);
+    m.step(DT, 25);
+    let hits = m.training.as_ref().unwrap().hits;
     place(&mut m, 1, target.x - 95.0, target.y);
     m.step(DT, 50);
-    assert_eq!(m.training.as_ref().unwrap().hits, 3);
+    assert_eq!(m.training.as_ref().unwrap().hits, hits + 1);
 }
 
 #[test]
