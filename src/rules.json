@@ -282,14 +282,15 @@
           "kind": "blast",
           "mana": 78,
           "cd": 7,
-          "range": 460,
+          "range": 0,
+          "fixed": true,
           "radius": 165,
           "delay": 0.55,
           "damage": 89,
           "growth": 13,
           "slow": 0.3,
           "slowTime": 1.35,
-          "text": "Plant a beacon at the selected point. After 0.55s it discharges, dealing damage and slowing enemies."
+          "text": "Plant a beacon at your feet. After 0.55s it discharges in place, damaging and slowing nearby enemies."
         },
         {
           "name": "Magnetic Snare",

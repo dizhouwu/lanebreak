@@ -132,7 +132,7 @@ test('the server validates positions, slots, target ids, and stale prepared spel
 test('targeting previews distinguish point, self, and enemy hero spells', () => {
   const expected = {
     vesper:['point','point','self','point'], brakk:['point','self','self','self'],
-    orrin:['point','point','point','point'], kestrel:['point','unit','self','point'],
+    orrin:['point','point','point','point'], kestrel:['self','unit','self','point'],
     veyra:['self','point','self','point'],
     neris:['self','self','self','self'],
     cairn:['self','self','self','self'], ecarg:['point','point','self','point']
@@ -151,6 +151,23 @@ test('targeting previews distinguish point, self, and enemy hero spells', () => 
   const tower = duel.buildings.find(b=>b.kind==='inner'&&b.team===1);
   assert.equal(pickTarget(duel,0,tower),null);
   assert.equal(pickUnit(duel,tower).id,tower.id);
+});
+
+test('Kestrel plants Ion Beacon at the cast position and leaves it there while moving', () => {
+  for (const Engine of [Match, browserMatch()]) {
+    const match = new Engine({ heroes:['kestrel','brakk'], training:{dummy:false} });
+    const { x, y } = match.snapshot(0).heroes[0];
+    assert.match(match.order(0, { o:'cast', i:0, x:x+300, y, castMode:'point' }), /Select the ability again/);
+    assert.equal(match.order(0, { o:'cast', i:0, x:x+300, y, castMode:'self' }), null);
+    assert.equal(match.order(0, { o:'move', x:x+300, y }), null);
+    match.step(dt, 20);
+    const s = match.snapshot(0);
+    assert.ok(s.heroes[0].x > x);
+    assert.deepEqual(Array.from(s.areas[0].slice(3,5)), [x,y]);
+    match.step(dt, 14);
+    assert.ok(match.snapshot(0).effects.some(e => e.kind === 'burst' && e.ability === 'Ion Beacon' && e.x === x && e.y === y));
+    match.dispose();
+  }
 });
 
 test('the recipe display agrees with an executioner purchase using existing components', () => {
