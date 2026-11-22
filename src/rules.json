@@ -551,7 +551,7 @@
           "cd": 15,
           "range": 940,
           "radius": 45,
-          "speed": 1150,
+          "speed": 750,
           "piercing": true,
           "damage": 72,
           "growth": 17,

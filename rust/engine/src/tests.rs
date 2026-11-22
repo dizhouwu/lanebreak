@@ -219,7 +219,7 @@ fn tornado_emp_and_rolling_meteor_combo_gains_a_second_hit_from_the_shockwave() 
         prepare(&mut m, "WWW");
         m.time += 0.8;
         cast(&mut m, 5, at);
-        m.step(DT, 12);
+        m.step(DT, 24);
         cast(&mut m, 4, at);
         prepare(&mut m, "EEW");
         m.step(DT, 32);
@@ -681,6 +681,8 @@ fn training_tornado_lifts_meteor_burns_and_shockwave_disarms_the_dummy() {
     prepare(&mut m, "EEW");
     cast(&mut m, 4, dummy);
     m.step(DT, 36);
+    assert!(m.u(2).lift_until <= m.time);
+    m.step(DT, 4);
     assert!(m.u(2).lift_until > m.time);
     assert!(m.u(2).burn.is_some());
     assert_eq!(m.u(2).pos, dummy);
