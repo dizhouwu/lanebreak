@@ -112,6 +112,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .killCard{position:relative;max-width:min(520px,100%);padding:9px 18px 10px;border:1px solid var(--kill-color);border-radius:5px;background:#101921ee;color:#fff3d4;text-align:center;text-shadow:0 2px 5px #000;animation:kill-card 3.6s ease both}
 .killCard strong{display:block;font-size:clamp(1.1rem,3.5vw,2rem);font-weight:900;text-transform:uppercase;letter-spacing:.05em}
 .killCard span{display:block;font-size:clamp(.8rem,2.2vw,1rem);overflow-wrap:anywhere}
+.killCard .killMilestone{margin-top:3px;color:var(--kill-color);font-weight:700}
 .killCard[data-streak=true]{box-shadow:0 0 30px color-mix(in srgb,var(--kill-color) 45%,transparent)}
 @keyframes kill-card{0%{opacity:0;transform:translateY(-7px)}8%,86%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-4px)}}
 @media(prefers-reduced-motion:reduce){.killCard{animation-timing-function:linear}@keyframes kill-card{0%,86%{opacity:1}100%{opacity:0}}}

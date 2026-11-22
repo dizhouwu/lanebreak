@@ -13,12 +13,19 @@ fn hero_kills_announce_streaks_and_deaths_reset_them() {
         assert_eq!(event["kind"], "kill");
         assert_eq!(event["attacker"], m.h(1).name);
         assert_eq!(event["victim"], m.h(2).name);
-        match kills {
-            1 => assert_eq!(event["announcement"], "First Blood"),
-            9 => assert_eq!(event["announcement"], "Godlike"),
-            10 => assert_eq!(event["announcement"], "Holy Shit"),
-            _ => {}
-        }
+        let title = [
+            Some("First Blood"),
+            None,
+            Some("Killing Spree"),
+            Some("Dominating"),
+            Some("Mega Kill"),
+            Some("Unstoppable"),
+            Some("Wicked Sick"),
+            Some("Monster Kill"),
+            Some("Godlike"),
+            Some("Holy Shit"),
+        ][kills as usize - 1];
+        assert_eq!(event["announcement"].as_str(), title);
     }
     let tower = m
         .buildings
@@ -35,6 +42,51 @@ fn hero_kills_announce_streaks_and_deaths_reset_them() {
     let event = m.effects.last().unwrap();
     assert_eq!(event["kind"], "kill");
     assert_eq!(event["attacker"], "Crimson Tower");
+}
+
+#[test]
+fn rapid_hero_kills_reach_rampage_and_reset_on_timeout_or_death() {
+    let mut m = Match::from_options(r#"{"team_match":true}"#).unwrap();
+    let attacker = m.heroes[0];
+    let enemies = m.heroes[5..].to_vec();
+    for (index, title) in [
+        None,
+        Some("Double Kill"),
+        Some("Triple Kill"),
+        Some("Ultra Kill"),
+        Some("Rampage"),
+        Some("Rampage"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        m.time = index as f64 * 12.0;
+        let victim = enemies[index % enemies.len()];
+        m.u_mut(victim).hp = 1.0;
+        m.kill(victim, attacker, false);
+        let event = m.effects.last().unwrap();
+        assert_eq!(event["multiKill"], index + 1);
+        assert_eq!(event["multiKillAnnouncement"].as_str(), title);
+        if index == 4 {
+            assert_eq!(event["announcement"], "Mega Kill");
+        }
+    }
+    m.time += 12.01;
+    let victim = enemies[0];
+    m.u_mut(victim).hp = 1.0;
+    m.kill(victim, attacker, false);
+    let event = m.effects.last().unwrap();
+    assert_eq!(event["multiKill"], 1);
+    assert_eq!(event["announcement"], "Wicked Sick");
+
+    m.u_mut(victim).hp = 1.0;
+    m.kill(attacker, victim, false);
+    assert_eq!(m.h(attacker).multi_kill, None);
+    m.u_mut(attacker).hp = 1.0;
+    m.kill(victim, attacker, false);
+    let event = m.effects.last().unwrap();
+    assert_eq!(event["multiKill"], 1);
+    assert_eq!(event["streak"], 1);
 }
 
 fn duel(heroes: [&str; 2]) -> Match {

@@ -1,5 +1,7 @@
 use super::*;
 
+const MULTI_KILL_WINDOW: f64 = 12.0;
+
 impl Match {
     pub(super) fn respawn_hero(&mut self, id: Id) {
         self.u_mut(id).pos = self.home(self.u(id).team);
@@ -433,6 +435,7 @@ impl Match {
                 let h = u.hero.as_mut().unwrap();
                 h.deaths += 1;
                 h.kill_streak = 0;
+                h.multi_kill = None;
                 h.charge_until = 0.0;
                 h.finisher_chain = None;
                 h.brands.fill(None);
@@ -452,13 +455,22 @@ impl Match {
                     self.h_mut(hero).gold += f64::from(gold);
                     self.gain_xp(hero, f64::from(100 + 35 * lv));
                 }
-                let (attacker, streak) = if let Some(hero) = direct_killer {
+                let (attacker, streak, multi_kill) = if let Some(hero) = direct_killer {
                     let alive = self.u(hero).hp > 0.0;
                     let h = self.h_mut(hero);
                     if alive {
                         h.kill_streak = h.kill_streak.saturating_add(1);
+                        let count = h
+                            .multi_kill
+                            .filter(|&(last, _)| t - last <= MULTI_KILL_WINDOW)
+                            .map_or(1, |(_, count)| count.saturating_add(1));
+                        h.multi_kill = Some((t, count));
                     }
-                    (h.name.clone(), h.kill_streak)
+                    (
+                        h.name.clone(),
+                        h.kill_streak,
+                        h.multi_kill.map_or(0, |(_, count)| count),
+                    )
                 } else {
                     let source = self.u(source);
                     let source_type = match source.role {
@@ -466,15 +478,29 @@ impl Match {
                         Role::Building => "Tower",
                         _ => "Creep",
                     };
-                    (format!("{} {source_type}", rules().teams[source.team]), 0)
+                    (
+                        format!("{} {source_type}", rules().teams[source.team]),
+                        0,
+                        0,
+                    )
                 };
                 let announcement = match streak {
                     1 if self.kills == [0, 0] => Some("First Blood"),
                     3 => Some("Killing Spree"),
-                    5 => Some("Dominating"),
-                    7 => Some("Unstoppable"),
+                    4 => Some("Dominating"),
+                    5 => Some("Mega Kill"),
+                    6 => Some("Unstoppable"),
+                    7 => Some("Wicked Sick"),
+                    8 => Some("Monster Kill"),
                     9 => Some("Godlike"),
                     10.. => Some("Holy Shit"),
+                    _ => None,
+                };
+                let multi_kill_announcement = match multi_kill {
+                    2 => Some("Double Kill"),
+                    3 => Some("Triple Kill"),
+                    4 => Some("Ultra Kill"),
+                    5.. => Some("Rampage"),
                     _ => None,
                 };
                 let victim = self.h(id).name.clone();
@@ -484,7 +510,8 @@ impl Match {
                 }
                 self.kills[enemy_team] += 1;
                 self.effect("kill", pos, json!({"team": enemy_team, "text": text,
-                    "attacker": attacker, "victim": victim, "streak": streak, "announcement": announcement}));
+                    "attacker": attacker, "victim": victim, "streak": streak, "announcement": announcement,
+                    "multiKill": multi_kill, "multiKillAnnouncement": multi_kill_announcement}));
             }
             Role::Building => {
                 if u.kind == "core" {

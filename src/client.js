@@ -1233,15 +1233,19 @@
     const parent = $('killAnnouncements');
     const card = make('div',null,'killCard');
     card.style.setProperty('--kill-color',COLORS[e.team]);
-    card.dataset.streak = Boolean(e.announcement);
-    card.append(make('strong',e.announcement || 'Hero Kill'),
+    const primary = e.multiKillAnnouncement || e.announcement;
+    const repeat = e.multiKill > 5 ? ' ×' + (e.multiKill - 4) : '';
+    card.dataset.streak = Boolean(primary);
+    card.append(make('strong',primary ? primary + repeat : 'Hero Kill'),
       make('span',e.attacker + ' killed ' + e.victim));
+    if (e.multiKillAnnouncement && e.announcement) card.append(make('span',e.announcement,'killMilestone'));
     card.addEventListener('animationend',()=>card.remove(),{once:true});
     parent.prepend(card);
     if (parent.children.length > 3) parent.lastElementChild.remove();
-    if (!e.announcement || muted) return;
+    if (!primary || muted) return;
     if (globalThis.speechSynthesis && globalThis.SpeechSynthesisUtterance) {
-      const call = new SpeechSynthesisUtterance(e.announcement);
+      const line = e.multiKillAnnouncement && e.announcement ? primary + '. ' + e.announcement : primary;
+      const call = new SpeechSynthesisUtterance(line);
       call.lang = 'en-US';
       call.rate = .9;
       call.pitch = .75;
