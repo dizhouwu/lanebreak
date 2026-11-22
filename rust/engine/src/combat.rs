@@ -432,6 +432,7 @@ impl Match {
                 let h = u.hero.as_mut().unwrap();
                 h.deaths += 1;
                 h.charge_until = 0.0;
+                h.brands.fill(None);
                 h.heat /= 2;
                 h.respawn = t + 5.0 + 2.2 * f64::from(h.level);
                 h.order = Order::None;

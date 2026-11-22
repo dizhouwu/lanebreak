@@ -21,13 +21,14 @@
   function abilityCastMode(spell) {
     if (!spell || spell.fixed) return 'self';
     if (spell.kind === 'unit') return 'unit';
-    return (spell.kind === 'blast' ? spell.range > 0 : ['bolt', 'dash', 'blink', 'sentry', 'meteor'].includes(spell.kind)) ?
+    return (spell.kind === 'blast' ? spell.range > 0 : ['bolt', 'dash', 'blink', 'sentry', 'meteor', 'sweep', 'brand', 'brandReturn'].includes(spell.kind)) ?
       'point' : 'self';
   }
   const abilityNeedsTarget = spell => abilityCastMode(spell) !== 'self';
   function abilityReadyAt(hero, i) {
     if (i >= 4) return hero.weaveReady?.[hero.prepared?.[i - 4]] || 0;
     if (i === 3 && hero.prepared?.includes(weaveRecipe(hero))) return 0;
+    if (i === 3 && hero.brandChargeReady) return Math.min(...hero.brandChargeReady);
     return hero.cd[i];
   }
   function abilityError(hero, i, time, spell = abilitySpell(hero, i), freeMana = false, noCooldowns = freeMana) {
@@ -35,6 +36,8 @@
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
     if (spell.kind === 'passive') return 'This ability is passive';
+    if (spell.kind === 'brandReturn' && !hero.brands?.some(brand => brand.until > time)) return 'Place a fire brand with R first';
+    if (spell.kind === 'brand' && abilityReadyAt(hero, i) > time) return 'No fire brand charges ready';
     if (spell.kind === 'invoke' && !weaveRecipe(hero)) return 'Queue three marks with Q, W, or E';
     if (!noCooldowns && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
     if (spell.kind === 'prepared') return 'Prepare a spell with R first';

@@ -650,7 +650,8 @@
     prompt.hidden = !cast;
     arena.classList.toggle('aiming', Boolean(cast));
     if (cast) {
-      const instruction = cast.spell.target === 'point' ? 'Click a point to blink' :
+      const instruction = cast.spell.kind === 'brandReturn' ? 'Click to choose the final fire brand' :
+        cast.spell.target === 'point' ? 'Click a point to blink' :
         cast.mode === 'unit' ? 'Click ' + heroTargetLabel(cast.spell) : 'Select a target';
       prompt.textContent = cast.spell.name + ' · ' + instruction;
       castButton(cast).classList.add('aiming');
@@ -1022,6 +1023,7 @@
     $('heroResourceRow').hidden = resource.hidden && timer.hidden;
     const abilities = $('abilities');
     abilities.dataset.weaves = !!hero.weaves;
+    abilities.dataset.slots = hero.abilities.length;
     abilities.style.setProperty('--hero',hero.color);
     for (const [i, tile] of [...abilities.children].entries()) {
       tile.hidden = i >= hero.abilities.length;
@@ -1029,16 +1031,19 @@
       const button = tile.lastElementChild;
       const spell = abilitySpell(h, i), level = abilityLevel(h, i);
       const cd = Math.max(0, abilityReadyAt(h, i) - time), locked = h.level < level;
+      const charges = spell.kind === 'brand' ? h.brandChargeReady.filter(ready => ready <= time).length : null;
+      const placed = spell.kind === 'brandReturn' ? h.brands?.length || 0 : null;
       const manaCost = s.training ? 0 : spell.mana;
       const manaLabel = manaCost && spell.distanceMana ? manaCost + '+' : manaCost;
       const passive = spell.kind === 'passive';
       const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : passive ? (h.charged ? 'ready' : 'passive') :
+      button.dataset.state = locked || empty || placed === 0 || (awaitingMarks && !cd) ? 'locked' : passive ? (h.charged ? 'ready' : 'passive') :
         cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
-        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : passive ? (h.charged ? 'Charged' : 'Passive') : manaLabel || '';
+        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : passive ? (h.charged ? 'Charged' : 'Passive') :
+        charges !== null ? charges + '/' + h.brandChargeReady.length : placed !== null ? placed + ' marked' : manaLabel || '';
       const cooldown = s.training?.noCooldowns ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaLabel ? ' · ' + manaLabel + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
@@ -1394,7 +1399,8 @@
       if (k === 'n') { tab('online'); $('name').focus(); }
       return;
     }
-    const weaver = snapshot && HEROES[snapshot.heroes[team].hero].weaves;
+    const kit = snapshot && HEROES[snapshot.heroes[team].hero];
+    const weaver = kit?.weaves;
     const spellSlot = keys.indexOf(k.toUpperCase());
     if (pendingCast && k === 'escape') return setPendingCast(null);
     if (pendingCast && ['a', 's', 't'].includes(k)) setPendingCast(null);
@@ -1408,7 +1414,7 @@
         const { x, y } = (renderer.displayed || snapshot).heroes[team];
         freeCamera(x,y);
       }
-    } else if (spellSlot >= 0 && (spellSlot < 4 || weaver)) chooseAbility(spellSlot);
+    } else if (spellSlot >= 0 && spellSlot < kit?.abilities.length) chooseAbility(spellSlot);
     else if (/^[1-6]$/.test(k)) useItem(+k - 1);
     else if (k === 'b') toggleShop();
     else if (k === (weaver ? 'v' : 'f')) issue({o:'potion'});

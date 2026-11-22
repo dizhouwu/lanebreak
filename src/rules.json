@@ -341,6 +341,103 @@
         "renewal"
       ]
     },
+    "veyra": {
+      "name": "Veyra",
+      "title": "Cinder Pilgrim",
+      "role": "Melee fire skirmisher",
+      "color": "#ff7458",
+      "hp": 670,
+      "hpGrowth": 90,
+      "mana": 325,
+      "manaGrowth": 32,
+      "damage": 56,
+      "damageGrowth": 4.5,
+      "armor": 3.2,
+      "armorGrowth": 0.43,
+      "range": 145,
+      "interval": 1.12,
+      "speed": 321,
+      "speedGrowth": 0.029,
+      "regen": 2.6,
+      "manaRegen": 1.45,
+      "unlocks": [1, 2, 3, 6, 6],
+      "abilities": [
+        {
+          "name": "Ash Snare",
+          "kind": "blast",
+          "mana": 70,
+          "cd": 9,
+          "range": 370,
+          "radius": 145,
+          "delay": 0.22,
+          "damage": 58,
+          "growth": 9,
+          "stun": 0.45,
+          "slow": 0.42,
+          "slowTime": 1.5,
+          "text": "Mark a point with a ring of ash. It erupts after 0.22s, damaging, briefly stunning, and slowing nearby enemies."
+        },
+        {
+          "name": "Cinder Step",
+          "kind": "sweep",
+          "mana": 80,
+          "cd": 8,
+          "range": 500,
+          "radius": 205,
+          "delay": 0.12,
+          "interval": 0.11,
+          "hits": 4,
+          "damage": 84,
+          "growth": 11,
+          "text": "Send out a flurry of slashes at the selected point. Strike up to four enemies once each while you stay in place."
+        },
+        {
+          "name": "Kiln Mantle",
+          "kind": "mantle",
+          "mana": 92,
+          "cd": 17,
+          "radius": 155,
+          "delay": 0.8,
+          "interval": 0.8,
+          "hits": 5,
+          "duration": 4,
+          "health": 220,
+          "damage": 27,
+          "growth": 4,
+          "text": "Gain a 220-point spell shield for 4s. A fire aura moves with you and pulses every 0.8s, damaging nearby enemies."
+        },
+        {
+          "name": "Pilgrim's Brand",
+          "kind": "brand",
+          "mana": 75,
+          "cd": 18,
+          "range": 1050,
+          "duration": 12,
+          "text": "Place a fire brand at the selected point for 12s. Stores up to three charges, each recharging 18s after placement. Use D to travel to a brand."
+        },
+        {
+          "name": "Return to Brand",
+          "kind": "brandReturn",
+          "mana": 0,
+          "cd": 0,
+          "radius": 160,
+          "speed": 1700,
+          "damage": 121,
+          "growth": 15,
+          "text": "Click anywhere on the ground to dash through all active fire brands. Each explodes as you reach it. The brand nearest the click is the final stop."
+        }
+      ],
+      "build": [
+        "boots",
+        "charm",
+        "locket",
+        "arcane",
+        "rift",
+        "frost",
+        "void",
+        "renewal"
+      ]
+    },
     "neris": {
       "name": "Neris",
       "title": "Loomkeeper",

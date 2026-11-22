@@ -23,6 +23,11 @@ pub enum Kind {
     Meteor,
     Veil,
     Passive,
+    Sweep,
+    Mantle,
+    Brand,
+    #[serde(rename = "brandReturn")]
+    BrandReturn,
 }
 
 impl Kind {
@@ -43,6 +48,10 @@ impl Kind {
             Self::Meteor => "meteor",
             Self::Veil => "veil",
             Self::Passive => "passive",
+            Self::Sweep => "sweep",
+            Self::Mantle => "mantle",
+            Self::Brand => "brand",
+            Self::BrandReturn => "brandReturn",
         }
     }
 }
@@ -109,7 +118,14 @@ impl Spell {
         match self.kind {
             Kind::Unit => "unit",
             Kind::Blast if !self.fixed && self.range > 0.0 => "point",
-            Kind::Bolt | Kind::Dash | Kind::Blink | Kind::Sentry | Kind::Meteor => "point",
+            Kind::Bolt
+            | Kind::Dash
+            | Kind::Blink
+            | Kind::Sentry
+            | Kind::Meteor
+            | Kind::Sweep
+            | Kind::Brand
+            | Kind::BrandReturn => "point",
             _ => "self",
         }
     }

@@ -224,13 +224,31 @@ impl Match {
         if self.u(id).hp <= 0.0 {
             return;
         }
-        if self.u(id).lift_until > time {
+        let u = self.u(id);
+        if u.lift_until > time && !u.dash.is_some_and(|dash| dash.brand_route.is_some()) {
             self.u_mut(id).dash = None;
         }
         if let Some(dash) = self.u(id).dash {
             self.walk(id, dash.pos, dash.spell.speed, dt);
             if self.u(id).pos.dist(dash.pos) < 1e-6 {
                 self.blast(id, dash.spell, self.u(id).pos, dash.damage);
+                if let Some(mut route) = dash.brand_route {
+                    let h = self.h_mut(id);
+                    h.brands[route.stops[route.leg].unwrap()] = None;
+                    route.leg += 1;
+                    if let Some(next) = route.stops.get(route.leg).copied().flatten() {
+                        let pos = h.brands[next].unwrap().pos;
+                        self.start_brand_leg(
+                            id,
+                            Dash {
+                                pos,
+                                brand_route: Some(route),
+                                ..dash
+                            },
+                        );
+                        return;
+                    }
+                }
                 self.u_mut(id).dash = None;
             }
             return;
@@ -515,6 +533,15 @@ impl Match {
     }
 
     fn update_area(&mut self, a: &mut Area) -> bool {
+        if matches!(a.spell.kind, Kind::Mantle | Kind::Sweep) {
+            let caster = self.u(a.from);
+            if caster.hp <= 0.0 {
+                return false;
+            }
+            if a.spell.kind == Kind::Mantle {
+                a.pos = caster.pos;
+            }
+        }
         if a.spell.kind == Kind::Wall {
             let strike = self.time + 1e-8 >= a.time;
             if strike || self.time + 1e-8 >= a.scan_due {
@@ -541,6 +568,26 @@ impl Match {
         }
         if self.time + 1e-8 < a.time {
             return true;
+        }
+        if a.spell.kind == Kind::Sweep {
+            while let Some(id) = a.sweep_targets.pop() {
+                let Some(target) = self.units.get(&id).filter(|u| {
+                    u.hp > 0.0
+                        && !u.veiled(self.time)
+                        && u.cyclone_until <= self.time
+                        && u.pos.squared(a.pos) <= (a.spell.radius + u.r / 2.0).powi(2)
+                }) else {
+                    continue;
+                };
+                let pos = target.pos;
+                let origin = self.u(a.from).pos;
+                self.effect("sweep", pos, json!({"fromX":origin.x, "fromY":origin.y}));
+                self.magic(id, a.from, a.spell, a.damage, None);
+                a.time += a.spell.interval;
+                a.duration = a.spell.interval;
+                return !a.sweep_targets.is_empty();
+            }
+            return false;
         }
         if a.spell.kind == Kind::Meteor {
             self.projectiles.push(Projectile {

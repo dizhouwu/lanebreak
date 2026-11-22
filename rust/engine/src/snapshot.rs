@@ -101,6 +101,8 @@ struct PublicHero<'a> {
     disarmed: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     charged: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    brands: Vec<Brand>,
 }
 
 #[derive(Serialize)]
@@ -111,6 +113,8 @@ struct PrivateHero<'a> {
     buyback_ready: f64,
     xp: f64,
     cd: &'a [f64; 4],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    brand_charge_ready: Option<[f64; BRAND_CAPACITY]>,
     inventory: &'a [Inventory],
     items_ready: &'a BTreeMap<String, f64>,
     recall_ready: f64,
@@ -324,6 +328,7 @@ impl Match {
                     resonating: u.resonance.is_some_and(|m| m.until > time),
                     disarmed: u.disarmed_until > time,
                     charged: h.charge_until > time,
+                    brands: h.live_brands(time).map(|(_, brand)| brand).collect(),
                 };
                 let private = (id == player || full).then(|| PrivateHero {
                     gold: h.gold,
@@ -331,6 +336,8 @@ impl Match {
                     buyback_ready: h.buyback_ready,
                     xp: h.xp,
                     cd: &h.cd,
+                    brand_charge_ready: (kit.abilities[3].kind == Kind::Brand)
+                        .then(|| std::array::from_fn(|i| h.brand_slot_ready_at(i))),
                     inventory: &h.inventory,
                     items_ready: &h.items_ready,
                     recall_ready: h.recall_ready,

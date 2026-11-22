@@ -130,6 +130,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .meter.health i{background:#35a44e}.meter.mana{height:13px;background:#172537}.meter.mana span{line-height:13px}.meter.mana i{background:#3272ce}.meter.xp{height:4px;background:#312719}.meter.xp i{background:#e8c56a}
 .abilities{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;align-items:end}
 .abilities[data-weaves=true]{grid-template-columns:repeat(6,minmax(0,1fr))}
+.abilities[data-slots="5"]{grid-template-columns:repeat(5,minmax(0,1fr))}
 .abilityBlock{min-width:0}
 .heroResourceRow{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:4px 8px;margin:0 0 4px;font-size:.68rem}
 #heroResource{color:var(--gold);font-size:inherit}

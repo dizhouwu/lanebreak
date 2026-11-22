@@ -57,7 +57,16 @@ impl Match {
     fn ability_ready(&self, id: Id, slot: usize, mana: f64) -> bool {
         let h = self.h(id);
         h.spell(slot).is_some_and(|s| {
-            h.level >= h.unlock(slot) && h.ready_at(slot) <= self.time && mana >= s.mana
+            h.level >= h.unlock(slot)
+                && mana >= s.mana
+                && match s.kind {
+                    Kind::Passive => false,
+                    Kind::Brand => {
+                        (0..BRAND_CAPACITY).any(|i| h.brand_slot_ready_at(i) <= self.time)
+                    }
+                    Kind::BrandReturn => h.live_brands(self.time).next().is_some(),
+                    _ => h.ready_at(slot) <= self.time,
+                }
         })
     }
 
@@ -159,6 +168,20 @@ impl Match {
         let kill = tactic == Tactic::Kill;
         let push = tactic == Tactic::Push;
         let (pos, enemy_pos, enemy_team) = (a.pos, b.pos, b.team);
+        let return_point = if enemy_alive
+            && let Some(return_spell) = h.spell(4).filter(|s| s.kind == Kind::BrandReturn)
+            && self.ability_ready(id, 4, h.mana)
+        {
+            h.live_brands(self.time).find_map(|(_, brand)| {
+                (brand.pos.dist(enemy_pos) <= return_spell.radius && pos.dist(brand.pos) > 80.0)
+                    .then_some(brand.pos)
+            })
+        } else {
+            None
+        };
+        if let Some(at) = return_point {
+            return self.cast_bot_spell(id, 4, at, None, None);
+        }
         let recipes = if kill {
             [
                 "QWW", "WEE", "EEE", "QWE", "QQQ", "WWW", "WWE", "QEE", "QQE",
@@ -228,7 +251,7 @@ impl Match {
                         && spell.wall_covers(center, forward, enemy_pos, self.u(enemy).r))
                     .then_some(pos)
                 }
-                Kind::Meteor | Kind::Blast => {
+                Kind::Meteor | Kind::Blast | Kind::Sweep => {
                     let want = kill
                         || if ultimate {
                             enemy_health < 0.7 && mana > 0.3
@@ -276,6 +299,14 @@ impl Match {
                             pos.projected(enemy_pos.delta(pos), (reach - kit.range * 0.7) / reach)
                         })
                 }
+                Kind::Mantle => {
+                    (reach <= spell.radius + 80.0 && (health < 0.8 || mana > 0.68)).then_some(pos)
+                }
+                Kind::Brand => (enemy_alive
+                    && reach > 180.0
+                    && reach < spell.range
+                    && (kill || mana > 0.68 && health > enemy_health))
+                    .then(|| self.aim(enemy, 0.35, difficulty)),
                 Kind::Buff => {
                     let attack = match self.h(id).order {
                         Order::Attack(target) => self.units.get(&target),

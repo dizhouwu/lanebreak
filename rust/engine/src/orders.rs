@@ -719,6 +719,9 @@ impl Match {
         if spell.kind == Kind::Passive {
             return Err("This ability is passive".into());
         }
+        if spell.kind == Kind::BrandReturn {
+            return self.return_to_brands(id, spell, at);
+        }
         let recipe = if spell.kind == Kind::Invoke {
             let recipe = h.recipe().ok_or("Queue three marks with Q, W, or E")?;
             if let Some(index) = h.prepared.iter().position(|prepared| prepared == &recipe) {
@@ -742,6 +745,15 @@ impl Match {
         if !free_mana && h.mana < mana {
             return Err("Not enough mana".into());
         }
+        let brand_slot = if spell.kind == Kind::Brand {
+            Some(
+                (0..BRAND_CAPACITY)
+                    .find(|&i| h.brand_slot_ready_at(i) <= time)
+                    .ok_or("No fire brand charges ready")?,
+            )
+        } else {
+            None
+        };
         if spell.kind == Kind::Unit {
             let target = target
                 .filter(|&target| self.targetable_hero(id, target, spell))
@@ -762,7 +774,9 @@ impl Match {
         if !no_cooldowns {
             let h = self.h_mut(id);
             let ready = time + spell.cd * (1.0 - stat(&h.stats, "cdr"));
-            if slot >= 4 {
+            if let Some(index) = brand_slot {
+                h.brand_ready[index] = ready;
+            } else if slot >= 4 {
                 h.weave_ready.insert(h.prepared[slot - 4].clone(), ready);
             } else {
                 h.cd[slot] = ready;
@@ -821,15 +835,52 @@ impl Match {
                 });
             }
             Kind::Unit => self.magic(target.unwrap(), id, spell, damage, None),
-            Kind::Meteor | Kind::Blast | Kind::Wall => {
+            Kind::Brand => {
+                let pos = self.cast_point(id, spell, at);
+                self.h_mut(id).brands[brand_slot.unwrap()] = Some(Brand {
+                    pos,
+                    until: time + spell.duration,
+                });
+            }
+            Kind::Meteor | Kind::Blast | Kind::Wall | Kind::Sweep | Kind::Mantle => {
                 let area_id = self.id();
+                let pos = match spell.kind {
+                    Kind::Wall => origin.projected(dir, spell.range),
+                    Kind::Mantle => origin,
+                    _ => self.cast_point(id, spell, at),
+                };
+                let mut sweep_targets = Vec::new();
+                if spell.kind == Kind::Sweep {
+                    let mut nearby: Vec<_> = self
+                        .units
+                        .values()
+                        .filter(|u| {
+                            u.team != team
+                                && u.hp > 0.0
+                                && u.role != Role::Building
+                                && !u.veiled(time)
+                                && u.cyclone_until <= time
+                                && u.pos.squared(pos) <= (spell.radius + u.r / 2.0).powi(2)
+                        })
+                        .collect();
+                    nearby.sort_by(|a, b| a.pos.squared(pos).total_cmp(&b.pos.squared(pos)));
+                    sweep_targets.extend(
+                        nearby
+                            .into_iter()
+                            .take(spell.hits as usize)
+                            .rev()
+                            .map(|u| u.id),
+                    );
+                }
+                if spell.kind == Kind::Mantle {
+                    self.h_mut(id).spell_barrier = Some(SpellBarrier {
+                        health: spell.health,
+                        until: time + spell.duration,
+                    });
+                }
                 self.areas.push(Area {
                     id: area_id,
-                    pos: if spell.kind == Kind::Wall {
-                        origin.projected(dir, spell.range)
-                    } else {
-                        self.cast_point(id, spell, at)
-                    },
+                    pos,
                     from: id,
                     team,
                     spell,
@@ -840,6 +891,7 @@ impl Match {
                     damage,
                     dir,
                     scan_due: time,
+                    sweep_targets,
                 });
             }
             Kind::Sentry => {
@@ -874,6 +926,7 @@ impl Match {
                     pos: dash_end.unwrap(),
                     spell,
                     damage,
+                    brand_route: None,
                 })
             }
             Kind::Blink => self.blink(id, self.cast_point(id, spell, at)),
@@ -884,8 +937,56 @@ impl Match {
                     self.h_mut(id).order = Order::None;
                 }
             }
-            Kind::Mark | Kind::Invoke | Kind::Prepared | Kind::Passive => unreachable!(),
+            Kind::Mark | Kind::Invoke | Kind::Prepared | Kind::Passive | Kind::BrandReturn => {
+                unreachable!()
+            }
         }
         Ok(())
+    }
+
+    fn return_to_brands(&mut self, id: Id, spell: &'static Spell, at: Point) -> Result<(), String> {
+        let origin = self.u(id).pos;
+        let mut brands: Vec<_> = self.h(id).live_brands(self.time).collect();
+        let &(last, _) = brands
+            .iter()
+            .min_by(|(_, a), (_, b)| a.pos.squared(at).total_cmp(&b.pos.squared(at)))
+            .ok_or("Place a fire brand with R first")?;
+        brands.sort_by(|(i, a), (j, b)| {
+            (i == &last)
+                .cmp(&(j == &last))
+                .then_with(|| a.pos.squared(origin).total_cmp(&b.pos.squared(origin)))
+        });
+        let brand_route = BrandRoute {
+            stops: std::array::from_fn(|i| brands.get(i).map(|(index, _)| *index)),
+            leg: 0,
+        };
+        let damage = self.spell_damage(id, spell);
+        let u = self.u_mut(id);
+        u.windup = None;
+        let h = u.hero.as_mut().unwrap();
+        h.channel = 0.0;
+        h.order = Order::Stop;
+        self.start_brand_leg(
+            id,
+            Dash {
+                pos: brands[0].1.pos,
+                spell,
+                damage,
+                brand_route: Some(brand_route),
+            },
+        );
+        Ok(())
+    }
+
+    pub(super) fn start_brand_leg(&mut self, id: Id, dash: Dash) {
+        let u = self.u_mut(id);
+        let (origin, team) = (u.pos, u.team);
+        u.dash = Some(dash);
+        self.effect(
+            "cast",
+            origin,
+            json!({"team":team, "caster":id, "hero":self.h(id).key,
+            "spell":"dash", "ability":dash.spell.name, "ultimate":true}),
+        );
     }
 }

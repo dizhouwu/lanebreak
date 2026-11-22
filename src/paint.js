@@ -11,6 +11,7 @@
     brakk: { lean:.23, step:11, lift:5 },
     orrin: { lean:-.08, step:0, lift:8 },
     kestrel: { lean:.18, step:7, lift:6 },
+    veyra: { lean:.27, step:10, lift:3 },
     neris: { lean:-.1, step:0, lift:8 },
     cairn: { lean:-.2, step:-7, lift:2 },
     ecarg: { lean:.12, step:0, lift:2 }
@@ -68,6 +69,12 @@
     if (key === 'kestrel') {
       poly(g,[[-8,15],[-5,-10],[0,-26],[6,-26],[9,-7],[15,-21],[21,-17],[15,11],[4,22]],'#234e67',color,2);
       line(g,[[5,-23],[2,-8],[13,-10],[8,11]],'#e6fdff',2.5);
+    } else if (key === 'veyra') {
+      for (const offset of [-15, 7]) {
+        poly(g, [[offset-3,20],[offset-5,6],[offset+2,-21],[offset+17,-34],[offset+15,-13],[offset+4,8],[offset+4,20]],
+          '#923e35', '#ffc987', 1.7);
+        line(g,[[offset+2,4],[offset+12,-23]],color,2.5);
+      }
     } else if (key === 'ecarg') {
       g.rotate(-.62);
       line(g, [[0,-6],[0,-32]], '#9a6441', 6);
@@ -150,6 +157,7 @@
     } else {
       const shape = {
         kestrel: { cloak:'#21394b', mask:'#94cee1', shoulders:[57,285], head:[[126,84],[168,63],[197,47],[230,70],[230,103],[216,135],[155,134]], weapon:[264,113,3] },
+        veyra: { cloak:'#3f2020', mask:'#af6f59', shoulders:[64,282], head:[[130,91],[151,72],[189,49],[221,65],[240,91],[226,123],[194,144],[147,132]], weapon:[260,114,2.7] },
         neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] },
         cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] },
         ecarg: { cloak:'#2e355e', mask:'#d7b9a0', shoulders:[88,284], head:[[128,110],[139,76],[160,58],[185,62],[211,42],[206,78],[225,104],[208,140],[167,143]], weapon:[255,150,2.7] }
@@ -417,6 +425,13 @@
         fighters.push({ id, type:'creep', team, kind, x, y, hp, maxHp, attack, r:r ?? CREEPS[kind].r, facing, flags });
       }
       for (const hero of s.heroes) if (hero.hp > 0 && visible(hero)) fighters.push(hero);
+      for (const { brands, team } of s.heroes) for (const brand of brands || []) {
+        if (brand.until <= now || !inView(brand.x, brand.y, 48)) continue;
+        const {x,y} = brand, glow = 26 + Math.sin(now * 8) * 3;
+        ellipse(g,x,y,glow,glow*.66,'#562319bd',COLORS[team],2);
+        poly(g,[[x-17,y],[x,y-14],[x+17,y],[x,y+14]],'#ad462f','#ffb36c',2);
+        line(g,[[x-9,y+4],[x+3,y-18],[x+9,y-3]],'#fff0c0',2.6);
+      }
       for (const b of s.buildings) {
         if (b.hp <= 0 || !b.range) continue;
         const reach = b.range + player.r;
@@ -548,6 +563,13 @@
           continue;
         }
         if (age < 0 || age > 1.08 || !inView(e.x, e.y, (e.radius || 65) + 100)) continue;
+        if (e.kind === 'sweep' && age < .24) {
+          g.globalAlpha = 1 - age / .24;
+          line(g,[[e.fromX,e.fromY-12],[e.x,e.y-12]],'#ff754578',10);
+          poly(g,[[e.x-33,e.y+18],[e.x-1,e.y-21],[e.x+31,e.y-26],[e.x+9,e.y-12]],'#ff8d56','#fff1be',2);
+          g.globalAlpha = 1;
+          continue;
+        }
         if (e.kind === 'item' && age < .4) {
           const color = ITEMS[e.item].color;
           const radius = 18 + age * 100;
@@ -647,6 +669,15 @@
             line(g, [[-10,-8],[travel*.45,-20],[travel*.44,8],[travel,0]], '#d8faff', 2.5);
           }
           break;
+        case 'veyra': {
+          const mantle = ability === 'Kiln Mantle';
+          ellipse(g,0,0,travel,travel*(mantle ? .58 : .76), '#c1432938', '#ff925b', 2.3);
+          for (let i = 0; i < 5; i++) {
+            g.rotate(Math.PI * 2 / 5);
+            poly(g,[[travel*.68,3],[travel*.86,-12],[travel+11,-17],[travel-1,2]],color,'#ffd18d',1.5);
+          }
+          break;
+        }
         case 'neris':
           if (ability === 'Emberfall') {
             for (let i = 0; i < 6; i++) {
@@ -751,13 +782,26 @@
       g.restore();
     }
     castPreview(g, hero, spell, at, freeMana) {
-      const end = Lanebreak.castPoint(hero, spell, at.x, at.y, this.height);
+      let end, stops;
+      if (spell.kind === 'brandReturn') {
+        let distance = Infinity;
+        const brands = hero.brands || [];
+        for (const brand of brands) {
+          const d = Math.hypot(brand.x - at.x, brand.y - at.y);
+          if (d < distance) { end = brand; distance = d; }
+        }
+        if (!end) return;
+        const distanceFromHero = b => Math.hypot(b.x - hero.x, b.y - hero.y);
+        stops = brands.filter(b => b !== end).sort((a, b) => distanceFromHero(a) - distanceFromHero(b));
+      } else {
+        end = Lanebreak.castPoint(hero, spell, at.x, at.y, this.height);
+      }
       const cost = !freeMana && spell.distanceMana ? spell.mana + Math.hypot(end.x - hero.x, end.y - hero.y) * spell.distanceMana : 0;
       const color = cost > hero.mana ? '#ff8c8c' : '#ffe0a2';
       if (spell.target === 'point') ellipse(g, hero.x, hero.y, spell.range, spell.range, null, color + '45', 2);
       g.save();
       g.setLineDash([10, 7]);
-      line(g, [[hero.x, hero.y], [end.x, end.y]], color + 'b0', 2);
+      line(g, [[hero.x, hero.y], ...(stops || []).map(b => [b.x,b.y]), [end.x, end.y]], color + 'b0', 2);
       if (spell.roll) {
         const angle = at.x === hero.x && at.y === hero.y ? hero.facing : Math.atan2(at.y - hero.y, at.x - hero.x);
         line(g, [[end.x, end.y], [end.x + Math.cos(angle) * spell.roll, end.y + Math.sin(angle) * spell.roll]], '#ff9d56b0', 2);
@@ -914,6 +958,9 @@
           const trail = [[cast.x,cast.y], [cast.x+dx*.33,cast.y+dy*.33-12], [cast.x+dx*.63,cast.y+dy*.63+10], [x,y]];
           line(g, trail, '#65e6ff95', 16);
           line(g, trail, '#e6fdff', 3);
+        } else if (u.hero === 'veyra') {
+          line(g, [[cast.x,cast.y-8],[x,y-8]], '#f75f3f8c', 26);
+          line(g, [[cast.x,cast.y-8],[x,y-8]], '#ffc277', 5);
         } else {
           line(g, [[cast.x,cast.y+7],[x,y+7]], '#60433285', 26);
           for (const fraction of [.35, .65, .9]) {

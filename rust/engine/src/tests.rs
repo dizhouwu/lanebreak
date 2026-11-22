@@ -601,6 +601,96 @@ fn equipment_and_temporary_buffs_update_movement_and_attack_stats() {
 }
 
 #[test]
+fn veyra_detonates_all_three_brands_and_ends_at_the_one_nearest_the_click() {
+    let mut m = duel(["veyra", "brakk"]);
+    m.h_mut(1).level = 6;
+    m.refresh(1);
+    m.h_mut(1).mana = m.h(1).max_mana;
+    m.time = 1.0;
+    place(&mut m, 1, 2000.0, 450.0);
+    let mana = m.h(1).mana;
+    for x in [2130.0, 2350.0, 2600.0] {
+        cast(&mut m, 3, Point::new(x, 450.0));
+    }
+    assert_eq!(m.h(1).mana, mana - 225.0);
+    assert_eq!(
+        view(&m, 0)["heroes"][0]["brands"].as_array().unwrap().len(),
+        3
+    );
+    assert!(
+        m.command(1, Command::cast(3, Point::new(2800.0, 450.0), None))
+            .unwrap_err()
+            .contains("charges")
+    );
+
+    let remote_click = r#"{"o":"cast","i":4,"x":2380,"y":820,"castMode":"point"}"#;
+    assert!(Match::valid_order(remote_click));
+    assert_eq!(m.order_json(0, remote_click), None);
+    assert_eq!(m.h(1).mana, mana - 225.0);
+    assert_eq!(m.u(1).dash.unwrap().pos, Point::new(2130.0, 450.0));
+    m.step(DT, 8);
+    assert_eq!(m.h(1).live_brands(m.time).count(), 2);
+    m.step(DT, 32);
+    assert_eq!(m.u(1).pos, Point::new(2350.0, 450.0));
+    assert_eq!(m.h(1).live_brands(m.time).count(), 0);
+    let explosions: Vec<_> = m
+        .effects
+        .iter()
+        .filter(|e| e["kind"] == "burst" && e["ability"] == "Return to Brand")
+        .map(|e| e["x"].as_f64().unwrap())
+        .collect();
+    assert_eq!(explosions, [2130.0, 2600.0, 2350.0]);
+    assert!(
+        m.command(1, Command::cast(3, Point::default(), None))
+            .is_err()
+    );
+
+    m.time = 13.0;
+    assert!(m.order_json(0, remote_click).unwrap().contains("first"));
+    m.time = 19.0;
+    cast(&mut m, 3, Point::new(2800.0, 450.0));
+    assert_eq!(m.h(1).live_brands(m.time).count(), 1);
+    m.time = 31.0;
+    assert!(m.order_json(0, remote_click).unwrap().contains("first"));
+    m.time = 37.0;
+    cast(&mut m, 3, Point::new(2750.0, 450.0));
+    m.kill(1, 2, false);
+    assert_eq!(m.h(1).live_brands(m.time).count(), 0);
+}
+
+#[test]
+fn veyra_sweeps_distinct_targets_and_her_mantle_follows_her() {
+    let mut m = training("veyra", true);
+    let target = m.u(2).pos;
+    place(&mut m, 1, target.x - 440.0, target.y);
+    for (i, dx) in [-145.0, -85.0, 85.0, 145.0, 180.0].into_iter().enumerate() {
+        m.insert(Unit {
+            team: 1,
+            pos: Point::new(target.x + dx, target.y + 45.0 + 14.0 * i as f64),
+            role: Role::Creep,
+            kind: "melee",
+            hp: 1000.0,
+            max_hp: 1000.0,
+            r: 12.0,
+            ..Unit::default()
+        });
+    }
+    cast(&mut m, 0, target);
+    m.step(DT, 15);
+    assert!(m.u(2).stun_until > m.time);
+    cast(&mut m, 1, target);
+    m.step(DT, 31);
+    assert_eq!(m.effects.iter().filter(|e| e["kind"] == "sweep").count(), 4);
+    assert_eq!(m.training.as_ref().unwrap().hits, 2);
+
+    cast(&mut m, 2, Point::default());
+    assert_eq!(m.h(1).spell_barrier.as_ref().unwrap().health, 220.0);
+    place(&mut m, 1, target.x - 95.0, target.y);
+    m.step(DT, 50);
+    assert_eq!(m.training.as_ref().unwrap().hits, 3);
+}
+
+#[test]
 fn kestrel_pulls_charges_a_basic_attack_and_pays_for_dash_distance() {
     let mut m = duel(["kestrel", "brakk"]);
     m.h_mut(1).level = 6;

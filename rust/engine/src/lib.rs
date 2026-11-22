@@ -117,6 +117,19 @@ struct Dash {
     pos: Point,
     spell: &'static Spell,
     damage: f64,
+    brand_route: Option<BrandRoute>,
+}
+#[derive(Clone, Copy, Serialize)]
+struct Brand {
+    #[serde(flatten)]
+    pos: Point,
+    until: f64,
+}
+const BRAND_CAPACITY: usize = 3;
+#[derive(Clone, Copy)]
+struct BrandRoute {
+    stops: [Option<usize>; BRAND_CAPACITY],
+    leg: usize,
 }
 #[derive(Clone, Copy)]
 struct Stitch {
@@ -190,6 +203,8 @@ struct Hero {
     prepared: Vec<String>,
     weave_ready: BTreeMap<String, f64>,
     charge_until: f64,
+    brands: [Option<Brand>; BRAND_CAPACITY],
+    brand_ready: [f64; BRAND_CAPACITY],
     heat: u32,
     buffs: Vec<Buff>,
     jump: u32,
@@ -237,6 +252,8 @@ impl Hero {
             prepared: Vec::new(),
             weave_ready: BTreeMap::new(),
             charge_until: 0.0,
+            brands: [None; BRAND_CAPACITY],
+            brand_ready: [0.0; BRAND_CAPACITY],
             heat: 0,
             buffs: Vec::new(),
             jump: 0,
@@ -285,9 +302,20 @@ impl Hero {
         self.cd.fill(0.0);
         self.weave_ready.clear();
         self.items_ready.clear();
+        self.brand_ready.fill(0.0);
     }
     fn buyback_cost(&self) -> u32 {
         200 + 50 * self.level
+    }
+    fn live_brands(&self, time: f64) -> impl Iterator<Item = (usize, Brand)> + '_ {
+        self.brands
+            .iter()
+            .copied()
+            .enumerate()
+            .filter_map(move |(i, b)| b.filter(|brand| brand.until > time).map(|brand| (i, brand)))
+    }
+    fn brand_slot_ready_at(&self, i: usize) -> f64 {
+        self.brand_ready[i].max(self.brands[i].map_or(0.0, |brand| brand.until))
     }
     fn recipe(&self) -> Option<String> {
         if self.marks.len() != 3 {
@@ -401,6 +429,7 @@ struct Area {
     damage: f64,
     dir: Point,
     scan_due: f64,
+    sweep_targets: Vec<Id>,
 }
 #[derive(Clone, Copy, Serialize)]
 struct Orb {
@@ -510,7 +539,7 @@ impl Match {
         };
         let team_size = if m.team_match { 5 } else { 1 };
         let defaults = [
-            "brakk", "orrin", "kestrel", "neris", "vesper", "cairn", "ecarg",
+            "brakk", "orrin", "kestrel", "veyra", "neris", "vesper", "cairn", "ecarg",
         ];
         let keys = options.heroes.unwrap_or_default();
         let bots = options.bots.unwrap_or_default();
