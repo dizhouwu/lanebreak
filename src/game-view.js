@@ -30,14 +30,14 @@
     if (i === 3 && hero.prepared?.includes(weaveRecipe(hero))) return 0;
     return hero.cd[i];
   }
-  function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
+  function abilityError(hero, i, time, spell = abilitySpell(hero, i), freeMana = false, noCooldowns = freeMana) {
     if (!spell) return 'Invalid ability';
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
     if (spell.kind === 'invoke' && !weaveRecipe(hero)) return 'Queue three marks with Q, W, or E';
-    if (!free && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
+    if (!noCooldowns && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
     if (spell.kind === 'prepared') return 'Prepare a spell with R first';
-    if (!free && hero.mana < spell.mana) return 'Not enough mana';
+    if (!freeMana && hero.mana < spell.mana) return 'Not enough mana';
     return null;
   }
   function point(unit, x, y, limit = Infinity, min = 0, ground = true, height = HEIGHT) {

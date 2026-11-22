@@ -90,9 +90,6 @@ impl Match {
         let h = u.hero.as_mut().unwrap();
         h.mana = h.max_mana;
         h.gold = h.gold.max(20_000.0);
-        h.items_ready.clear();
-        h.recall_ready = 0.0;
-        h.impact_ready = 0.0;
     }
 
     pub(super) fn gain_xp(&mut self, id: Id, amount: f64) {
@@ -173,9 +170,10 @@ impl Match {
 
     pub(super) fn apply_impact(&mut self, source: Id, target: Id, duration: f64, item: &str) {
         let now = self.time;
+        let recovery = if self.no_cooldowns() { 0.0 } else { 3.0 };
         let h = self.h_mut(source);
         h.impact_hits = 0;
-        h.impact_ready = now + 3.0;
+        h.impact_ready = now + recovery;
         let b = self.u_mut(target);
         b.stun_until = b.stun_until.max(now + duration);
         b.windup = None;

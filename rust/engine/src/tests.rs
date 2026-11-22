@@ -570,6 +570,58 @@ fn every_mark_recipe_casts_and_slots_keep_their_own_cooldowns() {
 }
 
 #[test]
+fn training_cooldowns_can_be_enabled_and_reset_with_renewal_orb() {
+    let use_cooldowns = r#"{"o":"trainingCooldowns","disabled":false}"#;
+    let zero_cooldowns = r#"{"o":"trainingCooldowns","disabled":true}"#;
+    assert!(!Match::valid_order(use_cooldowns));
+    assert!(
+        duel(["neris", "brakk"])
+            .order_json(0, use_cooldowns)
+            .is_some()
+    );
+
+    let mut m = training("neris", true);
+    assert_eq!(view(&m, 0)["training"]["noCooldowns"], true);
+    m.command(1, Command::Buy("renewal".into())).unwrap();
+    m.command(1, Command::Buy("locket".into())).unwrap();
+    prepare(&mut m, "QQE");
+    prepare(&mut m, "QQW");
+    assert_eq!(m.order_json(0, use_cooldowns), None);
+    assert_eq!(view(&m, 0)["training"]["noCooldowns"], false);
+
+    let mana = m.h(1).mana;
+    cast(&mut m, 4, Point::default());
+    cast(&mut m, 5, Point::default());
+    m.command(1, Command::Item(1, Point::default())).unwrap();
+    m.step(DT, 1);
+    assert_eq!(m.h(1).mana, mana);
+    assert!(m.h(1).ready_at(5) > m.time);
+    assert!(
+        m.command(1, Command::cast(4, Point::default(), None))
+            .is_err()
+    );
+    assert!(m.command(1, Command::Item(1, Point::default())).is_err());
+    prepare(&mut m, "QWW");
+    assert!(m.h(1).ready_at(3) > m.time);
+
+    m.command(1, Command::Item(0, Point::default())).unwrap();
+    assert_eq!(m.h(1).ready_at(3), 0.0);
+    assert!(m.h(1).weave_ready.is_empty());
+    assert!(m.h(1).items_ready["renewal"] > m.time);
+    assert!(m.command(1, Command::Item(0, Point::default())).is_err());
+    m.command(1, Command::Item(1, Point::default())).unwrap();
+    cast(&mut m, 5, Point::default());
+
+    m.command(1, Command::TrainingHero("vesper".into()))
+        .unwrap();
+    assert!(m.command(1, Command::Item(0, Point::default())).is_err());
+    assert_eq!(m.order_json(0, zero_cooldowns), None);
+    m.command(1, Command::Item(0, Point::default())).unwrap();
+    m.command(1, Command::Item(0, Point::default())).unwrap();
+    assert!(m.h(1).items_ready.is_empty());
+}
+
+#[test]
 fn veil_expires_in_duels_and_training() {
     for mut m in [duel(["neris", "brakk"]), training("neris", true)] {
         prepare(&mut m, "QQW");

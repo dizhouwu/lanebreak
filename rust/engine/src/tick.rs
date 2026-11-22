@@ -255,9 +255,10 @@ impl Match {
         let channel = self.h(id).channel;
         if channel != 0.0 {
             if channel <= time {
+                let cooldown = if self.no_cooldowns() { 0.0 } else { 45.0 };
                 let h = self.h_mut(id);
                 h.channel = 0.0;
-                h.recall_ready = time + 45.0;
+                h.recall_ready = time + cooldown;
                 self.blink(
                     id,
                     if self.training.is_some() {

@@ -79,7 +79,7 @@ Azure starts in the southwest and Crimson in the northeast. Each lane has its ow
 
 ## Training
 
-Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a target with unlimited health. The dummy stays in place unless moved by an ability. Uncheck the option for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities have no mana cost or cooldown. Resources refill and item and recall cooldowns reset automatically. The damage counter keeps your session total.
+Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a target with unlimited health. The dummy stays in place unless moved by an ability. Uncheck the option for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities cost no mana and resources refill automatically. **Zero cooldowns** starts on. Turn it off to practice with normal ability, equipment, and recall cooldowns. Buy **Renewal Orb** to refresh abilities and other equipment actives while normal cooldowns are enabled. The damage counter keeps your session total.
 
 Click **Change hero** during training to try another kit in the same arena. Your location, items, and session totals carry over. Active abilities, summons, and temporary statuses clear when you switch.
 

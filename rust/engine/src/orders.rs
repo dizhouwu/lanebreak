@@ -27,6 +27,7 @@ pub(super) enum Command {
     Buy(String),
     Sell(usize),
     TrainingHero(String),
+    TrainingCooldowns(bool),
     Potion,
     Recall,
 }
@@ -103,6 +104,7 @@ impl Command {
                 }
                 Self::TrainingHero(key.into())
             }
+            "trainingCooldowns" => Self::TrainingCooldowns(cmd.get("disabled")?.as_bool()?),
             "buy" => {
                 let id = cmd.get("id")?.as_str()?;
                 if !rules().items.contains_key(id) {
@@ -176,7 +178,10 @@ fn sell_value(item: &Inventory, time: f64) -> f64 {
 
 impl Match {
     pub fn valid_order(input: &str) -> bool {
-        !matches!(Command::parse(input), None | Some(Command::TrainingHero(_)))
+        !matches!(
+            Command::parse(input),
+            None | Some(Command::TrainingHero(_) | Command::TrainingCooldowns(_))
+        )
     }
     pub fn order_json(&mut self, team: usize, input: &str) -> Option<String> {
         let Some(&id) = self.heroes.get(team) else {
@@ -414,13 +419,19 @@ impl Match {
                 self.h_mut(target).channel = 0.0;
                 self.item_flash(target, &key);
             }
+            "renewal" => {
+                self.h_mut(id).refresh_cooldowns();
+                self.item_flash(id, &key);
+            }
             _ => {}
         }
         if spec.target.is_some() {
             self.h_mut(id).channel = 0.0;
         }
-        let ready = self.time + spec.cd;
-        self.h_mut(id).items_ready.insert(key, ready);
+        if !self.no_cooldowns() {
+            let ready = self.time + spec.cd;
+            self.h_mut(id).items_ready.insert(key, ready);
+        }
         Ok(())
     }
 
@@ -431,6 +442,20 @@ impl Match {
         }
         match &cmd {
             Command::TrainingHero(key) => return self.switch_training_hero(id, key),
+            Command::TrainingCooldowns(disabled) => {
+                let training = self
+                    .training
+                    .as_mut()
+                    .ok_or("Cooldown settings are only available in training")?;
+                training.no_cooldowns = *disabled;
+                if *disabled {
+                    let h = self.h_mut(id);
+                    h.refresh_cooldowns();
+                    h.recall_ready = 0.0;
+                    h.impact_ready = 0.0;
+                }
+                return Ok(());
+            }
             Command::Buy(key) => {
                 let before = self.h(id).gold;
                 self.buy(id, key)?;
@@ -563,7 +588,10 @@ impl Match {
                 h.order = Order::None;
                 u.windup = None;
             }
-            Command::Buy(_) | Command::Sell(_) | Command::TrainingHero(_) => unreachable!(),
+            Command::Buy(_)
+            | Command::Sell(_)
+            | Command::TrainingHero(_)
+            | Command::TrainingCooldowns(_) => unreachable!(),
         }
         Ok(())
     }
@@ -581,6 +609,9 @@ impl Match {
         hero.level = previous.level;
         hero.gold = previous.gold;
         hero.inventory = std::mem::take(&mut previous.inventory);
+        hero.items_ready = std::mem::take(&mut previous.items_ready);
+        hero.recall_ready = previous.recall_ready;
+        hero.impact_ready = previous.impact_ready;
         hero.order = Order::Stop;
         *player = Unit {
             id,
@@ -626,7 +657,8 @@ impl Match {
         let h = self.h(id);
         let spell = h.spell(slot).ok_or("Invalid ability")?;
         let level = h.unlock(slot);
-        let free = self.training.is_some();
+        let free_mana = self.training.is_some();
+        let no_cooldowns = self.no_cooldowns();
         if h.level < level {
             return Err(format!("Unlocks at level {level}"));
         }
@@ -642,13 +674,13 @@ impl Match {
         } else {
             None
         };
-        if !free && h.ready_at(slot) > time {
+        if !no_cooldowns && h.ready_at(slot) > time {
             return Err("Ability cooling down".into());
         }
         if spell.kind == Kind::Prepared {
             return Err("Prepare a spell with R first".into());
         }
-        if !free && h.mana < spell.mana {
+        if !free_mana && h.mana < spell.mana {
             return Err("Not enough mana".into());
         }
         if spell.kind == Kind::Unit {
@@ -665,10 +697,12 @@ impl Match {
             marks.push(slot);
             return Ok(());
         }
-        if !free {
+        if !free_mana {
+            self.h_mut(id).mana -= spell.mana;
+        }
+        if !no_cooldowns {
             let h = self.h_mut(id);
             let ready = time + spell.cd * (1.0 - stat(&h.stats, "cdr"));
-            h.mana -= spell.mana;
             if slot >= 4 {
                 h.weave_ready.insert(h.prepared[slot - 4].clone(), ready);
             } else {

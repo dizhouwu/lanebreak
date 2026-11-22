@@ -61,7 +61,14 @@
   </main>
   <section id="game" hidden aria-label="Match controls">
     <header class="matchTop">
-      <div class="matchReadout"><div id="combatStats"></div><div id="opponentStatus"></div><div id="trainingAutoRefill" hidden>Auto-refill active</div><button id="changeTrainingHero" class="iconButton" aria-haspopup="dialog" hidden>Change hero</button></div>
+      <div class="matchReadout">
+        <div id="combatStats"></div><div id="opponentStatus"></div>
+        <div id="trainingAutoRefill" hidden>Auto-refill active</div>
+        <div id="trainingActions" hidden>
+          <button id="trainingCooldowns" class="iconButton" type="button" aria-pressed="true">Zero cooldowns <span aria-hidden="true">On</span></button>
+          <button id="changeTrainingHero" class="iconButton" type="button" aria-haspopup="dialog">Change hero</button>
+        </div>
+      </div>
       <div id="scoreboard" class="scoreboard" aria-label="Match score"><div id="playerScore" class="scoreSide"><i></i><strong>0</strong></div><span id="trainingTag" hidden>Training</span><span id="matchClock">0:00</span><div id="opponentScore" class="scoreSide"><i></i><strong>0</strong></div></div>
       <div class="matchTools"><div class="topActions"><button id="back" class="iconButton">End match</button><button id="rosterButton" class="iconButton" aria-controls="matchRoster" aria-expanded="false">Teams <kbd>`</kbd></button><button id="camera" class="iconButton" aria-pressed="false" title="Toggle free camera (C)">Camera: Follow</button><button id="audio" class="iconButton" aria-pressed="true">Sound on</button><button id="quality" class="iconButton">Graphics auto</button><button id="gameHelp" class="iconButton">Controls</button></div><small>LMB Inspect · RMB Move / Attack · C Toggle camera</small></div>
     </header>

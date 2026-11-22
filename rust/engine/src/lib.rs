@@ -277,6 +277,11 @@ impl Hero {
             .copied()
             .unwrap_or(0.0)
     }
+    fn refresh_cooldowns(&mut self) {
+        self.cd.fill(0.0);
+        self.weave_ready.clear();
+        self.items_ready.clear();
+    }
     fn recipe(&self) -> Option<String> {
         if self.marks.len() != 3 {
             return None;
@@ -400,6 +405,7 @@ struct Orb {
 #[serde(rename_all = "camelCase")]
 struct Training {
     dummy: bool,
+    no_cooldowns: bool,
     damage: f64,
     hits: u32,
     last_hit: f64,
@@ -444,6 +450,10 @@ pub struct Match {
     collision_ids: Vec<Id>,
 }
 impl Match {
+    fn no_cooldowns(&self) -> bool {
+        self.training.as_ref().is_some_and(|t| t.no_cooldowns)
+    }
+
     pub fn from_options(options: &str) -> Result<Self, serde_json::Error> {
         Ok(Self::new(serde_json::from_str(options)?))
     }
@@ -471,6 +481,7 @@ impl Match {
             kills: [0, 0],
             training: options.training.map(|t| Training {
                 dummy: t.dummy.unwrap_or(true),
+                no_cooldowns: true,
                 ..Training::default()
             }),
             collision_rows: Vec::new(),

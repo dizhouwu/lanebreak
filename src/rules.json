@@ -1236,6 +1236,17 @@
       "stats": { "speed": 55, "mana": 220, "manaRegen": 2.5, "power": 0.1 },
       "text": "+55 movement speed, +220 mana, +2.5 mana regen and +10% ability damage. Lift yourself or an enemy hero for 2.5s. The target cannot act or take damage until it lands.",
       "total": 1920
+    },
+    "renewal": {
+      "color": "#78e9ba",
+      "name": "Renewal Orb",
+      "parts": ["arcane", "prism"],
+      "cost": 1800,
+      "cd": 120,
+      "stats": { "power": 0.25, "mana": 420, "manaRegen": 4 },
+      "master": true,
+      "text": "+25% ability damage, +420 mana and +4 mana regen. Instantly refresh all abilities and other equipment actives. Renewal Orb has a 120s cooldown.",
+      "total": 3500
     }
   },
   "CREEPS": {

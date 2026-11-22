@@ -361,7 +361,7 @@
     $('matchOverlay').hidden = true;
     const training = Boolean(snapshot?.training);
     syncBattleMode();
-    $('trainingTag').hidden = $('trainingAutoRefill').hidden = $('changeTrainingHero').hidden = !training;
+    $('trainingTag').hidden = $('trainingAutoRefill').hidden = $('trainingActions').hidden = !training;
     $('playerScore').hidden = $('opponentScore').hidden = training;
     $('back').textContent = training ? 'End training' : remote ? (roomTeamMatch ? 'Leave match' : 'Surrender') :
       demo ? 'Stop watching' : 'End match';
@@ -660,7 +660,7 @@
     const recipe = i >= 4 ? h.prepared?.[i - 4] : undefined;
     const mode = abilityCastMode(spell);
     if (mode !== 'self') {
-      const error = abilityError(h, i, snapshot.time, spell, Boolean(snapshot.training));
+      const error = abilityError(h, i, snapshot.time, spell, Boolean(snapshot.training), snapshot.training?.noCooldowns);
       if (error) return hint(error);
       setPendingCast({ i, spell, recipe, mode });
     } else {
@@ -918,6 +918,11 @@
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
     $('matchClock').textContent = clock;
     if (s.training) {
+      const toggle = $('trainingCooldowns'), pressed = String(s.training.noCooldowns);
+      if (toggle.getAttribute('aria-pressed') !== pressed) {
+        toggle.setAttribute('aria-pressed', pressed);
+        toggle.lastElementChild.textContent = s.training.noCooldowns ? 'On' : 'Off';
+      }
       $('scoreboard').setAttribute('aria-label', 'Training · ' + clock);
       $('combatStats').textContent = s.training.dummy ? 'Damage ' + Math.round(s.training.damage) + ' · Hits ' + s.training.hits : 'Empty arena';
       $('opponentStatus').textContent = s.training.dummy ? 'Dummy · ∞ HP' +
@@ -1016,7 +1021,7 @@
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
         awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : manaCost || '';
-      const cooldown = s.training ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
+      const cooldown = s.training?.noCooldowns ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
@@ -1434,6 +1439,9 @@
     $('start').onclick = () => solo();
     $('startTraining').onclick = () => startTraining();
     $('startTeamMatch').onclick = () => startTeamMatch();
+    $('trainingCooldowns').onclick = () => {
+      if (snapshot?.training && issue({ o:'trainingCooldowns', disabled:!snapshot.training.noCooldowns })) updateHud(snapshot);
+    };
     $('changeTrainingHero').onclick = openTrainingHeroPicker;
     $('closeTrainingHeroPicker').onclick = () => $('trainingHeroPicker').close();
     $('soloTab').onclick = () => tab('solo');

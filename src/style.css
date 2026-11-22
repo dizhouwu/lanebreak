@@ -90,7 +90,10 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .matchRoster th:nth-child(2){width:11%}
 .matchRoster .rosterItem{display:inline-block;margin:1px 3px 1px 0;padding:2px 5px;border:1px solid var(--item);border-radius:3px;color:#dce6dd}
 .matchRoster .rosterHero{display:block;color:var(--hero);font-weight:400}
-#changeTrainingHero{margin-top:5px;min-height:26px;padding:3px 8px;font-size:.75rem}
+#trainingActions{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+#trainingActions button{min-height:26px;padding:3px 7px;font-size:.72rem}
+#trainingCooldowns span{margin-left:4px;color:var(--muted)}
+#trainingCooldowns[aria-pressed=true] span{color:var(--gold)}
 .matchTools{text-align:right}
 .matchTools small{display:block;margin-top:3px;color:#c1ccc4}
 .topActions{display:flex;justify-content:end;flex-wrap:wrap;gap:4px}
