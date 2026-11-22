@@ -366,13 +366,10 @@ impl Match {
         let (team, pos) = (u.team, u.pos);
         let enemy_team = 1 - team;
         let credit = self.u(source).spirit.map_or(source, |spirit| spirit.owner);
-        let killer = if self.u(credit).role == Role::Hero && self.u(credit).team == enemy_team {
-            Some(credit)
-        } else if !self.team_match {
-            Some(self.heroes[enemy_team])
-        } else {
-            None
-        };
+        let direct_killer = (self.u(credit).role == Role::Hero
+            && self.u(credit).team == enemy_team)
+            .then_some(credit);
+        let killer = direct_killer.or_else(|| (!self.team_match).then(|| self.heroes[enemy_team]));
         match u.role {
             Role::Creep => {
                 if u.spirit.is_some() {
@@ -435,6 +432,7 @@ impl Match {
                 u.stun_until = 0.0;
                 let h = u.hero.as_mut().unwrap();
                 h.deaths += 1;
+                h.kill_streak = 0;
                 h.charge_until = 0.0;
                 h.finisher_chain = None;
                 h.brands.fill(None);
@@ -450,23 +448,43 @@ impl Match {
                 let lv = h.level;
                 self.effect("fall", pos, json!({"unit": "hero"}));
                 let gold = 180 + 12 * lv;
-                let text = if let Some(hero) = killer {
+                if let Some(hero) = killer {
                     self.h_mut(hero).gold += f64::from(gold);
                     self.gain_xp(hero, f64::from(100 + 35 * lv));
-                    format!(
-                        "{} killed {} (+{gold} gold)",
-                        self.h(hero).name,
-                        self.h(id).name
-                    )
+                }
+                let (attacker, streak) = if let Some(hero) = direct_killer {
+                    let alive = self.u(hero).hp > 0.0;
+                    let h = self.h_mut(hero);
+                    if alive {
+                        h.kill_streak = h.kill_streak.saturating_add(1);
+                    }
+                    (h.name.clone(), h.kill_streak)
                 } else {
-                    format!(
-                        "{} was killed by {}",
-                        self.h(id).name,
-                        rules().teams[enemy_team]
-                    )
+                    let source = self.u(source);
+                    let source_type = match source.role {
+                        Role::Building if source.kind == "core" => "Fountain",
+                        Role::Building => "Tower",
+                        _ => "Creep",
+                    };
+                    (format!("{} {source_type}", rules().teams[source.team]), 0)
                 };
+                let announcement = match streak {
+                    1 if self.kills == [0, 0] => Some("First Blood"),
+                    3 => Some("Killing Spree"),
+                    5 => Some("Dominating"),
+                    7 => Some("Unstoppable"),
+                    9 => Some("Godlike"),
+                    10.. => Some("Holy Shit"),
+                    _ => None,
+                };
+                let victim = self.h(id).name.clone();
+                let mut text = format!("{attacker} killed {victim}");
+                if direct_killer.is_some() {
+                    text.push_str(&format!(" (+{gold} gold)"));
+                }
                 self.kills[enemy_team] += 1;
-                self.effect("feed", pos, json!({"team": 1 - team, "text": text}));
+                self.effect("kill", pos, json!({"team": enemy_team, "text": text,
+                    "attacker": attacker, "victim": victim, "streak": streak, "announcement": announcement}));
             }
             Role::Building => {
                 if u.kind == "core" {

@@ -10,6 +10,9 @@ struct Runtime {
     snapshot_json: Vec<u8>,
     snapshot_rows: Vec<u32>,
     snapshot_frame: [u32; 4],
+    motion_input: Vec<f64>,
+    motion_output: Vec<f64>,
+    sprite_commands: Vec<f32>,
 }
 
 thread_local! {
@@ -27,6 +30,52 @@ extern "C" fn engine_input(length: usize) -> *mut u8 {
 #[unsafe(no_mangle)]
 extern "C" fn engine_output_len() -> usize {
     RUNTIME.with_borrow(|r| r.output.len())
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn engine_motion_buffer(count: usize) -> *mut f64 {
+    RUNTIME.with_borrow_mut(|r| {
+        let Runtime {
+            motion_input,
+            motion_output,
+            ..
+        } = r;
+        motion_input.resize(count * 4, 0.0);
+        motion_output.resize(count * 2, 0.0);
+        motion_input.as_mut_ptr()
+    })
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn engine_interpolate(count: usize, fraction: f64) -> *const f64 {
+    RUNTIME.with_borrow_mut(|r| {
+        let Runtime {
+            motion_input,
+            motion_output,
+            ..
+        } = r;
+        render::interpolate(
+            &motion_input[..count * 4],
+            &mut motion_output[..count * 2],
+            fraction,
+        );
+        motion_output.as_ptr()
+    })
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn engine_sprite_buffer(count: usize) -> *mut f32 {
+    RUNTIME.with_borrow_mut(|r| {
+        r.sprite_commands.resize(count * render::SPRITE_WORDS, 0.0);
+        r.sprite_commands.as_mut_ptr()
+    })
+}
+
+#[unsafe(no_mangle)]
+extern "C" fn engine_prepare_sprites(count: usize) {
+    RUNTIME.with_borrow_mut(|r| {
+        render::prepare_sprites(&mut r.sprite_commands[..count * render::SPRITE_WORDS])
+    });
 }
 
 #[unsafe(no_mangle)]

@@ -2,6 +2,41 @@ use super::{orders::Command, *};
 
 const DT: f64 = 1.0 / 60.0;
 
+#[test]
+fn hero_kills_announce_streaks_and_deaths_reset_them() {
+    let mut m = duel(["brakk", "vesper"]);
+    for kills in 1..=10 {
+        m.u_mut(2).hp = 1.0;
+        m.kill(2, 1, false);
+        assert_eq!(m.h(1).kill_streak, kills);
+        let event = m.effects.last().unwrap();
+        assert_eq!(event["kind"], "kill");
+        assert_eq!(event["attacker"], m.h(1).name);
+        assert_eq!(event["victim"], m.h(2).name);
+        match kills {
+            1 => assert_eq!(event["announcement"], "First Blood"),
+            9 => assert_eq!(event["announcement"], "Godlike"),
+            10 => assert_eq!(event["announcement"], "Holy Shit"),
+            _ => {}
+        }
+    }
+    let tower = m
+        .buildings
+        .iter()
+        .copied()
+        .find(|&id| {
+            let tower = m.u(id);
+            tower.team == 1 && tower.kind != "core"
+        })
+        .unwrap();
+    m.kill(1, tower, false);
+    assert_eq!(m.h(1).kill_streak, 0);
+    assert_eq!(m.h(2).kill_streak, 0);
+    let event = m.effects.last().unwrap();
+    assert_eq!(event["kind"], "kill");
+    assert_eq!(event["attacker"], "Crimson Tower");
+}
+
 fn duel(heroes: [&str; 2]) -> Match {
     Match::from_options(&json!({"heroes": heroes, "bots": [null, null], "seed": 44}).to_string())
         .unwrap()

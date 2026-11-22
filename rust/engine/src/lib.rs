@@ -2,6 +2,8 @@ mod ai;
 mod combat;
 mod map;
 mod orders;
+#[cfg(any(test, target_arch = "wasm32"))]
+mod render;
 mod rules;
 mod snapshot;
 mod tick;
@@ -236,6 +238,7 @@ struct Hero {
     last_threat: f64,
     recent_aggro: f64,
     deaths: u32,
+    kill_streak: u32,
     last_hits: u32,
     denies: u32,
     respawn: f64,
@@ -287,6 +290,7 @@ impl Hero {
             last_threat: f64::NEG_INFINITY,
             recent_aggro: f64::NEG_INFINITY,
             deaths: 0,
+            kill_streak: 0,
             last_hits: 0,
             denies: 0,
             respawn: 0.0,

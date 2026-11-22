@@ -1,7 +1,7 @@
 (function () {
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS, WEAVE_ORBS } = LanebreakRules;
-  const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
+  const { Match, renderData, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
     abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
@@ -38,6 +38,7 @@
   let localTime = 0, previousLocalSnapshot;
   const history = [];
   const rowIndexes = new WeakMap();
+  let motionPlan = null;
   const panKeys = new Set();
   const game = $('game');
   const castSounds = {
@@ -315,7 +316,8 @@
     muted = !muted;
     prefs.save('muted', muted);
     updateSettings();
-    if (!muted) beep(540, .08);
+    if (muted) globalThis.speechSynthesis?.cancel();
+    else beep(540, .08);
   }
   function changeQuality() {
     const modes = ['auto','high','medium','low'];
@@ -389,6 +391,7 @@
     game.hidden = false;
     document.body.classList.add('matchMode');
     $('feed').replaceChildren();
+    $('killAnnouncements').replaceChildren();
     $('hint').hidden = true;
     $('matchOverlay').hidden = true;
     const training = Boolean(snapshot?.training);
@@ -416,10 +419,12 @@
     lastUi = -1;
     wasDead = false;
     previousLocalSnapshot = null;
+    motionPlan = null;
     localTime = snapshot?.time || 0;
     renderer.minimapElapsed = Infinity;
   }
   function goMenu() {
+    globalThis.speechSynthesis?.cancel();
     setPendingCast(null);
     if (seat) safeSeat(null);
     disconnect();
@@ -489,9 +494,6 @@
     $('matchRoster').hidden = !open;
     $('rosterButton').setAttribute('aria-expanded', open);
     if (!open || !snapshot) return;
-    setPendingCast(null);
-    panKeys.clear();
-    edgePointer = null;
     updateRoster(snapshot);
   }
   function updateRoster(s) {
@@ -742,7 +744,7 @@
   }
   function cameraInputEnabled() {
     return renderer.focus != null && !game.hidden && snapshot?.mode === 'match' && !paused &&
-      !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden && $('matchRoster').hidden;
+      !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden;
   }
   function moveCamera(dx, dy) {
     const center = renderer.focus;
@@ -778,7 +780,7 @@
   }
   function arenaPointerDown(event) {
     if (event.button === 0 && event.pointerType === 'mouse' && !pendingCast && !game.hidden &&
-        !paused && !demo && snapshot?.mode === 'match' && $('matchRoster').hidden) {
+        !paused && !demo && snapshot?.mode === 'match') {
       event.preventDefault();
       selectionDrag = { id:event.pointerId, x:event.clientX, y:event.clientY };
       arena.setPointerCapture(event.pointerId);
@@ -1227,6 +1229,29 @@
       if (!quit) beep(won ? 523 : 196,.9,'triangle',.055,won ? 2 : .5);
     }
   }
+  function announceKill(e) {
+    const parent = $('killAnnouncements');
+    const card = make('div',null,'killCard');
+    card.style.setProperty('--kill-color',COLORS[e.team]);
+    card.dataset.streak = Boolean(e.announcement);
+    card.append(make('strong',e.announcement || 'Hero Kill'),
+      make('span',e.attacker + ' killed ' + e.victim));
+    card.addEventListener('animationend',()=>card.remove(),{once:true});
+    parent.prepend(card);
+    if (parent.children.length > 3) parent.lastElementChild.remove();
+    if (!e.announcement || muted) return;
+    if (globalThis.speechSynthesis && globalThis.SpeechSynthesisUtterance) {
+      const call = new SpeechSynthesisUtterance(e.announcement);
+      call.lang = 'en-US';
+      call.rate = .9;
+      call.pitch = .75;
+      call.onerror = event => {
+        if (event.error !== 'canceled' && event.error !== 'interrupted') beep(294,.35,'triangle',.08,1.55);
+      };
+      speechSynthesis.cancel();
+      speechSynthesis.speak(call);
+    } else beep(294,.35,'triangle',.08,1.55);
+  }
   function playEvents(s) {
     for (const e of s.effects) {
       if (e.id <= lastEffect) continue;
@@ -1240,7 +1265,8 @@
         else shopFeedback(message);
         beep(1200,.08,'sine',.045,1.2);
       }
-      if (e.kind === 'feed') {
+      if (e.kind === 'kill') announceKill(e);
+      if (e.kind === 'feed' || e.kind === 'kill') {
         const row = make('div', e.text); const parent = $('feed');
         row.dataset.time = e.time;
         parent.prepend(row);
@@ -1257,7 +1283,7 @@
     }
   }
   function canvasOrder(event) {
-    if (game.hidden || paused || !snapshot || snapshot.mode !== 'match' || !$('matchRoster').hidden ||
+    if (game.hidden || paused || !snapshot || snapshot.mode !== 'match' ||
         (event.button !== 0 && event.button !== 2)) return;
     event.preventDefault();
     hovered = { x: event.clientX, y: event.clientY };
@@ -1437,19 +1463,48 @@
   function interpolateMotion(a, b, time) {
     if (time >= b.time) return b;
     const f = (time - a.time) / ((b.time - a.time) || 1);
-    function objects() {
-      return b.heroes.map((h, i) => {
-        const current = snapshot.heroes[i];
-        const before = a.heroes[i];
-        if (current.concealed || h.concealed || before.concealed || h.jump !== current.jump ||
-          h.jump !== before.jump || h.hero !== before.hero || h.hp <= 0 || before.hp <= 0) return current;
-        const dx = h.x - before.x, dy = h.y - before.y;
-        const squared = dx*dx + dy*dy;
-        if (!squared || squared > 250**2) return h;
-        return { ...h, x:before.x + dx*f, y:before.y + dy*f };
-      });
+    if (motionPlan?.a !== a || motionPlan.b !== b) motionPlan = buildMotionPlan(a,b);
+    const { frame, heroTargets, moving } = motionPlan;
+    if (moving.length) {
+      const positions = renderData.interpolate(moving.length, f);
+      for (let i=0; i<moving.length; i++) {
+        const target = moving[i], x = positions[i*2], y = positions[i*2+1];
+        if (Array.isArray(target)) {
+          target[3] = x;
+          target[4] = y;
+        } else {
+          target.x = x;
+          target.y = y;
+        }
+      }
     }
-    function rows(prev, next, xi, yi) {
+    for (let i=0; i<heroTargets.length; i++) {
+      const current = snapshot.heroes[i], target = heroTargets[i];
+      frame.heroes[i] = !target || current.concealed || target.jump !== current.jump ||
+        target.hero !== current.hero ? current : target;
+    }
+    frame.time = time;
+    return frame;
+  }
+  function buildMotionPlan(a, b) {
+    const coordinates = renderData.motionBuffer(b.heroes.length + b.creeps.length + b.projectiles.length);
+    const moving = [];
+    function track(target, oldX, oldY, x, y) {
+      const at = moving.length * 4;
+      coordinates[at] = oldX;
+      coordinates[at+1] = oldY;
+      coordinates[at+2] = x;
+      coordinates[at+3] = y;
+      moving.push(target);
+      return target;
+    }
+    const heroTargets = b.heroes.map((h, i) => {
+      const before = a.heroes[i];
+      if (h.concealed || before.concealed || h.jump !== before.jump ||
+        h.hero !== before.hero || h.hp <= 0 || before.hp <= 0) return null;
+      return h.x === before.x && h.y === before.y ? h : track({...h},before.x,before.y,h.x,h.y);
+    });
+    function rows(prev, next) {
       if (!prev.length || !next.length) return next;
       let old = rowIndexes.get(prev);
       if (!old) {
@@ -1459,17 +1514,14 @@
       }
       return next.map(row => {
         const before = old.get(row[0]);
-        if (!before) return row;
-        const dx = row[xi] - before[xi], dy = row[yi] - before[yi];
-        const squared = dx*dx + dy*dy;
-        if (!squared || squared > 250**2) return row;
-        const nextRow = [...row];
-        nextRow[xi] = before[xi] + dx*f;
-        nextRow[yi] = before[yi] + dy*f;
-        return nextRow;
+        return !before || (before[3] === row[3] && before[4] === row[4]) ? row :
+          track(row.slice(),before[3],before[4],row[3],row[4]);
       });
     }
-    return { ...b, time, heroes: objects(), creeps: rows(a.creeps,b.creeps,3,4), projectiles: rows(a.projectiles,b.projectiles,3,4) };
+    // Only the display view is mutable. The engine snapshots also drive commands and the HUD.
+    const frame = {...b, heroes:b.heroes.slice(), creeps:rows(a.creeps,b.creeps),
+      projectiles:rows(a.projectiles,b.projectiles)};
+    return {a,b,frame,heroTargets,moving};
   }
   function hotkey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]') || event.target.tagName === 'INPUT') return;
@@ -1560,6 +1612,9 @@
     arena.addEventListener('pointerdown', arenaPointerDown);
     arena.addEventListener('pointermove', arenaPointerMove);
     arena.addEventListener('pointerleave', () => { cursorOnArena = false; });
+    const roster = $('matchRoster');
+    roster.addEventListener('contextmenu', event => event.preventDefault());
+    roster.addEventListener('pointerdown', event => { if (event.button === 2) canvasOrder(event); });
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
       arena.addEventListener(type, event => {
         if (selectionDrag?.id === event.pointerId) finishSelectionDrag(event);

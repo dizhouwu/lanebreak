@@ -2,6 +2,7 @@
   const native = typeof module === 'object';
   let Backend;
   let validOrder;
+  let renderData;
   if (native) {
     const { readFileSync } = require('node:fs');
     const { join } = require('node:path');
@@ -14,6 +15,32 @@
     const data = Uint8Array.from(atob(LanebreakEngineWasm), c => c.charCodeAt(0));
     const wasm = new WebAssembly.Instance(new WebAssembly.Module(data)).exports;
     const encoder = new TextEncoder(), decoder = new TextDecoder();
+    let motionView, spriteView, spriteCount = 0, spriteOffset = 0;
+    renderData = {
+      motionBuffer(count) {
+        const offset = wasm.engine_motion_buffer(count);
+        return new Float64Array(wasm.memory.buffer, offset, count * 4);
+      },
+      interpolate(count, fraction) {
+        const offset = wasm.engine_interpolate(count, fraction);
+        const memory = wasm.memory.buffer;
+        if (motionView?.buffer !== memory || motionView.byteOffset !== offset || motionView.length !== count * 2) {
+          motionView = new Float64Array(memory, offset, count * 2);
+        }
+        return motionView;
+      },
+      spriteBuffer(count) {
+        if (count > spriteCount) {
+          spriteOffset = wasm.engine_sprite_buffer(count);
+          spriteCount = count;
+          spriteView = null;
+        }
+        const memory = wasm.memory.buffer;
+        if (spriteView?.buffer !== memory) spriteView = new Float32Array(memory, spriteOffset, spriteCount * 15);
+        return spriteView;
+      },
+      prepareSprites(count) { wasm.engine_prepare_sprites(count); }
+    };
     function input(text) {
       const bytes = encoder.encode(text);
       const offset = wasm.engine_input(bytes.length);
@@ -90,7 +117,7 @@
     effectCursor() { return this.backend.effectCursor(); }
     dispose() { this.backend.close?.(); }
   }
-  const api = { Match, validOrder };
+  const api = { Match, validOrder, renderData };
   if (native) module.exports = api;
   else globalThis.LanebreakMatch = api;
 })();

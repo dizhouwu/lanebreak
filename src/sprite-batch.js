@@ -1,6 +1,7 @@
 (() => {
   const ATLAS_SIZE = 2048;
   const INSTANCE_SIZE = 15;
+  const { renderData } = LanebreakMatch;
   const vertexSource = `#version 300 es
     layout(location = 0) in vec4 bounds;
     layout(location = 1) in vec4 textureBounds;
@@ -43,7 +44,7 @@
       this.gl = canvas.getContext('webgl2', {
         alpha:true, antialias:false, depth:false, stencil:false, powerPreference:'high-performance'
       });
-      this.instances = new Float32Array(512 * INSTANCE_SIZE);
+      this.capacity = 512;
       this.colors = new Map();
       this.ready = false;
       if (!this.gl) return;
@@ -70,7 +71,7 @@
         this.camera = gl.getUniformLocation(program, 'camera');
         this.buffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, this.instances.byteLength, gl.DYNAMIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, this.capacity * INSTANCE_SIZE * 4, gl.DYNAMIC_DRAW);
         const stride = INSTANCE_SIZE * 4;
         for (let i = 0; i < 4; i++) {
           gl.enableVertexAttribArray(i);
@@ -114,6 +115,7 @@
       // Atlas slots can be reused only after the preceding batch has been submitted.
       if (this.atlasFull) this.resetAtlas();
       this.length = 0;
+      this.instances = renderData.spriteBuffer(this.capacity);
       gl.uniform4f(this.camera, x, y, 2 * scale / width, 2 * scale / height);
       return true;
     }
@@ -134,7 +136,7 @@
       const x = this.atlasX, y = this.atlasY;
       const gl = this.gl;
       gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, image);
-      const uv = [(x+.5)/ATLAS_SIZE, (y+.5)/ATLAS_SIZE, (x+width-.5)/ATLAS_SIZE, (y+height-.5)/ATLAS_SIZE];
+      const uv = [x+.5, y+.5, x+width-.5, y+height-.5];
       this.atlasX += width + 2;
       this.rowHeight = Math.max(this.rowHeight, height);
       this.regions.set(image, uv);
@@ -143,7 +145,7 @@
     image(image, x, y, width, height, angle = 0, flip = 1, alpha = 1) {
       const uv = this.region(image);
       if (!uv) return false;
-      this.quad(x, y, width, height, uv, alpha, alpha, alpha, alpha, angle, flip);
+      this.quad(x, y, width, height, uv, 1, 1, 1, alpha, angle, 0, flip);
       return true;
     }
     rect(x, y, width, height, color) {
@@ -154,36 +156,36 @@
         const value = Number.parseInt(hex.length === 4 ? [...hex].map(d => d+d).join('') : hex, 16);
         const alpha = hex.length === 8 || hex.length === 4 ? (value & 255) / 255 : 1;
         const rgb = hex.length === 8 || hex.length === 4 ? value >>> 8 : value;
-        rgba = [((rgb >>> 16) & 255)*alpha/255, ((rgb >>> 8) & 255)*alpha/255, (rgb & 255)*alpha/255, alpha];
+        rgba = [((rgb >>> 16) & 255)/255, ((rgb >>> 8) & 255)/255, (rgb & 255)/255, alpha];
         this.colors.set(color, rgba);
       }
-      this.quad(x+width/2, y+height/2, width, height, WHITE, rgba[0], rgba[1], rgba[2], rgba[3], 0, 1);
+      this.quad(x, y, width, height, WHITE, rgba[0], rgba[1], rgba[2], rgba[3], 0, 1, 1);
     }
-    quad(x, y, width, height, uv, red, green, blue, alpha, angle, flip) {
+    quad(x, y, width, height, uv, red, green, blue, alpha, angle, corner, flip) {
       let at = this.length;
       const end = at + INSTANCE_SIZE;
       if (end > this.instances.length) {
-        const expanded = new Float32Array(this.instances.length * 2);
-        expanded.set(this.instances);
-        this.instances = expanded;
+        this.capacity *= 2;
+        this.instances = renderData.spriteBuffer(this.capacity);
         const gl = this.gl;
-        gl.bufferData(gl.ARRAY_BUFFER, expanded.byteLength, gl.DYNAMIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, this.capacity * INSTANCE_SIZE * 4, gl.DYNAMIC_DRAW);
       }
       const data = this.instances;
       data[at++] = x; data[at++] = y; data[at++] = width; data[at++] = height;
       data[at++] = uv[0]; data[at++] = uv[1]; data[at++] = uv[2]; data[at++] = uv[3];
       data[at++] = red; data[at++] = green; data[at++] = blue; data[at++] = alpha;
-      data[at++] = Math.cos(angle); data[at++] = Math.sin(angle); data[at] = flip;
+      data[at++] = angle; data[at++] = corner; data[at] = flip;
       this.length = end;
     }
     draw() {
       const gl = this.gl;
       gl.clear(gl.COLOR_BUFFER_BIT);
       if (!this.length) return;
+      renderData.prepareSprites(this.length / INSTANCE_SIZE);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instances, 0, this.length);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.length / INSTANCE_SIZE);
     }
   }
-  const WHITE = [0.5/ATLAS_SIZE, 0.5/ATLAS_SIZE, 0.5/ATLAS_SIZE, 0.5/ATLAS_SIZE];
+  const WHITE = [0.5, 0.5, 0.5, 0.5];
   globalThis.LanebreakSpriteBatch = SpriteBatch;
 })();
