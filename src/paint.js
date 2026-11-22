@@ -689,9 +689,9 @@
         }
         if (e.kind === 'item' && age < .4) {
           const color = ITEMS[e.item].color;
-          const radius = 18 + age * 100;
+          const radius = e.radius ? 18 + (e.radius - 18) * age / .4 : 18 + age * 100;
           g.globalAlpha = 1 - age / .4;
-          ellipse(g, e.x, e.y - 12, radius, radius * .72, null, color, 3);
+          ellipse(g, e.x, e.y - (e.radius ? 0 : 12), radius, e.radius ? radius : radius * .72, null, color, 3);
           if (e.item === 'gravemark' || e.item === 'faultline') {
             line(g, [[e.x - radius, e.y + 7], [e.x, e.y - 24], [e.x + radius, e.y + 7]], '#ffe6b7', 3);
           }
@@ -1193,6 +1193,7 @@
       if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
       if (u.charged) ellipse(g,x,y+6,35,17,null,'#8ff5ff',2.5);
       if (u.spellBarrier) ellipse(g,x,y-14,39,37,'#80dcf916','#a5ebf7af',3);
+      if (u.revealed) ellipse(g,x,y-13,38,33,null,ITEMS.dust.color,2.5);
       this.cyclone(g, u, now);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       const barWidth = teamView ? 94 : 74;

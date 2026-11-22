@@ -1085,6 +1085,16 @@
       "text": "+220 XP immediately. Restocks in 150s.",
       "total": 280
     },
+    "dust": {
+      "color": "#c8a5ff",
+      "name": "Revelation Dust",
+      "cost": 180,
+      "cd": 12,
+      "range": 650,
+      "reveal": 6,
+      "text": "One charge. Reveal enemy heroes within 650 units for 6 seconds, including enemies that turn invisible during that time.",
+      "total": 180
+    },
     "stone": {
       "color": "#b9c2cc",
       "name": "Whetstone",

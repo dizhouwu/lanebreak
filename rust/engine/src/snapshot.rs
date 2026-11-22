@@ -59,6 +59,9 @@ struct Identity<'a> {
     name: &'a str,
     level: u32,
     computer: bool,
+    kills: u32,
+    deaths: u32,
+    assists: u32,
     loadout: Vec<&'a str>,
 }
 
@@ -74,7 +77,9 @@ struct PublicHero<'a> {
     cast_channel: Option<(usize, f64, f64)>,
     mana: f64,
     max_mana: f64,
+    kills: u32,
     deaths: u32,
+    assists: u32,
     last_hits: u32,
     denies: u32,
     jump: u32,
@@ -96,6 +101,8 @@ struct PublicHero<'a> {
     dummy: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     veiled: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    revealed: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     lifted: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -341,6 +348,9 @@ impl Match {
                             name: &h.name,
                             level: h.level,
                             computer: h.bot.is_some(),
+                            kills: h.kills,
+                            deaths: h.deaths,
+                            assists: h.assists,
                             loadout: h.inventory.iter().map(|item| item.id.as_str()).collect(),
                         },
                         concealed: true,
@@ -356,7 +366,9 @@ impl Match {
                     cast_channel: h.cast_channel.map(|c| (c.slot, c.began, c.until)),
                     mana: h.mana,
                     max_mana: h.max_mana,
+                    kills: h.kills,
                     deaths: h.deaths,
+                    assists: h.assists,
                     last_hits: h.last_hits,
                     denies: h.denies,
                     jump: h.jump,
@@ -375,6 +387,7 @@ impl Match {
                     finisher_hits: h.finisher_hits(time),
                     dummy: u.dummy,
                     veiled,
+                    revealed: u.revealed_until > time,
                     lifted: u.lift_until > time,
                     burning: u.burn.is_some(),
                     stitched: u.stitch.is_some_and(|m| m.until > time),

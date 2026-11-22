@@ -237,7 +237,10 @@ struct Hero {
     jump: u32,
     last_threat: f64,
     recent_aggro: f64,
+    kills: u32,
     deaths: u32,
+    assists: u32,
+    recent_hero_damage: Vec<(Id, f64)>,
     kill_streak: u32,
     multi_kill: Option<(f64, u32)>,
     last_hits: u32,
@@ -290,7 +293,10 @@ impl Hero {
             jump: 0,
             last_threat: f64::NEG_INFINITY,
             recent_aggro: f64::NEG_INFINITY,
+            kills: 0,
             deaths: 0,
+            assists: 0,
+            recent_hero_damage: Vec::new(),
             kill_streak: 0,
             multi_kill: None,
             last_hits: 0,
@@ -404,6 +410,7 @@ struct Unit {
     stun_until: f64,
     disarmed_until: f64,
     veil_until: f64,
+    revealed_until: f64,
     lift_until: f64,
     cyclone_until: f64,
     root_until: f64,
@@ -433,7 +440,7 @@ impl Unit {
     }
 
     fn veiled(&self, time: f64) -> bool {
-        self.veil_until > time
+        self.veil_until > time && self.revealed_until <= time
     }
     fn attack_range(&self) -> f64 {
         self.hero.as_ref().map_or(self.range, |h| h.kit().range)

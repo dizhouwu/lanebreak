@@ -1,6 +1,7 @@
 use super::*;
 
 const MULTI_KILL_WINDOW: f64 = 12.0;
+const ASSIST_WINDOW: f64 = 10.0;
 
 impl Match {
     pub(super) fn respawn_hero(&mut self, id: Id) {
@@ -232,6 +233,10 @@ impl Match {
         }
         let a = self.u(source);
         let (target_role, source_role, team, pos) = (b.role, a.role, a.team, b.pos);
+        let contributor = a
+            .spirit
+            .map(|spirit| spirit.owner)
+            .or((source_role == Role::Hero).then_some(source));
         let target_team = b.team;
         let (veiled, dummy) = (b.veiled(self.time), b.dummy);
         let mut amount = raw;
@@ -284,6 +289,19 @@ impl Match {
             train.hits += 1;
         } else {
             self.u_mut(target).hp -= amount;
+            if target_role == Role::Hero
+                && target_team != team
+                && amount > 0.0
+                && let Some(hero) = contributor
+            {
+                let time = self.time;
+                let recent = &mut self.h_mut(target).recent_hero_damage;
+                if let Some((_, last)) = recent.iter_mut().find(|(source, _)| *source == hero) {
+                    *last = time;
+                } else {
+                    recent.push((hero, time));
+                }
+            }
         }
         if amount > 0.0 && (target_role == Role::Hero || source_role == Role::Hero) {
             self.effect(
@@ -423,6 +441,7 @@ impl Match {
                 u.resonance = None;
                 u.disarmed_until = 0.0;
                 u.veil_until = 0.0;
+                u.revealed_until = 0.0;
                 u.lift_until = 0.0;
                 u.cyclone_until = 0.0;
                 u.root_until = 0.0;
@@ -449,6 +468,15 @@ impl Match {
                 h.spell_barrier = None;
                 h.impact_hits = 0;
                 let lv = h.level;
+                let recent = std::mem::take(&mut h.recent_hero_damage);
+                if let Some(hero) = direct_killer {
+                    self.h_mut(hero).kills += 1;
+                    for (ally, last) in recent {
+                        if ally != hero && t - last <= ASSIST_WINDOW {
+                            self.h_mut(ally).assists += 1;
+                        }
+                    }
+                }
                 self.effect("fall", pos, json!({"unit": "hero"}));
                 let gold = 180 + 12 * lv;
                 if let Some(hero) = killer {

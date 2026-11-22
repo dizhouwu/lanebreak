@@ -196,6 +196,8 @@ pub struct Item {
     #[serde(default)]
     pub range: f64,
     #[serde(default)]
+    pub reveal: f64,
+    #[serde(default)]
     pub parts: Vec<String>,
     #[serde(default)]
     pub stats: Stats,

@@ -14,7 +14,7 @@ pub(super) enum Command {
         recipe: Option<String>,
     },
     Item(usize, Point),
-    PointItem {
+    CheckedItem {
         slot: usize,
         key: String,
         at: Point,
@@ -96,10 +96,11 @@ impl Command {
                 let (slot, at) = (slot()?, pos()?);
                 if let Some(value) = cmd.get("item") {
                     let key = value.as_str()?;
-                    if !matches!(rules().items.get(key)?.target, Some(ItemTarget::Point)) {
+                    let spec = rules().items.get(key)?;
+                    if spec.cd == 0.0 || !matches!(spec.target, None | Some(ItemTarget::Point)) {
                         return None;
                     }
-                    Self::PointItem {
+                    Self::CheckedItem {
                         slot,
                         key: key.into(),
                         at,
@@ -372,6 +373,31 @@ impl Match {
             None => return Err("This item does not target a hero".into()),
         };
         match key.as_str() {
+            "dust" => {
+                let (team, pos) = (u.team, u.pos);
+                let until = self.time + spec.reveal;
+                let radius_squared = spec.range * spec.range;
+                for seat in 0..self.heroes.len() {
+                    let target = self.heroes[seat];
+                    let enemy = self.u(target);
+                    if enemy.team != team
+                        && enemy.hp > 0.0
+                        && enemy.pos.squared(pos) <= radius_squared
+                    {
+                        let u = self.u_mut(target);
+                        u.revealed_until = u.revealed_until.max(until);
+                    }
+                }
+                self.u_mut(id).veil_until = 0.0;
+                let h = self.h_mut(id);
+                h.channel = 0.0;
+                h.inventory.remove(i);
+                self.effect(
+                    "item",
+                    pos,
+                    json!({"team":team,"item":key,"radius":spec.range}),
+                );
+            }
             "rift" => {
                 if u.root_until > self.time {
                     return Err("Unable to blink while rooted".into());
@@ -596,7 +622,7 @@ impl Match {
                 return self.cast(id, slot, at, target, false);
             }
             Command::Item(i, at) => return self.use_item(id, i, at, None, None),
-            Command::PointItem { slot, key, at } => {
+            Command::CheckedItem { slot, key, at } => {
                 return self.use_item(id, slot, at, Some(&key), None);
             }
             Command::TargetItem { slot, key, target } => {
@@ -791,6 +817,7 @@ impl Match {
         dummy.lift_until = 0.0;
         dummy.cyclone_until = 0.0;
         dummy.root_until = 0.0;
+        dummy.revealed_until = 0.0;
         dummy.slows.clear();
         dummy.stitch = None;
         dummy.resonance = None;

@@ -9,7 +9,7 @@
   const weaveGuide = Object.entries(HEROES.neris.weaves).map(([marks, spell]) => [...marks].join('+') + ' · ' + spell.name).join('\n');
   const difficulties = Object.keys(DIFF);
   const itemGroups = [
-    ['Consumables', id => ['potion','tome'].includes(id)],
+    ['Consumables', id => ['potion','tome','dust'].includes(id)],
     ['Basics', id => ITEMS[id].stats && !ITEMS[id].parts],
     ['Upgrades', id => id === 'rift' || (ITEMS[id].parts && !ITEMS[id].master)],
     ['Masterworks', id => ITEMS[id].master]
@@ -316,8 +316,7 @@
     muted = !muted;
     prefs.save('muted', muted);
     updateSettings();
-    if (muted) globalThis.speechSynthesis?.cancel();
-    else beep(540, .08);
+    if (!muted) beep(540, .08);
   }
   function changeQuality() {
     const modes = ['auto','high','medium','low'];
@@ -424,7 +423,6 @@
     renderer.minimapElapsed = Infinity;
   }
   function goMenu() {
-    globalThis.speechSynthesis?.cancel();
     setPendingCast(null);
     if (seat) safeSeat(null);
     disconnect();
@@ -499,7 +497,8 @@
   function updateRoster(s) {
     const target = $('rosterTeams');
     const roster = s.heroes.filter(hero => !hero.dummy);
-    const signature = JSON.stringify([s.kills, roster.map(h => [h.id,h.team,h.hero,h.name,h.computer,h.level,h.loadout])]);
+    const signature = JSON.stringify([s.kills, roster.map(h =>
+      [h.id,h.team,h.hero,h.name,h.computer,h.level,h.kills,h.deaths,h.assists,h.loadout])]);
     if (target.dataset.roster === signature) return;
     target.dataset.roster = signature;
     target.replaceChildren();
@@ -510,7 +509,7 @@
       group.style.setProperty('--team', COLORS[side]);
       const table = make('table');
       const labels = table.createTHead().insertRow();
-      for (const label of ['Player', 'Level', 'Items']) {
+      for (const label of ['Player', 'Level', 'K/D/A', 'Items']) {
         const cell = make('th', label);
         cell.scope = 'col';
         labels.append(cell);
@@ -527,6 +526,7 @@
         else player.append(hero);
         row.append(player);
         row.insertCell().textContent = h.level;
+        row.insertCell().textContent = kda(h);
         const items = row.insertCell();
         for (const id of h.loadout || []) {
           const item = ITEMS[id];
@@ -540,6 +540,7 @@
       target.append(group);
     }
   }
+  const kda = hero => (hero.kills ?? 0) + ' / ' + (hero.deaths ?? 0) + ' / ' + (hero.assists ?? 0);
   function openTrainingHeroPicker() {
     if (!local || !snapshot?.training || snapshot.mode !== 'match' || paused) return;
     setPendingCast(null);
@@ -667,7 +668,7 @@
       return setPendingCast({ i, spell:item, item:key, mode:item.target === 'point' ? 'point' : 'unit' });
     }
     const { x, y } = aimPoint();
-    issue({ o:'item', i, x, y });
+    issue({ o:'item', i, x, y, item:item?.cd ? key : undefined });
   }
   function castButton(cast) {
     return cast.item ? $('inventory').children[cast.i] : $('abilities').children[cast.i].lastElementChild;
@@ -1014,6 +1015,8 @@
   function updateHud(s) {
     const h = s.heroes[team], hero = HEROES[h.hero], time = s.time;
     const side = h.team;
+    const kdaText = kda(h), kdaValue = $('playerKda');
+    if (kdaValue.textContent !== kdaText) kdaValue.textContent = kdaText;
     const group = $('groupStatus');
     const groupSize = selectedUnits.size ? controlledUnits(s).filter(u => selectedUnits.has(u.id)).length : 0;
     group.hidden = !groupSize;
@@ -1222,7 +1225,7 @@
       const stats = $('matchStats');
       const rows = s.training ?
         [['Training time', clock], ['Damage dealt', Math.round(s.training.damage)], ['Hits', s.training.hits]] :
-        [['Match time', clock], ['Level', s.teamMatch ? h.level : h.level + ' vs ' + foe.level], ['Kills / deaths', s.kills[side] + ' / ' + h.deaths],
+        [['Match time', clock], ['Level', s.teamMatch ? h.level : h.level + ' vs ' + foe.level], ['K/D/A', kdaText],
           ['Last hits / denies', h.lastHits + ' / ' + h.denies]];
       stats.replaceChildren(...rows.flatMap(([name,value]) => [make('dt',name),make('dd',value)]));
       stats.hidden = false;
@@ -1242,19 +1245,6 @@
     card.addEventListener('animationend',()=>card.remove(),{once:true});
     parent.prepend(card);
     if (parent.children.length > 3) parent.lastElementChild.remove();
-    if (!primary || muted) return;
-    if (globalThis.speechSynthesis && globalThis.SpeechSynthesisUtterance) {
-      const line = e.multiKillAnnouncement && e.announcement ? primary + '. ' + e.announcement : primary;
-      const call = new SpeechSynthesisUtterance(line);
-      call.lang = 'en-US';
-      call.rate = .9;
-      call.pitch = .75;
-      call.onerror = event => {
-        if (event.error !== 'canceled' && event.error !== 'interrupted') beep(294,.35,'triangle',.08,1.55);
-      };
-      speechSynthesis.cancel();
-      speechSynthesis.speak(call);
-    } else beep(294,.35,'triangle',.08,1.55);
   }
   function playEvents(s) {
     for (const e of s.effects) {

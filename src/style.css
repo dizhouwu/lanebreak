@@ -91,6 +91,8 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 #game button,#shop,#inspectPanel,#matchOverlay,#minimap{pointer-events:auto}
 .matchTop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;padding:7px 12px;gap:8px}
 .matchReadout,.matchTools small{font-size:.75rem;color:#e5e9e5;text-shadow:0 1px 4px #000;line-height:1.4}
+.playerKda{color:#ffedbd;font-weight:600;font-variant-numeric:tabular-nums}
+.playerKda strong{margin-left:3px}
 #opponentStatus{color:#ff9393}
 #fortify{margin-top:5px;min-height:26px;padding:3px 7px;font-size:.72rem}
 #fortify[data-active=true]{color:var(--gold);border-color:var(--gold);opacity:1}
@@ -106,6 +108,8 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .matchRoster thead th{color:var(--muted)}
 .matchRoster th:first-child{width:28%}
 .matchRoster th:nth-child(2){width:11%}
+.matchRoster th:nth-child(3){width:18%}
+.matchRoster td:nth-child(3){font-variant-numeric:tabular-nums}
 .matchRoster .rosterItem{display:inline-block;margin:1px 3px 1px 0;padding:2px 5px;border:1px solid var(--item);border-radius:3px;color:#dce6dd}
 .matchRoster .rosterHero{display:block;color:var(--hero);font-weight:400}
 #killAnnouncements{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;gap:5px;padding:clamp(76px,13vh,132px) 12px 0;pointer-events:none}

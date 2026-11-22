@@ -3,6 +3,60 @@ use super::{orders::Command, *};
 const DT: f64 = 1.0 / 60.0;
 
 #[test]
+fn personal_kda_counts_recent_damage_once_and_is_public_when_concealed() {
+    let mut m = Match::from_options(r#"{"team_match":true}"#).unwrap();
+    let (killer, helper, expired, victim) = (m.heroes[0], m.heroes[1], m.heroes[2], m.heroes[5]);
+    m.hurt(victim, 10.0, expired, false, false);
+    m.time += 11.0;
+    m.hurt(victim, 10.0, helper, false, false);
+    m.hurt(victim, 10.0, helper, false, false);
+    m.hurt(victim, 4000.0, killer, false, false);
+    assert_eq!(m.h(killer).kills, 1);
+    assert_eq!(m.h(killer).assists, 0);
+    assert_eq!(m.h(helper).assists, 1);
+    assert_eq!(m.h(expired).assists, 0);
+    assert_eq!(m.h(victim).deaths, 1);
+    assert!(m.h(victim).recent_hero_damage.is_empty());
+    m.u_mut(killer).veil_until = m.time + 4.0;
+    let snapshot = view(&m, 5);
+    let concealed = &snapshot["heroes"][0];
+    assert_eq!(concealed["concealed"], true);
+    assert_eq!(concealed["kills"], 1);
+    assert_eq!(snapshot["heroes"][1]["assists"], 1);
+    assert_eq!(snapshot["heroes"][5]["deaths"], 1);
+    assert!(concealed.get("x").is_none());
+}
+
+#[test]
+fn dust_exposes_enemies_in_radius_until_it_expires() {
+    let mut m = duel(["vesper", "neris"]);
+    m.buy(1, "dust").unwrap();
+    m.buy(1, "dust").unwrap();
+    m.time = 1.0;
+    place(&mut m, 1, 2050.0, 450.0);
+    place(&mut m, 2, 2700.0, 450.0);
+    m.u_mut(2).veil_until = 25.0;
+    assert_eq!(view(&m, 0)["heroes"][1]["concealed"], true);
+
+    m.command(1, Command::Item(0, Point::default())).unwrap();
+    assert_eq!(m.h(1).inventory.len(), 1);
+    let snapshot = view(&m, 0);
+    assert_eq!(snapshot["heroes"][1]["revealed"], true);
+    assert!(snapshot["heroes"][1].get("veiled").is_none());
+    assert_eq!(snapshot["heroes"][1]["x"], 2700.0);
+    assert!(m.command(1, Command::Attack(2)).is_ok());
+    assert!(m.command(1, Command::Item(0, Point::default())).is_err());
+    m.time = 7.0;
+    assert_eq!(view(&m, 0)["heroes"][1]["concealed"], true);
+
+    m.time = 13.0;
+    place(&mut m, 2, 2701.0, 450.0);
+    m.command(1, Command::Item(0, Point::default())).unwrap();
+    assert!(m.h(1).inventory.is_empty());
+    assert_eq!(view(&m, 0)["heroes"][1]["concealed"], true);
+}
+
+#[test]
 fn hero_kills_announce_streaks_and_deaths_reset_them() {
     let mut m = duel(["brakk", "vesper"]);
     for kills in 1..=10 {
