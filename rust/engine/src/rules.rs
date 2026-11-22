@@ -164,11 +164,20 @@ pub struct Difficulty {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DuelMap {
+    pub outer_x: f64,
+    pub inner_x: f64,
+    pub tower_ranges: [f64; 2],
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TeamMap {
     pub height: f64,
     pub fountains: [[f64; 2]; 2],
     pub lanes: Vec<Vec<[f64; 2]>>,
     pub tower_distances: [[f64; 2]; 3],
+    pub tower_ranges: [f64; 2],
 }
 
 #[derive(Deserialize)]
@@ -185,8 +194,8 @@ pub struct Rules {
     pub width: f64,
     #[serde(rename = "HEIGHT")]
     pub height: f64,
-    #[serde(rename = "DUEL_OUTER_X")]
-    pub duel_outer_x: f64,
+    #[serde(rename = "DUEL_MAP")]
+    pub duel_map: DuelMap,
     #[serde(rename = "TEAM_MAP")]
     pub team_map: TeamMap,
     #[serde(rename = "UNLOCKS")]

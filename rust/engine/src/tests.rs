@@ -47,6 +47,18 @@ fn duel_towers_leave_neutral_ground_in_the_lane() {
     m.step(DT, 1);
     assert_eq!(m.u(left).target, None);
     assert_eq!(m.u(right).target, None);
+    for (team, outer) in [left, right].into_iter().enumerate() {
+        let inner = m.building(team, "inner").unwrap();
+        let (a, b) = (m.u(outer), m.u(inner));
+        let intruder = m.heroes[1 - team];
+        let gap = a.pos.dist(b.pos) - a.range - b.range - 2.0 * m.u(intruder).r;
+        assert!(gap >= 190.0);
+        let middle = a.pos.projected(b.pos.delta(a.pos), 0.5);
+        place(&mut m, intruder, middle.x, middle.y);
+        m.step(DT, 1);
+        assert_eq!(m.u(outer).target, None);
+        assert_eq!(m.u(inner).target, None);
+    }
     place(&mut m, 2, edge, y);
     m.step(DT, 1);
     assert_eq!(m.u(left).target, Some(2));
@@ -69,6 +81,21 @@ fn team_battle_has_independent_lanes_and_fountain_defense() {
         neutral_space >= 700.0,
         "mid lane needs room to trade outside tower range"
     );
+    let hero_radius = m.u(m.heroes[0]).r;
+    for team in 0..=1 {
+        for lane in 0..3 {
+            let a = m.u(m.lane_building(team, lane, "outer").unwrap());
+            let b = m.u(m.lane_building(team, lane, "inner").unwrap());
+            let gap = a.pos.dist(b.pos) - a.range - b.range - 2.0 * hero_radius;
+            assert!(gap >= 190.0, "side {team}, lane {lane}: outer/inner gap");
+            let middle = a.pos.projected(b.pos.delta(a.pos), 0.5);
+            assert!(m.buildings.iter().all(|&id| {
+                let tower = m.u(id);
+                tower.kind == "core" || middle.dist(tower.pos) >= tower.range + hero_radius + 70.0
+            }));
+            assert!((0..=1).all(|side| middle.dist(m.home(side)) >= 490.0));
+        }
+    }
     let outer = m.lane_building(0, 0, "outer").unwrap();
     let inner = m.lane_building(0, 0, "inner").unwrap();
     assert!(m.protected(inner));

@@ -79,6 +79,8 @@ impl Match {
     }
 
     pub(super) fn create_team_buildings(&mut self) {
+        let map = &rules().team_map;
+        let [outer_range, inner_range] = map.tower_ranges;
         for team in 0..=1 {
             let core = self.insert(Unit {
                 role: Role::Building,
@@ -92,8 +94,11 @@ impl Match {
                 ..Unit::default()
             });
             self.buildings.push(core);
-            for (lane, [outer, inner]) in rules().team_map.tower_distances.into_iter().enumerate() {
-                for (kind, distance, hp) in [("outer", outer, 1800.0), ("inner", inner, 2100.0)] {
+            for (lane, [outer, inner]) in map.tower_distances.into_iter().enumerate() {
+                for (kind, distance, hp, range) in [
+                    ("outer", outer, 1800.0, outer_range),
+                    ("inner", inner, 2100.0, inner_range),
+                ] {
                     let id = self.insert(Unit {
                         role: Role::Building,
                         kind,
@@ -105,7 +110,7 @@ impl Match {
                         max_hp: hp,
                         armor: 12.0,
                         damage: 130.0,
-                        range: 540.0,
+                        range,
                         interval: 0.9,
                         ..Unit::default()
                     });

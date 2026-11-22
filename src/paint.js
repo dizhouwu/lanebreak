@@ -1,5 +1,5 @@
 (function () {
-  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT, DUEL_OUTER_X, TEAM_MAP } = LanebreakRules;
+  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT, DUEL_MAP, TEAM_MAP } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
   const SPRITE_SCALE = 2;
@@ -257,7 +257,7 @@
     }
     for (const team of [0, 1]) {
       const col = COLORS[team];
-      for (const [x, y, r] of [[110, 450, 105], [520,450,115],[1150,330,77],[DUEL_OUTER_X,330,77]]) {
+      for (const [x, y, r] of [[110,450,105],[520,450,115],[DUEL_MAP.innerX,330,77],[DUEL_MAP.outerX,330,77]]) {
         const cx = team ? WIDTH - x : x;
         ellipse(g, cx, y + 13, r + 8, r * .59, '#18282ca8', '#5c6b5e', 4);
         ellipse(g, cx, y + 13, r, r * .51, '#303e3e', col + '48', 2);

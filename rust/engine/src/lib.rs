@@ -525,19 +525,31 @@ impl Match {
             m.create_team_buildings();
             return m;
         }
+        let duel_map = &rules().duel_map;
+        let [outer_range, inner_range] = duel_map.tower_ranges;
         for team in 0..=1 {
-            for (kind, x, y, r, hp, armor, damage) in [
+            for (kind, x, y, r, hp, armor, damage, range) in [
                 (
                     "outer",
-                    rules().duel_outer_x,
+                    duel_map.outer_x,
                     330.0,
                     44.0,
                     1300.0,
                     12.0,
                     95.0,
+                    outer_range,
                 ),
-                ("inner", 1150.0, 330.0, 44.0, 1600.0, 12.0, 125.0),
-                ("core", 520.0, 450.0, 70.0, 3000.0, 14.0, 0.0),
+                (
+                    "inner",
+                    duel_map.inner_x,
+                    330.0,
+                    44.0,
+                    1600.0,
+                    12.0,
+                    125.0,
+                    inner_range,
+                ),
+                ("core", 520.0, 450.0, 70.0, 3000.0, 14.0, 0.0, 0.0),
             ] {
                 let pos = Point::new(if team == 0 { x } else { rules().width - x }, y);
                 let id = m.insert(Unit {
@@ -550,7 +562,7 @@ impl Match {
                     max_hp: hp,
                     armor,
                     damage,
-                    range: 560.0,
+                    range,
                     interval: 1.0,
                     ..Unit::default()
                 });
