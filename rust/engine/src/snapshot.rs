@@ -78,6 +78,8 @@ struct PublicHero<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     spell_barrier: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    cyclone_until: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     respawn: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     heat: Option<u32>,
@@ -301,6 +303,7 @@ impl Match {
                         .as_ref()
                         .filter(|barrier| barrier.until > time && barrier.health > 0.0)
                         .map(|barrier| barrier.health),
+                    cyclone_until: (u.cyclone_until > time).then_some(u.cyclone_until),
                     respawn: (h.deaths > 0).then_some(h.respawn),
                     heat: kit.heat.as_ref().map(|_| h.heat),
                     dummy: u.dummy,

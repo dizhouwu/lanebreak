@@ -23,7 +23,11 @@ impl Match {
         let mut best = None;
         let mut closest = radius;
         for other in self.units.values() {
-            if other.hp <= 0.0 || other.team == u.team || other.veiled(self.time) {
+            if other.hp <= 0.0
+                || other.team == u.team
+                || other.cyclone_until > self.time
+                || other.veiled(self.time)
+            {
                 continue;
             }
             let reach = closest + other.r;
@@ -303,6 +307,7 @@ impl Match {
             self.units.get(&id).is_some_and(|b| {
                 b.hp > 0.0
                     && !b.veiled(time)
+                    && b.cyclone_until <= time
                     && !self.protected(id)
                     && (b.team != u.team || b.hp < b.max_hp * 0.5)
             })
@@ -344,6 +349,7 @@ impl Match {
                 b.hp > 0.0
                     && !self.protected(t)
                     && !b.veiled(self.time)
+                    && b.cyclone_until <= self.time
                     && u.pos.dist(b.pos) <= 720.0
             })
         });
@@ -387,6 +393,7 @@ impl Match {
             h.team != u.team
                 && h.hp > 0.0
                 && !h.veiled(self.time)
+                && h.cyclone_until <= self.time
                 && u.reach(h) <= u.range
                 && self.time - self.h(enemy).recent_aggro <= 2.5
         });
@@ -397,7 +404,12 @@ impl Match {
             target = danger;
         } else if !target
             .and_then(|target| self.units.get(&target))
-            .is_some_and(|b| b.hp > 0.0 && !b.veiled(self.time) && u.reach(b) <= u.range)
+            .is_some_and(|b| {
+                b.hp > 0.0
+                    && b.cyclone_until <= self.time
+                    && !b.veiled(self.time)
+                    && u.reach(b) <= u.range
+            })
         {
             target = self
                 .nearest(id, u.range, |b| b.role == Role::Creep)
@@ -437,7 +449,7 @@ impl Match {
                 let Some(b) = self.units.get(target) else {
                     return false;
                 };
-                if b.hp <= 0.0 || b.veiled(self.time) {
+                if b.hp <= 0.0 || b.cyclone_until > self.time || b.veiled(self.time) {
                     return false;
                 }
                 let d = p.pos.dist(b.pos);
@@ -462,8 +474,11 @@ impl Match {
                 for u in self.units.values().filter(|u| {
                     u.hp > 0.0
                         && u.team != p.team
+                        && u.cyclone_until <= self.time
                         && u.role != Role::Building
-                        && !hit.contains(&u.id)
+                        && hit
+                            .get(&u.id)
+                            .is_none_or(|&ready| ready <= self.time + 1e-8)
                 }) {
                     ids.push(u.id);
                     rows.extend([u.pos.x, u.pos.y, u.r, 0.0]);
@@ -483,7 +498,12 @@ impl Match {
                     .collect();
                 hits.sort_by(|a, b| a.1.total_cmp(&b.1));
                 for (id, _) in hits {
-                    hit.insert(id);
+                    let ready = if spell.repeat_hit > 0.0 {
+                        self.time + spell.repeat_hit
+                    } else {
+                        f64::INFINITY
+                    };
+                    hit.insert(id, ready);
                     self.magic(id, p.from, spell, p.damage, Some(*dir));
                     if !spell.piercing {
                         return false;
@@ -509,6 +529,7 @@ impl Match {
                     .filter(|u| {
                         u.team != a.team
                             && u.hp > 0.0
+                            && u.cyclone_until <= self.time
                             && u.role != Role::Building
                             && a.spell.wall_covers(a.pos, a.dir, u.pos, u.r)
                     })
@@ -537,7 +558,7 @@ impl Match {
                     dir: a.dir,
                     left: a.spell.roll,
                     spell: a.spell,
-                    hit: BTreeSet::new(),
+                    hit: BTreeMap::new(),
                 },
             });
             self.effect(
@@ -628,6 +649,7 @@ impl Match {
                     u.team != team
                         && u.hp > 0.0
                         && u.role != Role::Building
+                        && u.cyclone_until <= self.time
                         && home.dist(u.pos) <= 420.0
                 })
                 .min_by(|a, b| home.squared(a.pos).total_cmp(&home.squared(b.pos)));

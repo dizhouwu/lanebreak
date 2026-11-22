@@ -311,6 +311,7 @@ struct Unit {
     disarmed_until: f64,
     veil_until: f64,
     lift_until: f64,
+    cyclone_until: f64,
     slows: Vec<Slow>,
     stitch: Option<Stitch>,
     resonance: Option<Resonance>,
@@ -363,7 +364,7 @@ enum Shot {
         dir: Point,
         left: f64,
         spell: &'static Spell,
-        hit: BTreeSet<Id>,
+        hit: BTreeMap<Id, f64>,
     },
 }
 struct Projectile {
@@ -726,6 +727,7 @@ impl Match {
                 && u.team != a.team
                 && u.hp > 0.0
                 && !u.veiled(self.time)
+                && u.cyclone_until <= self.time
                 && a.reach(u) <= spell.range
         })
     }

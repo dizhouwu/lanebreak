@@ -494,7 +494,7 @@
         s.buildings.find(u => u.id === selectedId && u.hp > 0 && visible(u)));
       if (selected) ellipse(g, selected.x, selected.y+4, selected.r+9, selected.r*.64+7, null, '#f8d28a', 3);
       for (const u of fighters) {
-        if (u.dummy) this.dummy(g, u);
+        if (u.dummy) this.dummy(g, u, now);
         else if (u.type === 'hero') this.hero(g, u, side, now, casts.get(u.id));
         else this.creep(g, u);
       }
@@ -571,7 +571,7 @@
       }
       if (pointer) {
         const at = this.toWorld(pointer.x, pointer.y);
-        if (spell && (spell.kind === 'unit' || spell.target === 'ally' || spell.target === 'enemy')) {
+        if (spell && (spell.kind === 'unit' || (spell.target && spell.target !== 'point'))) {
           const color = spell.target === 'ally' ? '#9aefbc' : '#ffe0a2';
           ellipse(g, player.x, player.y, spell.range, spell.range, null, color + '3d', 2);
           const target = Lanebreak.pickSpellTarget(s, player, spell, at);
@@ -882,7 +882,16 @@
         line(g, [[x-8,y-37],[x,y-28],[x+8,y-37]], col, 3);
       }
     }
-    dummy(g, u) {
+    cyclone(g, u, now) {
+      const time = u.cycloneUntil - now;
+      if (!(time > 0)) return;
+      for (let i = 0; i < 3; i++) {
+        const sway = Math.sin(now * 24 + i * 2) * 7;
+        ellipse(g, u.x + sway, u.y - 12 - i * 13, 23 + i * 7, 8 + i, null, '#bbecf7c4', 2.5);
+      }
+      this.label(g, time.toFixed(1) + 's', u.x + 54, u.y - 30, 15, '#d3f8ff');
+    }
+    dummy(g, u, now) {
       const { x } = u, y = u.y - (u.lifted ? 22 : 0);
       ellipse(g,x,u.y+7,37,15,'#171a18a0');
       line(g,[[x-24,y+9],[x+24,y+9]],'#956b49',7);
@@ -896,6 +905,7 @@
       if (u.burning) ellipse(g,x,y-15,26,25,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-15,32,29,null,HEROES.ecarg.color,3);
       if (u.stunned) this.label(g,'✦ ✦',x,y-44,14,'#fff29a');
+      this.cyclone(g, u, now);
     }
     hero(g, u, team, now, cast) {
       const {x} = u, y = u.y - (u.lifted ? 22 : 0), color = COLORS[u.team], armor = HEROES[u.hero].color;
@@ -967,6 +977,7 @@
       if (u.burning) ellipse(g,x,y-19,30,28,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
       if (u.spellBarrier) ellipse(g,x,y-14,39,37,'#80dcf916','#a5ebf7af',3);
+      this.cyclone(g, u, now);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
       this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);

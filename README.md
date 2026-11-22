@@ -32,7 +32,9 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 | W + E + E | Emberfall, a meteor that lands, rolls forward, and burns enemies in its path |
 | E + E + E | Sky Needle, a long-range delayed strike |
 
-Prepare **WWQ** and **EEW** before a fight. Lift the opponent with Crosswind, land Emberfall in their path, then prepare **QWE** to knock them along the meteor's path. Prepare **QQQ** and click the enemy hero to stagger them while the burn ticks.
+Prepare **WWQ** and **WWW** before a fight. Lift the opponent with Crosswind, then time Hollow Seam to burst as they land. Prepare **EEW** for Emberfall, then **QWE** to push them along the rolling meteor's path. Emberfall can hit the same target again if the target stays with it.
+
+For a Galeglass combo, prepare **EEE** in F and **EEW** in D. Lift the opponent with the scepter, cast Sky Needle from F with about one second left, then prepare **QWE** with R. Cast Emberfall from F with about half a second left. Aim Spool Break from D so it reaches the opponent just after the meteor lands. The shockwave's flight time depends on your distance.
 
 Cairn can use all three fixed-distance blasts from level one. **Q** lands 235 units ahead, **W** lands 460 units ahead, and **E** lands 700 units ahead. Turn Cairn with movement or an attack order, then press the ability key to cast along his facing. Each blast has its own cooldown. Last-hitting enemy creeps builds up to six Heat, each adding 3 attack damage. Death removes half the stored Heat. **R** spends all stored Heat for a stronger blast centered on the position where you cast it.
 
@@ -77,7 +79,7 @@ Azure starts in the southwest and Crimson in the northeast. Each lane has its ow
 
 ## Training
 
-Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a stationary target with unlimited health, or uncheck it for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities have no mana cost or cooldown. Resources refill and item and recall cooldowns reset automatically. The damage counter keeps your session total.
+Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a target with unlimited health. The dummy stays in place unless moved by an ability. Uncheck the option for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities have no mana cost or cooldown. Resources refill and item and recall cooldowns reset automatically. The damage counter keeps your session total.
 
 Click **Change hero** during training to try another kit in the same arena. Your location, items, and session totals carry over. Active abilities, summons, and temporary statuses clear when you switch.
 

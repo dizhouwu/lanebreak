@@ -86,7 +86,7 @@ impl Command {
                 let key = cmd.get("item")?.as_str()?;
                 if !matches!(
                     rules().items.get(key)?.target,
-                    Some(ItemTarget::Ally | ItemTarget::Enemy)
+                    Some(ItemTarget::Ally | ItemTarget::Enemy | ItemTarget::SelfOrEnemy)
                 ) {
                     return None;
                 }
@@ -311,24 +311,29 @@ impl Match {
         let target = match &spec.target {
             Some(ItemTarget::Point) if selected.is_none() => id,
             Some(ItemTarget::Point) => return Err("Select a point on the ground".into()),
-            Some(side) => {
-                let same_side = matches!(side, ItemTarget::Ally);
-                selected
-                    .filter(|target| {
-                        self.units.get(target).is_some_and(|b| {
-                            b.role == Role::Hero
-                                && b.hp > 0.0
-                                && (u.team == b.team) == same_side
-                                && (same_side || !b.veiled(self.time))
-                                && u.reach(b) <= spec.range
-                        })
+            Some(side) => selected
+                .filter(|target| {
+                    self.units.get(target).is_some_and(|b| {
+                        let ally = u.team == b.team;
+                        let allowed = match side {
+                            ItemTarget::Ally => ally,
+                            ItemTarget::Enemy => !ally,
+                            ItemTarget::SelfOrEnemy => u.id == b.id || !ally,
+                            ItemTarget::Point => false,
+                        };
+                        b.role == Role::Hero
+                            && b.hp > 0.0
+                            && allowed
+                            && (ally || !b.veiled(self.time))
+                            && b.cyclone_until <= self.time
+                            && u.reach(b) <= spec.range
                     })
-                    .ok_or(if same_side {
-                        "Select an allied hero in range"
-                    } else {
-                        "Select an enemy hero in range"
-                    })?
-            }
+                })
+                .ok_or(match side {
+                    ItemTarget::Ally => "Select an allied hero in range",
+                    ItemTarget::SelfOrEnemy => "Select yourself or an enemy hero in range",
+                    _ => "Select an enemy hero in range",
+                })?,
             None if selected.is_none() => id,
             None => return Err("This item does not target a hero".into()),
         };
@@ -397,6 +402,18 @@ impl Match {
                 self.slow(target, "wellsplitter", 0.5, 2.0);
                 self.item_flash(target, &key);
             }
+            "galeglass" => {
+                let until = self.time + 2.5;
+                self.u_mut(id).veil_until = 0.0;
+                let u = self.u_mut(target);
+                u.cyclone_until = until;
+                u.lift_until = u.lift_until.max(until);
+                u.stun_until = u.stun_until.max(until);
+                u.windup = None;
+                u.dash = None;
+                self.h_mut(target).channel = 0.0;
+                self.item_flash(target, &key);
+            }
             _ => {}
         }
         if spec.target.is_some() {
@@ -451,6 +468,7 @@ impl Match {
                 let b = self.units.get(&target).ok_or("Invalid attack target")?;
                 if b.hp <= 0.0
                     || b.veiled(time)
+                    || b.cyclone_until > time
                     || self.protected(target)
                     || (b.team == team && b.role != Role::Creep)
                 {
@@ -584,6 +602,7 @@ impl Match {
         dummy.stun_until = 0.0;
         dummy.disarmed_until = 0.0;
         dummy.lift_until = 0.0;
+        dummy.cyclone_until = 0.0;
         dummy.slows.clear();
         dummy.stitch = None;
         dummy.resonance = None;
@@ -697,7 +716,7 @@ impl Match {
                         dir,
                         left: spell.range,
                         spell,
-                        hit: BTreeSet::new(),
+                        hit: BTreeMap::new(),
                     },
                 });
             }

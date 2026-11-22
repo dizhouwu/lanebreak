@@ -81,6 +81,7 @@ pub struct Spell {
     pub burn_interval: f64,
     pub burn_scale: f64,
     pub roll: f64,
+    pub repeat_hit: f64,
     pub health: f64,
     pub shot: f64,
     pub shot_growth: f64,
@@ -142,11 +143,12 @@ pub struct Kit {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub enum ItemTarget {
     Ally,
     Enemy,
     Point,
+    SelfOrEnemy,
 }
 
 #[derive(Deserialize)]

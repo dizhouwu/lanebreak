@@ -93,9 +93,11 @@
     return pickUnit(snapshot, point, snapshot.heroes[team].team, includeAlliedCreeps);
   }
   const targetableHero = (caster, target, spell, time) => {
-    const allied = spell.target === 'ally';
-    return target?.type === 'hero' && (target.team === caster.team) === allied &&
-      target.hp > 0 && (allied || !isVeiled(target, time)) && range(caster, target) <= spell.range;
+    if (target?.type !== 'hero' || target.hp <= 0 || target.cycloneUntil > time) return false;
+    const allied = caster.team === target.team;
+    const allowed = spell.target === 'ally' ? allied : !allied ||
+      (spell.target === 'selfOrEnemy' && caster.id === target.id);
+    return allowed && (allied || !isVeiled(target, time)) && range(caster, target) <= spell.range;
   };
   function pickSpellTarget(snapshot, caster, spell, at) {
     let best = null, nearest = Infinity;

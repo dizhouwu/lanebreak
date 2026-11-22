@@ -214,7 +214,7 @@ impl Match {
 
     pub(super) fn hurt(&mut self, target: Id, raw: f64, source: Id, ability: bool, attack: bool) {
         let b = self.u(target);
-        if b.hp <= 0.0 || raw <= 0.0 || self.protected(target) {
+        if b.hp <= 0.0 || b.cyclone_until > self.time || raw <= 0.0 || self.protected(target) {
             return;
         }
         let a = self.u(source);
@@ -413,6 +413,7 @@ impl Match {
                 u.disarmed_until = 0.0;
                 u.veil_until = 0.0;
                 u.lift_until = 0.0;
+                u.cyclone_until = 0.0;
                 u.windup = None;
                 u.dash = None;
                 u.slows.clear();
@@ -508,7 +509,11 @@ impl Match {
         };
         let (a, b) = (self.u(from), self.u(target));
         let time = self.time;
-        if b.hp <= 0.0 || b.veiled(time) || a.reach(b) > a.attack_range() || self.protected(target)
+        if b.hp <= 0.0
+            || b.cyclone_until > time
+            || b.veiled(time)
+            || a.reach(b) > a.attack_range()
+            || self.protected(target)
         {
             return false;
         }
@@ -645,7 +650,7 @@ impl Match {
         let b = self.u(target);
         let (team, pos, role, radius) = (b.team, b.pos, b.role, b.r);
         let a_team = self.u(from).team;
-        if team == a_team || b.hp <= 0.0 || role == Role::Building {
+        if team == a_team || b.hp <= 0.0 || b.cyclone_until > self.time || role == Role::Building {
             return;
         }
         let time = self.time;
@@ -722,17 +727,20 @@ impl Match {
             }
         }
         if spell.burn_ticks > 0 {
+            let next = b
+                .burn
+                .filter(|burn| burn.source == from)
+                .map_or(time + spell.burn_interval, |burn| burn.next);
             b.burn = Some(Burn {
                 source: from,
                 damage: damage * spell.burn_scale,
                 ticks: spell.burn_ticks,
                 interval: spell.burn_interval,
-                next: time + spell.burn_interval,
+                next,
             });
         }
         if spell.push > 0.0
             && let Some(dir) = dir
-            && !b.dummy
             && !b.sentry
         {
             b.pos = b.pos.towards(

@@ -633,6 +633,11 @@
   function currentCast(h, cast) {
     return cast.item ? ITEMS[h.inventory?.[cast.i]?.id] : abilitySpell(h, cast.i);
   }
+  function heroTargetLabel(spell) {
+    if (spell.target === 'ally') return 'yourself or an allied hero';
+    if (spell.target === 'selfOrEnemy') return 'yourself or an enemy hero';
+    return 'an enemy hero';
+  }
   function setPendingCast(cast) {
     if (pendingCast) castButton(pendingCast).classList.remove('aiming');
     pendingCast = cast;
@@ -641,8 +646,7 @@
     arena.classList.toggle('aiming', Boolean(cast));
     if (cast) {
       const instruction = cast.spell.target === 'point' ? 'Click a point to blink' :
-        cast.spell.target === 'ally' ? 'Click an ally or yourself' :
-        cast.mode === 'unit' ? 'Click an enemy hero' : 'Select a target';
+        cast.mode === 'unit' ? 'Click ' + heroTargetLabel(cast.spell) : 'Select a target';
       prompt.textContent = cast.spell.name + ' · ' + instruction;
       castButton(cast).classList.add('aiming');
     }
@@ -785,8 +789,7 @@
       add(item.name, 'heading');
       add(item.text);
       if (item.cd) add('Active cooldown · ' + item.cd + 's');
-      if (item.target) add(item.target === 'point' ? 'Target a point on the ground' :
-        item.target === 'ally' ? 'Target yourself or an allied hero' : 'Target an enemy hero');
+      if (item.target) add(item.target === 'point' ? 'Target a point on the ground' : 'Target ' + heroTargetLabel(item));
       if (selling) {
         add('Sells for ' + sellValue(h.inventory[slot], time) + 'g', 'cost');
         if (!h.canShop) add('Return to your fountain to sell items');
@@ -1103,7 +1106,7 @@
       }
       if (mode === 'unit') {
         const target = pickSpellTarget(visible, visible.heroes[team], spell, p);
-        if (!target) return hint(spell.target === 'ally' ? 'Select an allied hero in range' : 'Select an enemy hero in range');
+        if (!target) return hint('Select ' + heroTargetLabel(spell) + ' in range');
         const order = item ? { o:'targetItem', i, id:target.id, item } : { o:'cast', i, id:target.id, castMode:mode, recipe };
         if (issue(order)) setPendingCast(null);
       } else if (item) {

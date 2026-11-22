@@ -166,6 +166,93 @@ fn rift_stone_blinks_to_a_point_and_respects_range_and_combat_lock() {
 }
 
 #[test]
+fn tornado_emp_and_rolling_meteor_combo_gains_a_second_hit_from_the_shockwave() {
+    for shockwave in [false, true] {
+        let mut m = duel(["neris", "orrin"]);
+        m.h_mut(1).level = 15;
+        m.refresh(1);
+        m.h_mut(1).mana = m.h(1).max_mana;
+        m.h_mut(2).level = 15;
+        m.refresh(2);
+        m.u_mut(2).hp = m.u(2).max_hp;
+        m.h_mut(2).mana = m.h(2).max_mana;
+        let at = Point::new(2640.0, 450.0);
+        place(&mut m, 1, 2100.0, at.y);
+        place(&mut m, 2, at.x, at.y);
+        m.command(1, Command::Stop).unwrap();
+        m.command(2, Command::Stop).unwrap();
+        prepare(&mut m, "WWQ");
+        m.time += 0.8;
+        prepare(&mut m, "WWW");
+        m.time += 0.8;
+        cast(&mut m, 5, at);
+        m.step(DT, 12);
+        cast(&mut m, 4, at);
+        prepare(&mut m, "EEW");
+        m.step(DT, 39);
+        cast(&mut m, 4, at);
+        m.step(DT, 8);
+        prepare(&mut m, "QWE");
+        m.step(DT, 2);
+        if shockwave {
+            cast(&mut m, 4, at);
+        }
+        m.step(DT, 65);
+        let meteor = &m.h(1).kit().weaves.as_ref().unwrap()["WEE"];
+        let damage = js_round(m.spell_damage(1, meteor) * 0.75).to_string();
+        let contacts = m
+            .effects
+            .iter()
+            .filter(|effect| effect["kind"] == "hit" && effect["text"] == damage)
+            .count();
+        assert_eq!(contacts, if shockwave { 2 } else { 1 });
+        assert_eq!(m.u(2).pos.x, at.x + if shockwave { 145.0 } else { 0.0 });
+        assert!(m.h(2).mana < m.h(2).max_mana - 60.0);
+    }
+}
+
+#[test]
+fn galeglass_makes_the_target_invulnerable_until_the_landing_combo() {
+    let mut m = duel(["neris", "orrin"]);
+    m.h_mut(1).gold = 4_000.0;
+    m.command(1, Command::Buy("galeglass".into())).unwrap();
+    m.h_mut(1).level = 15;
+    m.refresh(1);
+    m.h_mut(1).mana = m.h(1).max_mana;
+    m.h_mut(2).level = 15;
+    m.refresh(2);
+    m.u_mut(2).hp = m.u(2).max_hp;
+    let at = Point::new(2500.0, 450.0);
+    place(&mut m, 1, 2100.0, at.y);
+    place(&mut m, 2, at.x, at.y);
+    m.command(1, Command::Stop).unwrap();
+    m.command(2, Command::Stop).unwrap();
+    prepare(&mut m, "EEE");
+    m.time += 0.8;
+    prepare(&mut m, "EEW");
+    m.time += 0.8;
+    let order = json!({"o":"targetItem","i":0,"item":"galeglass","id":2}).to_string();
+    assert_eq!(m.order_json(0, &order), None);
+    let hp = m.u(2).hp;
+    m.hurt(2, 300.0, 1, true, false);
+    m.attack_hit(1, 2, 100.0);
+    assert_eq!(m.u(2).hp, hp);
+    assert!(m.u(2).cyclone_until > m.time);
+    m.step(DT, 91);
+    cast(&mut m, 5, at);
+    prepare(&mut m, "QWE");
+    m.step(DT, 31);
+    cast(&mut m, 5, at);
+    m.step(DT, 16);
+    cast(&mut m, 4, at);
+    m.step(DT, 37);
+    assert!(m.u(2).cyclone_until < m.time);
+    assert!(m.u(2).pos.x > at.x + 100.0);
+    assert!(m.u(2).burn.is_some());
+    assert!(m.u(2).hp < hp - 500.0);
+}
+
+#[test]
 fn duel_towers_leave_neutral_ground_in_the_lane() {
     let mut m = duel(["brakk", "vesper"]);
     let [left, right] = [0, 1].map(|side| m.building(side, "outer").unwrap());
@@ -490,14 +577,15 @@ fn training_tornado_lifts_meteor_burns_and_shockwave_disarms_the_dummy() {
     m.step(DT, 36);
     assert!(m.u(2).lift_until > m.time);
     assert!(m.u(2).burn.is_some());
+    assert_eq!(m.u(2).pos, dummy);
     prepare(&mut m, "QWE");
     cast(&mut m, 4, dummy);
-    m.step(DT, 28);
+    m.step(DT, 36);
     assert!(m.u(2).disarmed_until > m.time);
     m.step(DT, 120);
     assert!(m.training.as_ref().unwrap().hits >= 7);
     assert_eq!(m.u(2).hp, hp);
-    assert_eq!(m.u(2).pos, dummy);
+    assert_eq!(m.u(2).pos, Point::new(dummy.x + 145.0, dummy.y));
     assert_eq!(m.h(1).mana, mana);
     assert!(m.h(1).weave_ready.is_empty());
 }
