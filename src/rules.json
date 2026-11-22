@@ -285,12 +285,14 @@
           "range": 0,
           "fixed": true,
           "radius": 165,
+          "triggerRadius": 72,
           "delay": 0.55,
+          "duration": 8,
           "damage": 89,
           "growth": 13,
           "slow": 0.3,
           "slowTime": 1.35,
-          "text": "Plant a beacon at your feet. After 0.55s it discharges in place, damaging and slowing nearby enemies."
+          "text": "Plant a beacon at your feet that arms after 0.55s and lasts 8s. An enemy creep or hero that touches the inner ring triggers an explosion that damages and slows nearby enemies."
         },
         {
           "name": "Magnetic Snare",

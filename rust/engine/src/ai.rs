@@ -260,10 +260,15 @@ impl Match {
                         };
                     if spell.fixed {
                         let impact = self.cast_point(id, spell, pos);
-                        ((want && enemy_alive && impact.dist(enemy_pos) < spell.radius * 0.85)
+                        let radius = if spell.trigger_radius > 0.0 {
+                            spell.trigger_radius
+                        } else {
+                            spell.radius
+                        };
+                        ((want && enemy_alive && impact.dist(enemy_pos) < radius * 0.85)
                             || (push
                                 && mana > 0.75
-                                && self.nearby_creeps(impact, enemy_team, spell.radius).len() >= 3))
+                                && self.nearby_creeps(impact, enemy_team, radius).len() >= 3))
                             .then_some(pos)
                     } else {
                         let in_range = reach

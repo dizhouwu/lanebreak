@@ -68,6 +68,7 @@ pub struct Spell {
     pub cd: f64,
     pub range: f64,
     pub radius: f64,
+    pub trigger_radius: f64,
     pub wall_depth: f64,
     pub speed: f64,
     pub piercing: bool,

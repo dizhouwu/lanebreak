@@ -213,6 +213,7 @@ impl Serialize for AreaRow<'_> {
         let style = match a.spell.kind {
             Kind::Meteor => Some("meteor"),
             Kind::Wall => Some("wall"),
+            _ if a.spell.trigger_radius > 0.0 => Some("beacon"),
             _ => None,
         };
         row.serialize_element(&style)?;
@@ -223,6 +224,11 @@ impl Serialize for AreaRow<'_> {
                 a.dir.y,
                 a.spell.wall_depth,
                 a.time + f64::from(a.hits - 1) * a.spell.interval,
+            ])?;
+        } else if a.spell.trigger_radius > 0.0 {
+            row.serialize_element(&[
+                a.spell.trigger_radius,
+                a.time - a.spell.delay + a.spell.duration,
             ])?;
         }
         row.end()

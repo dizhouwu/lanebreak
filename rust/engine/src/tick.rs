@@ -576,6 +576,22 @@ impl Match {
         if self.time + 1e-8 < a.time {
             return true;
         }
+        if a.spell.trigger_radius > 0.0 {
+            if self.time >= a.time - a.spell.delay + a.spell.duration {
+                return false;
+            }
+            let triggered = self.units.values().any(|u| {
+                u.team != a.team
+                    && u.hp > 0.0
+                    && u.role != Role::Building
+                    && !u.invulnerable(self.time)
+                    && u.pos.squared(a.pos) <= (a.spell.trigger_radius + u.r).powi(2)
+            });
+            if triggered {
+                self.blast(a.from, a.spell, a.pos, a.damage);
+            }
+            return !triggered;
+        }
         if a.spell.kind == Kind::Sweep {
             while let Some(id) = a.targets.pop() {
                 let Some(target) = self

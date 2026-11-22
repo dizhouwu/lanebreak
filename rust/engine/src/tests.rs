@@ -739,6 +739,58 @@ fn veyra_attacks_every_sweep_target_can_snare_mid_sweep_and_returns() {
 }
 
 #[test]
+fn ion_beacon_waits_for_enemy_contact_after_arming() {
+    for enemy_is_hero in [false, true] {
+        let mut m = training("kestrel", enemy_is_hero);
+        let at = m.u(1).pos;
+        let ally = m.insert(Unit {
+            team: 0,
+            role: Role::Creep,
+            hp: 500.0,
+            max_hp: 500.0,
+            r: 15.0,
+            pos: Point::new(at.x - 60.0, at.y),
+            ..Unit::default()
+        });
+        let enemy = if enemy_is_hero {
+            2
+        } else {
+            m.insert(Unit {
+                team: 1,
+                role: Role::Creep,
+                hp: 500.0,
+                max_hp: 500.0,
+                r: 15.0,
+                ..Unit::default()
+            })
+        };
+        place(&mut m, enemy, at.x + 65.0, at.y);
+        cast(&mut m, 0, Point::default());
+        m.step(DT, 32);
+        assert_eq!(m.areas.len(), 1);
+        place(&mut m, enemy, at.x + 125.0, at.y);
+        m.step(DT, 18);
+        assert_eq!(
+            m.areas.len(),
+            1,
+            "an ally or an enemy outside the trigger cannot set it off"
+        );
+
+        let hp = m.u(enemy).hp;
+        place(&mut m, enemy, at.x + 65.0, at.y);
+        m.step(DT, 1);
+        assert!(m.areas.is_empty());
+        assert_eq!(m.u(ally).hp, 500.0);
+        if enemy_is_hero {
+            assert_eq!(m.training.as_ref().unwrap().hits, 1);
+        } else {
+            assert!(m.u(enemy).hp < hp);
+        }
+        assert!(!m.u(enemy).slows.is_empty());
+    }
+}
+
+#[test]
 fn kestrel_pulls_charges_a_basic_attack_and_pays_for_dash_distance() {
     let mut m = duel(["kestrel", "brakk"]);
     m.h_mut(1).level = 6;

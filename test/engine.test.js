@@ -153,7 +153,7 @@ test('targeting previews distinguish point, self, and enemy hero spells', () => 
   assert.equal(pickUnit(duel,tower).id,tower.id);
 });
 
-test('Kestrel plants Ion Beacon at the cast position and leaves it there while moving', () => {
+test('Kestrel leaves an untriggered beacon at the cast position until it expires', () => {
   for (const Engine of [Match, browserMatch()]) {
     const match = new Engine({ heroes:['kestrel','brakk'], training:{dummy:false} });
     const { x, y } = match.snapshot(0).heroes[0];
@@ -165,7 +165,11 @@ test('Kestrel plants Ion Beacon at the cast position and leaves it there while m
     assert.ok(s.heroes[0].x > x);
     assert.deepEqual(Array.from(s.areas[0].slice(3,5)), [x,y]);
     match.step(dt, 14);
-    assert.ok(match.snapshot(0).effects.some(e => e.kind === 'burst' && e.ability === 'Ion Beacon' && e.x === x && e.y === y));
+    assert.equal(match.snapshot(0).areas.length, 1);
+    assert.ok(!match.snapshot(0).effects.some(e => e.kind === 'burst' && e.ability === 'Ion Beacon'));
+    match.step(dt, 480);
+    assert.equal(match.snapshot(0).areas.length, 0);
+    assert.ok(!match.snapshot(0).effects.some(e => e.kind === 'burst' && e.ability === 'Ion Beacon'));
     match.dispose();
   }
 });

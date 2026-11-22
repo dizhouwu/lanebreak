@@ -488,10 +488,19 @@
         this.crystal(g, x, u, 21, color);
         this.label(g, kind.toUpperCase(), x, y + 43, 13, color);
       }
-      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style, ability, wall] of s.areas) {
+      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style, ability, detail] of s.areas) {
         if (!inView(x, y, rad + 150)) continue;
-        if (wall) {
-          this.iceWall(g, x, y, rad, wall, now);
+        if (style === 'wall') {
+          this.iceWall(g, x, y, rad, detail, now);
+          continue;
+        }
+        if (style === 'beacon') {
+          const [trigger, expires] = detail;
+          if (now >= expires) continue;
+          const armed = now >= strike, color = HEROES[hero].color;
+          ellipse(g,x,y,trigger,trigger,armed ? color + '15' : null,armed ? color : color + '72',2);
+          ellipse(g,x,y,rad,rad,null,color + '34',1.5);
+          this.crystal(g,x,y-15,armed ? 13 + 2 * Math.sin(now * 10) : 10,color);
           continue;
         }
         const color = style === 'meteor' ? '#ff9d56' : HEROES[hero]?.color || COLORS[side];
