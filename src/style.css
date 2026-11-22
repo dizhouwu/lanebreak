@@ -126,7 +126,10 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .abilities{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;align-items:end}
 .abilities[data-weaves=true]{grid-template-columns:repeat(6,minmax(0,1fr))}
 .abilityBlock{min-width:0}
-#heroResource{display:block;text-align:center;margin:0 0 4px;font-size:.68rem;color:var(--gold)}
+.heroResourceRow{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:4px 8px;margin:0 0 4px;font-size:.68rem}
+#heroResource{color:var(--gold);font-size:inherit}
+#veilTimer{color:#c0eaff;font-size:inherit;font-variant-numeric:tabular-nums;white-space:nowrap}
+.weaveOrb{display:inline-grid;place-items:center;width:1.45em;height:1.45em;margin:0 .1em;border-radius:50%;vertical-align:middle;color:#101a23;background:radial-gradient(circle at 42% 38%,var(--orb-light) 38%,var(--orb-edge) 69%);font-weight:800}
 .abilityTile{min-width:0;text-align:center}
 .abilityName,.itemsBlock>small{display:block;font-size:.61rem;color:#c4d0d2;white-space:nowrap;margin-bottom:3px}
 .abilityName{overflow:hidden;text-overflow:ellipsis}

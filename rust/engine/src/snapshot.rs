@@ -114,6 +114,8 @@ struct PrivateHero<'a> {
     potion_until: f64,
     can_shop: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    veil_until: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     impact: Option<(u8, u8, f64)>,
     #[serde(skip_serializing_if = "Option::is_none")]
     marks: Option<&'a [usize]>,
@@ -326,6 +328,7 @@ impl Match {
                     stats: &h.stats,
                     potion_until: h.potion_until,
                     can_shop: self.can_shop(id),
+                    veil_until: veiled.then_some(u.veil_until),
                     impact: (stat(&h.stats, "bash") > 0.0)
                         .then(|| (h.impact_hits, h.impact_threshold(), h.impact_ready)),
                     marks: kit.weaves.as_ref().map(|_| h.marks.as_slice()),

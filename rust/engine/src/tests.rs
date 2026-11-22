@@ -569,6 +569,27 @@ fn every_mark_recipe_casts_and_slots_keep_their_own_cooldowns() {
 }
 
 #[test]
+fn veil_expires_in_duels_and_training() {
+    for mut m in [duel(["neris", "brakk"]), training("neris", true)] {
+        prepare(&mut m, "QQW");
+        cast(&mut m, 4, Point::default());
+
+        let expires = m.time + 5.5;
+        assert_eq!(view(&m, 0)["heroes"][0]["veilUntil"], expires);
+        assert!(view(&m, 1)["heroes"][0]["veilUntil"].is_null());
+
+        m.step(DT, 329);
+        assert_eq!(view(&m, 0)["heroes"][0]["veilUntil"], expires);
+        assert_eq!(view(&m, 1)["heroes"][0]["concealed"], true);
+
+        m.step(DT, 2);
+        assert!(!m.u(1).veiled(m.time));
+        assert!(view(&m, 0)["heroes"][0]["veilUntil"].is_null());
+        assert!(view(&m, 1)["heroes"][0]["x"].is_number());
+    }
+}
+
+#[test]
 fn pin_stitch_requires_a_visible_enemy_and_veil_only_reveals_on_attack_or_spell() {
     let mut m = duel(["neris", "brakk"]);
     place(&mut m, 1, 2000.0, 450.0);

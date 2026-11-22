@@ -93,7 +93,13 @@
       <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to pan in free camera mode"></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
-        <div class="abilityBlock"><small id="heroResource" aria-live="polite" hidden></small><div class="abilities" id="abilities"></div></div>
+        <div class="abilityBlock">
+          <div class="heroResourceRow" id="heroResourceRow" hidden>
+            <small id="heroResource" aria-live="polite" hidden></small>
+            <small id="veilTimer" hidden></small>
+          </div>
+          <div class="abilities" id="abilities"></div>
+        </div>
         <div class="itemsBlock"><small>Items · 1–6</small><div class="inventory" id="inventory"></div></div>
         <div class="economy"><strong id="gold"></strong><button data-utility="potion"><kbd>F</kbd><span>Potion</span></button><button data-utility="recall"><kbd>T</kbd><span>Recall</span></button><button id="shopButton" aria-controls="shop" aria-expanded="false"><kbd>B</kbd><span>Item shop</span></button></div>
       </div>

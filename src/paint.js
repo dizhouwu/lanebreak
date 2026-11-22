@@ -1,5 +1,5 @@
 (function () {
-  const { COLORS, HEROES, CREEPS, ITEMS, ORBS, WIDTH, HEIGHT, DUEL_MAP, TEAM_MAP } = LanebreakRules;
+  const { COLORS, HEROES, CREEPS, ITEMS, ORBS, WEAVE_ORBS, WIDTH, HEIGHT, DUEL_MAP, TEAM_MAP } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
   const SPRITE_SCALE = 2;
@@ -56,6 +56,12 @@
     g.addColorStop(0, color); g.addColorStop(1, '#0000');
     ellipse(ctx, x, y, radius, radius, g);
   }
+  function weaveOrb(g, x, y, radius, mark) {
+    const [light, edge] = WEAVE_ORBS[mark];
+    ellipse(g, x, y, radius * 1.5, radius * 1.5, edge + '48');
+    ellipse(g, x, y, radius, radius, edge);
+    ellipse(g, x, y, radius * .6, radius * .6, light);
+  }
   function weapon(g, key, x, y, scale, color, bowStroke = 0) {
     g.save();
     g.translate(x,y);
@@ -90,10 +96,12 @@
       ellipse(g,8,-15,size,size * .65,'#422822',color,2.3);
       for (const dy of [-19,-14,-9]) line(g,[[-1,dy],[16,dy]],'#ffd078',1.7);
       glow(g,8,-15,23,color+'95');
-    } else {
+    } else if (key === 'neris') {
       line(g,[[-15,6],[0,-17],[15,6],[0,19],[-15,6]],color,2);
-      for (const [dx,dy] of [[-13,6],[0,-15],[13,6]]) ellipse(g,dx,dy,4,4,'#ffe7a0');
       line(g,[[-13,6],[13,6],[0,-15],[0,19]],'#ffe7a099',1.4);
+      weaveOrb(g,-13,6,4,0);
+      weaveOrb(g,0,-15,4,1);
+      weaveOrb(g,13,6,4,2);
     }
     g.restore();
   }
@@ -965,10 +973,9 @@
       }
       g.restore();
       if (u.marks?.length) {
-        const colors = ['#c0eaff','#b4efac','#ffb585'];
         for (const [index, mark] of u.marks.entries()) {
           const angle = now * 2.5 + index * Math.PI * 2 / 3;
-          this.crystal(g, x + Math.cos(angle) * 39, y - 20 + Math.sin(angle) * 14, 5, colors[mark]);
+          weaveOrb(g, x + Math.cos(angle) * 39, y - 20 + Math.sin(angle) * 14, 6, mark);
         }
       }
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);

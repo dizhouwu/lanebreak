@@ -1,6 +1,6 @@
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS } = LanebreakRules;
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS, WEAVE_ORBS } = LanebreakRules;
   const { Match, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
     abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
@@ -960,19 +960,46 @@
     meter('mana', h.mana, h.maxMana, true);
     meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
     $('gold').textContent = Math.floor(h.gold) + ' g';
-    const resource = $('heroResource'), recipe = weaveRecipe(h);
+    const resource = $('heroResource'), timer = $('veilTimer'), recipe = weaveRecipe(h);
+    const marks = h.marks || [];
+    const spellName = recipe ? ' → ' + hero.weaves[recipe].name : '';
     let resourceText = '';
     if (hero.weaves) {
-      const marks = (h.marks || []).map(mark => keys[mark]);
-      const queue = Array.from({ length:WEAVE_MARKS }, (_, i) => marks[i] || '…');
-      resourceText = marks.length ? 'Marks · ' + queue.join(' + ') : 'Choose three marks with Q, W, or E';
-      if (recipe) resourceText += ' → ' + hero.weaves[recipe].name;
-      if (h.veiled) resourceText += ' · Invisible';
+      const queue = Array.from({ length:WEAVE_MARKS }, (_, i) => keys[marks[i]] || '…');
+      resourceText = marks.length ? 'Marks · ' + queue.join(' + ') + spellName : 'Choose three marks with Q, W, or E';
     } else if (hero.heat) {
       resourceText = 'Heat ' + h.heat + '/' + hero.heat.max + ' · +' + h.heat * hero.heat.attack + ' attack damage';
     }
     resource.hidden = !resourceText;
-    if (resource.textContent !== resourceText) resource.textContent = resourceText;
+    if (resource.dataset.text !== resourceText) {
+      resource.dataset.text = resourceText;
+      if (marks.length) {
+        resource.replaceChildren('Marks · ');
+        for (let i = 0; i < WEAVE_MARKS; i++) {
+          if (i) resource.append(' + ');
+          const mark = marks[i];
+          if (mark === undefined) {
+            resource.append('…');
+            continue;
+          }
+          const orb = make('span', keys[mark], 'weaveOrb');
+          const [light, edge] = WEAVE_ORBS[mark];
+          orb.style.setProperty('--orb-light', light);
+          orb.style.setProperty('--orb-edge', edge);
+          resource.append(orb);
+        }
+        resource.append(spellName);
+      } else {
+        resource.textContent = resourceText;
+      }
+    }
+    const veilRemaining = Math.max(0, (h.veilUntil || 0) - time);
+    timer.hidden = !veilRemaining;
+    if (veilRemaining) {
+      const label = 'Invisible · ' + (Math.ceil(veilRemaining * 10) / 10).toFixed(1) + 's';
+      if (timer.textContent !== label) timer.textContent = label;
+    }
+    $('heroResourceRow').hidden = resource.hidden && timer.hidden;
     const abilities = $('abilities');
     abilities.dataset.weaves = !!hero.weaves;
     abilities.style.setProperty('--hero',hero.color);
