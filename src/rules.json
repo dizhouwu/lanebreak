@@ -1230,6 +1230,7 @@
   },
   "WIDTH": 5200,
   "HEIGHT": 1000,
+  "DUEL_OUTER_X": 1630,
   "TEAM_MAP": {
     "height": 4200,
     "fountains": [[480, 3720], [4720, 480]],

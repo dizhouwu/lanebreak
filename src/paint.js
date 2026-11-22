@@ -1,5 +1,5 @@
 (function () {
-  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT, TEAM_MAP } = LanebreakRules;
+  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT, DUEL_OUTER_X, TEAM_MAP } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
   const SPRITE_SCALE = 2;
@@ -257,7 +257,7 @@
     }
     for (const team of [0, 1]) {
       const col = COLORS[team];
-      for (const [x, y, r] of [[110, 450, 105], [520,450,115],[1150,330,77],[1850,330,77]]) {
+      for (const [x, y, r] of [[110, 450, 105], [520,450,115],[1150,330,77],[DUEL_OUTER_X,330,77]]) {
         const cx = team ? WIDTH - x : x;
         ellipse(g, cx, y + 13, r + 8, r * .59, '#18282ca8', '#5c6b5e', 4);
         ellipse(g, cx, y + 13, r, r * .51, '#303e3e', col + '48', 2);
@@ -408,6 +408,8 @@
       const left = this.cam - 175, right = this.cam + viewWidth + 175;
       const top = this.camY - 175, bottom = this.camY + viewHeight + 175;
       const visible = u => u.x >= left && u.x <= right && u.y >= top && u.y <= bottom;
+      const inView = (x, y, radius) => x + radius >= this.cam && x - radius <= this.cam + viewWidth &&
+        y + radius >= this.camY && y - radius <= this.camY + viewHeight;
       const fighters = [];
       for (const [id, team, kind, x, y, hp, maxHp, attack, r, facing, flags] of s.creeps) {
         if (hp <= 0 || x < left || x > right || y < top || y > bottom) continue;
@@ -416,10 +418,10 @@
       for (const hero of s.heroes) if (hero.hp > 0 && visible(hero)) fighters.push(hero);
       for (const b of s.buildings) {
         if (b.hp <= 0 || !b.range) continue;
-        if (b.team !== side && !b.protected && b.x + b.range > this.cam && b.x - b.range < this.cam + viewWidth &&
-            b.y + b.range > this.camY && b.y - b.range < this.camY + viewHeight) {
+        const reach = b.range + player.r;
+        if (b.team !== side && inView(b.x, b.y, reach)) {
           g.setLineDash([11, 9]);
-          ellipse(g, b.x, b.y, b.range, b.range, null, '#ff636eaa', 2);
+          ellipse(g, b.x, b.y, reach, reach, null, '#ff636eaa', 2);
           g.setLineDash([]);
         }
         if (b.target) {
@@ -470,8 +472,6 @@
         this.crystal(g, x, u, 21, color);
         this.label(g, kind.toUpperCase(), x, y + 43, 13, color);
       }
-      const inView = (x, y, radius) => x + radius >= this.cam && x - radius <= this.cam + viewWidth &&
-        y + radius >= this.camY && y - radius <= this.camY + viewHeight;
       for (const [, side, rad, x, y, strike, duration, hero, ultimate, style, ability] of s.areas) {
         if (!inView(x, y, rad + 150)) continue;
         const color = style === 'meteor' ? '#ff9d56' : HEROES[hero]?.color || COLORS[side];

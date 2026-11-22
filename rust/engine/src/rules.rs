@@ -185,6 +185,8 @@ pub struct Rules {
     pub width: f64,
     #[serde(rename = "HEIGHT")]
     pub height: f64,
+    #[serde(rename = "DUEL_OUTER_X")]
+    pub duel_outer_x: f64,
     #[serde(rename = "TEAM_MAP")]
     pub team_map: TeamMap,
     #[serde(rename = "UNLOCKS")]

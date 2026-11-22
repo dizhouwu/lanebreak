@@ -32,6 +32,27 @@ fn view(m: &Match, team: usize) -> Value {
 }
 
 #[test]
+fn duel_towers_leave_neutral_ground_in_the_lane() {
+    let mut m = duel(["brakk", "vesper"]);
+    let [left, right] = [0, 1].map(|side| m.building(side, "outer").unwrap());
+    let (a, b) = (m.u(left), m.u(right));
+    let neutral_space = a.pos.dist(b.pos) - a.range - b.range - 2.0 * m.u(1).r;
+    assert!(neutral_space >= 700.0);
+    let (x, y) = ((a.pos.x + b.pos.x) / 2.0, a.pos.y);
+    let edge = a.pos.x + a.range;
+    place(&mut m, 1, x - 40.0, y);
+    place(&mut m, 2, x + 40.0, y);
+    m.command(1, Command::Stop).unwrap();
+    m.command(2, Command::Stop).unwrap();
+    m.step(DT, 1);
+    assert_eq!(m.u(left).target, None);
+    assert_eq!(m.u(right).target, None);
+    place(&mut m, 2, edge, y);
+    m.step(DT, 1);
+    assert_eq!(m.u(left).target, Some(2));
+}
+
+#[test]
 fn team_battle_has_independent_lanes_and_fountain_defense() {
     let mut m = Match::from_options(
         &json!({"team_match":true,"bots":[null,null,null,null,null,null,null,null,null,null]})
