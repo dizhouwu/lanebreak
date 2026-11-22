@@ -477,6 +477,90 @@ fn war_horn_requires_allies_and_never_rallies_the_other_team() {
 }
 
 #[test]
+fn fortification_shares_a_team_timer_and_fires_at_distinct_creeps() {
+    let mut m = Match::from_options(
+        r#"{"team_match":true,"bots":[null,null,null,null,null,null,null,null,null,null]}"#,
+    )
+    .unwrap();
+    let order = r#"{"o":"fortify"}"#;
+    assert!(Match::valid_order(order));
+    assert!(training("brakk", false).order_json(0, order).is_some());
+    m.step(DT, 121);
+    let tower = m.lane_building(0, 1, "outer").unwrap();
+    let opponent = m.lane_building(1, 1, "outer").unwrap();
+    let hp = m.u(tower).hp;
+    assert_eq!(m.order_json(0, order), None);
+    assert!(m.order_json(4, order).unwrap().contains("cooling down"));
+    assert!(!m.fortified(m.u(opponent)));
+    assert!(!m.fortified(m.u(m.building(0, "core").unwrap())));
+    assert!(m.fortified(m.u(m.lane_building(0, 0, "outer").unwrap())));
+    m.hurt(tower, 100.0, m.heroes[5], false, true);
+    assert_eq!(m.u(tower).hp, hp);
+
+    let pos = m.u(tower).pos;
+    let enemies: Vec<_> = m
+        .creeps
+        .iter()
+        .copied()
+        .filter(|&id| m.u(id).team == 1)
+        .collect();
+    for (i, &id) in enemies.iter().take(6).enumerate() {
+        place(&mut m, id, pos.x + 100.0 + i as f64 * 40.0, pos.y);
+    }
+    assert!(m.attack(tower, Some(enemies[0])));
+    m.time += 0.2;
+    m.finish_attack(tower);
+    let targets: BTreeSet<_> = m
+        .projectiles
+        .iter()
+        .filter_map(|p| match p.shot {
+            Shot::Attack { target } if p.from == tower => Some(target),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(targets.len(), 5);
+    assert!(targets.contains(&enemies[0]));
+    assert!(targets.iter().all(|id| enemies[..6].contains(id)));
+
+    m.time = m.fortification[0].until;
+    m.hurt(tower, 100.0, m.heroes[5], false, true);
+    assert!(m.u(tower).hp < hp);
+    assert!(m.order_json(0, order).is_some());
+    assert_eq!(m.order_json(5, order), None);
+    assert!(m.fortified(m.u(opponent)));
+}
+
+#[test]
+fn buyback_requires_gold_and_respawns_at_the_fountain_with_a_personal_cooldown() {
+    let mut m = duel(["brakk", "orrin"]);
+    let order = r#"{"o":"buyback"}"#;
+    assert!(Match::valid_order(order));
+    assert!(m.order_json(0, order).is_some());
+    m.kill(1, 2, false);
+    let cost = m.h(1).buyback_cost();
+    m.h_mut(1).gold = f64::from(cost - 1);
+    assert!(m.order_json(0, order).unwrap().contains("gold"));
+    assert_eq!(m.u(1).hp, 0.0);
+    assert!(view(&m, 1)["heroes"][0]["buybackCost"].is_null());
+
+    m.h_mut(1).gold += 1.0;
+    assert_eq!(m.order_json(0, order), None);
+    assert_eq!(m.h(1).gold, 0.0);
+    assert_eq!(m.u(1).pos, m.home(0));
+    assert_eq!(m.u(1).hp, m.u(1).max_hp);
+    assert_eq!(m.h(1).mana, m.h(1).max_mana);
+    assert_eq!(m.h(1).jump, 1);
+    assert_eq!(view(&m, 0)["heroes"][0]["buybackReady"], 240.0);
+
+    m.kill(1, 2, false);
+    m.h_mut(1).gold = f64::from(cost);
+    assert!(m.order_json(0, order).unwrap().contains("cooling down"));
+    assert_eq!(m.h(1).gold, f64::from(cost));
+    m.time = m.h(1).buyback_ready;
+    assert_eq!(m.order_json(0, order), None);
+}
+
+#[test]
 fn denies_award_reduced_experience_and_the_core_requires_both_towers() {
     let mut m = duel(["brakk", "orrin"]);
     m.step(DT, 120);

@@ -76,6 +76,8 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .matchTop{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;padding:7px 12px;gap:8px}
 .matchReadout,.matchTools small{font-size:.75rem;color:#e5e9e5;text-shadow:0 1px 4px #000;line-height:1.4}
 #opponentStatus{color:#ff9393}
+#fortify{margin-top:5px;min-height:26px;padding:3px 7px;font-size:.72rem}
+#fortify[data-active=true]{color:var(--gold);border-color:var(--gold);opacity:1}
 #game[data-mode=training] #opponentStatus{color:var(--gold)}
 #trainingAutoRefill{margin-top:4px;color:#a9c4b4}
 #game[data-mode=teams] .minimapPanel{width:clamp(110px,14vw,188px)}
@@ -205,8 +207,10 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 #inspectItems .noEquipment{grid-column:1/-1;color:var(--muted)}
 #sellItems{display:flex;flex-wrap:wrap;gap:4px;border-top:1px solid #3b4845;padding-top:6px;margin-top:4px}
 #sellItems button{font-size:.75rem;min-height:26px;padding:3px 6px}
-#deathNotice{position:absolute;top:27%;left:0;right:0;text-align:center;display:grid;gap:6px;text-shadow:0 2px 8px #000;color:#fff0f0}
+#deathNotice{position:absolute;z-index:4;top:24%;left:0;right:0;text-align:center;display:grid;justify-items:center;gap:6px;text-shadow:0 2px 8px #000;color:#fff0f0}
 #deathNotice strong{font-size:2.2rem} #deathNotice span{font-size:.93rem}
+#buyback{width:auto;min-height:32px;padding:4px 13px}
+#buybackStatus:empty{display:none}
 #shopStatus,.muted{font-size:.85rem;color:var(--muted)}
 .matchOverlay{position:absolute;inset:0;background:#070e14a8;display:grid;place-items:center;z-index:4}
 .overlayPanel{width:min(95vw,420px);text-align:center;padding:24px}

@@ -191,12 +191,7 @@ impl Match {
                 self.think(id);
             }
             if time >= self.h(id).respawn {
-                let team = self.u(id).team;
-                self.u_mut(id).pos = self.home(team);
-                self.h_mut(id).jump += 1;
-                self.refresh(id);
-                self.u_mut(id).hp = self.u(id).max_hp;
-                self.h_mut(id).mana = self.h(id).max_mana;
+                self.respawn_hero(id);
             }
             return;
         }

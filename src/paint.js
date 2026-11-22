@@ -859,7 +859,10 @@
       }
       g.drawImage(sprite, x - bounds.left, y - bounds.top, bounds.width, bounds.height);
       if (!alive) return;
-      if (b.protected) {
+      if (b.fortified) {
+        ellipse(g,x,y-25,r+16,r+42,'#ffd87929','#ffe29d',3);
+        ellipse(g,x,y+3,r+16,(r+16)*.55,null,'#ffd8799c',2);
+      } else if (b.protected) {
         g.setLineDash([5, 5]);
         ellipse(g,x,y+3,r+10,r+10,null,'#e9e5cd9c',2);
         g.setLineDash([]);

@@ -592,7 +592,7 @@
     if (remote) {
       if (socket?.readyState !== WebSocket.OPEN) { hint('Reconnecting…'); return false; }
       const h = snapshot.heroes[team];
-      if (h.hp <= 0 && cmd.o !== 'buy' && cmd.o !== 'sell') return false;
+      if (h.hp <= 0 && !['buy', 'sell', 'fortify', 'buyback'].includes(cmd.o)) return false;
       if (cmd.o === 'cast' && !HEROES[h.hero].weaves) {
         error = abilityError(h, cmd.i, snapshot.time);
       }
@@ -892,7 +892,7 @@
     $('inspectName').textContent = creep && (creep[10] & CREEP_FLAGS.sentry) ? 'Needle Post' :
       hero && hero.name !== name ? hero.name + ' · ' + name : name;
     $('inspectSide').textContent = hero?.dummy ? 'Stationary target' :
-      TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.protected ? ' · Protected' : '');
+      TEAM[unit.team] + (hero ? ' · Level ' + hero.level : building?.fortified ? ' · Fortified' : building?.protected ? ' · Protected' : '');
     meter('inspectHealth', unit.hp, unit.maxHp, true);
     $('inspectMana').hidden = $('inspectEquipment').hidden = !hero || hero.dummy;
     if (hero?.dummy) $('inspectHealth').lastElementChild.textContent = '∞ HP';
@@ -917,6 +917,16 @@
     if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || currentCast(h, pendingCast) !== pendingCast.spell)) setPendingCast(null);
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
     $('matchClock').textContent = clock;
+    const fortify = $('fortify'), fortification = s.fortification?.[side];
+    fortify.hidden = !fortification || demo || s.mode !== 'match';
+    if (!fortify.hidden) {
+      const active = Math.ceil(fortification.until - time), cooldown = Math.ceil(fortification.readyAt - time);
+      const hasTowers = s.buildings.some(b => b.team === side && b.kind !== 'core' && b.hp > 0);
+      fortify.disabled = !hasTowers || cooldown > 0;
+      fortify.dataset.active = active > 0;
+      fortify.textContent = active > 0 ? 'Fortified · ' + active + 's' : !hasTowers ? 'No towers left' :
+        cooldown > 0 ? 'Fortify · ' + cooldown + 's' : 'Fortify towers';
+    }
     if (s.training) {
       const toggle = $('trainingCooldowns'), pressed = String(s.training.noCooldowns);
       if (toggle.getAttribute('aria-pressed') !== pressed) {
@@ -1058,7 +1068,14 @@
     wasDead = h.hp <= 0;
     const death = $('deathNotice');
     death.hidden = !wasDead || demo || s.mode !== 'match';
-    $('deathTimer').textContent = death.hidden ? '' : 'Respawn in ' + Math.max(0, Math.ceil(h.respawn - time)) + 's · Shop is open';
+    if (!death.hidden) {
+      $('deathTimer').textContent = 'Respawn in ' + Math.max(0, Math.ceil(h.respawn - time)) + 's';
+      const buyback = $('buyback'), status = $('buybackStatus');
+      const cooldown = Math.ceil(h.buybackReady - time);
+      status.textContent = cooldown > 0 ? 'Available in ' + cooldown + 's' : h.gold < h.buybackCost ? 'Not enough gold' : '';
+      buyback.textContent = 'Buyback · ' + h.buybackCost + 'g';
+      buyback.disabled = !!status.textContent;
+    }
     if (!$('shop').hidden) updateShop(h, time);
     $('shopButton').setAttribute('aria-expanded', !$('shop').hidden);
     updateInspection(s);
@@ -1439,6 +1456,8 @@
     $('start').onclick = () => solo();
     $('startTraining').onclick = () => startTraining();
     $('startTeamMatch').onclick = () => startTeamMatch();
+    $('fortify').onclick = () => issue({ o:'fortify' });
+    $('buyback').onclick = () => issue({ o:'buyback' });
     $('trainingCooldowns').onclick = () => {
       if (snapshot?.training && issue({ o:'trainingCooldowns', disabled:!snapshot.training.noCooldowns })) updateHud(snapshot);
     };

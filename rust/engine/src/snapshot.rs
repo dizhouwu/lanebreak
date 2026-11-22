@@ -38,6 +38,8 @@ struct Building {
     unit: Basic,
     kind: &'static str,
     protected: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    fortified: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     range: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,6 +105,8 @@ struct PublicHero<'a> {
 #[serde(rename_all = "camelCase")]
 struct PrivateHero<'a> {
     gold: f64,
+    buyback_cost: u32,
+    buyback_ready: f64,
     xp: f64,
     cd: &'a [f64; 4],
     inventory: &'a [Inventory],
@@ -241,6 +245,8 @@ struct World<'a> {
     team_match: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     training: Option<&'a Training>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fortification: Option<&'a [Fortification; 2]>,
     buildings: Vec<Building>,
     creeps: Vec<CreepRow>,
     projectiles: Vec<ProjectileRow<'a>>,
@@ -318,6 +324,8 @@ impl Match {
                 };
                 let private = (id == player || full).then(|| PrivateHero {
                     gold: h.gold,
+                    buyback_cost: h.buyback_cost(),
+                    buyback_ready: h.buyback_ready,
                     xp: h.xp,
                     cd: &h.cd,
                     inventory: &h.inventory,
@@ -374,6 +382,7 @@ impl Match {
             kills: self.kills,
             team_match: self.team_match,
             training: self.training.as_ref(),
+            fortification: self.training.is_none().then_some(&self.fortification),
             buildings: self
                 .buildings
                 .iter()
@@ -383,6 +392,7 @@ impl Match {
                         unit: Basic::new(u, t),
                         kind: u.kind,
                         protected: self.protected(id),
+                        fortified: u.hp > 0.0 && self.fortified(u),
                         range: (u.kind != "core").then_some(u.range),
                         target: (u.kind != "core")
                             .then(|| u.windup.map(|w| w.target).or(u.target))

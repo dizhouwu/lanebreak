@@ -28,6 +28,8 @@ pub(super) enum Command {
     Sell(usize),
     TrainingHero(String),
     TrainingCooldowns(bool),
+    Fortify,
+    Buyback,
     Potion,
     Recall,
 }
@@ -66,6 +68,8 @@ impl Command {
             "stop" => Self::Stop,
             "potion" => Self::Potion,
             "recall" => Self::Recall,
+            "fortify" => Self::Fortify,
+            "buyback" => Self::Buyback,
             "sell" => Self::Sell(slot()?),
             "item" => {
                 let (slot, at) = (slot()?, pos()?);
@@ -441,6 +445,8 @@ impl Match {
             return Err("Invalid order".into());
         }
         match &cmd {
+            Command::Fortify => return self.fortify(team),
+            Command::Buyback => return self.buyback(id),
             Command::TrainingHero(key) => return self.switch_training_hero(id, key),
             Command::TrainingCooldowns(disabled) => {
                 let training = self
@@ -590,9 +596,57 @@ impl Match {
             }
             Command::Buy(_)
             | Command::Sell(_)
+            | Command::Fortify
+            | Command::Buyback
             | Command::TrainingHero(_)
             | Command::TrainingCooldowns(_) => unreachable!(),
         }
+        Ok(())
+    }
+
+    fn fortify(&mut self, team: usize) -> Result<(), String> {
+        if self.training.is_some() {
+            return Err("Fortify is only available in matches".into());
+        }
+        if self.fortification[team].ready_at > self.time {
+            return Err("Team fortification is cooling down".into());
+        }
+        if !self.buildings.iter().any(|&id| {
+            let tower = self.u(id);
+            tower.team == team && tower.kind != "core" && tower.hp > 0.0
+        }) {
+            return Err("Your team has no towers left".into());
+        }
+        self.fortification[team] = Fortification {
+            until: self.time + FORTIFY_DURATION,
+            ready_at: self.time + FORTIFY_COOLDOWN,
+        };
+        let text = format!("{} fortified their towers", rules().teams[team]);
+        self.effect("feed", self.home(team), json!({"team": team, "text": text}));
+        Ok(())
+    }
+
+    fn buyback(&mut self, id: Id) -> Result<(), String> {
+        if self.training.is_some() || self.u(id).hp > 0.0 {
+            return Err("Buyback is only available while dead in a match".into());
+        }
+        let h = self.h(id);
+        if h.buyback_ready > self.time {
+            return Err("Buyback is cooling down".into());
+        }
+        let cost = h.buyback_cost();
+        if h.gold < f64::from(cost) {
+            return Err(format!("Buyback costs {cost} gold"));
+        }
+        let time = self.time;
+        let h = self.h_mut(id);
+        h.gold -= f64::from(cost);
+        h.buyback_ready = time + BUYBACK_COOLDOWN;
+        h.respawn = time;
+        self.respawn_hero(id);
+        let u = self.u(id);
+        let text = format!("{} bought back", self.h(id).name);
+        self.effect("feed", u.pos, json!({"team": u.team, "text": text}));
         Ok(())
     }
 

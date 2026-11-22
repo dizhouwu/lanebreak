@@ -1,6 +1,14 @@
 use super::*;
 
 impl Match {
+    pub(super) fn respawn_hero(&mut self, id: Id) {
+        self.u_mut(id).pos = self.home(self.u(id).team);
+        self.h_mut(id).jump += 1;
+        self.refresh(id);
+        self.u_mut(id).hp = self.u(id).max_hp;
+        self.h_mut(id).mana = self.h(id).max_mana;
+    }
+
     pub(super) fn refresh(&mut self, id: Id) {
         let time = self.time;
         let h = self.h(id);
@@ -212,7 +220,12 @@ impl Match {
 
     pub(super) fn hurt(&mut self, target: Id, raw: f64, source: Id, ability: bool, attack: bool) {
         let b = self.u(target);
-        if b.hp <= 0.0 || b.cyclone_until > self.time || raw <= 0.0 || self.protected(target) {
+        if b.hp <= 0.0
+            || b.cyclone_until > self.time
+            || raw <= 0.0
+            || self.protected(target)
+            || self.fortified(b)
+        {
             return;
         }
         let a = self.u(source);
@@ -600,7 +613,7 @@ impl Match {
         if self.time < shot.time {
             return true;
         }
-        let (range, role, pos, team) = (a.attack_range(), a.role, a.pos, a.team);
+        let (range, role) = (a.attack_range(), a.role);
         let ready = self.time + a.attack_interval() / self.attack_speed(from);
         let a = self.u_mut(from);
         a.windup = None;
@@ -614,20 +627,45 @@ impl Match {
                 Role::Building => 1000.0,
                 Role::Creep => 900.0,
             };
-            let id = self.id();
-            self.projectiles.push(Projectile {
-                id,
-                pos,
-                from,
-                team,
-                damage,
-                speed,
-                shot: Shot::Attack {
-                    target: shot.target,
-                },
-            });
+            self.launch_attack(from, shot.target, damage, speed);
+            let tower = self.u(from);
+            if self.fortified(tower) {
+                let primary_creep = self.u(shot.target).role == Role::Creep;
+                let extra_targets: Vec<_> = self
+                    .creeps
+                    .iter()
+                    .copied()
+                    .filter(|&id| {
+                        let creep = self.u(id);
+                        id != shot.target
+                            && creep.team != tower.team
+                            && creep.hp > 0.0
+                            && !creep.veiled(self.time)
+                            && creep.cyclone_until <= self.time
+                            && tower.reach(creep) <= range
+                    })
+                    .take(FORTIFY_CREEP_TARGETS - usize::from(primary_creep))
+                    .collect();
+                for target in extra_targets {
+                    self.launch_attack(from, target, damage, speed);
+                }
+            }
         }
         false
+    }
+
+    fn launch_attack(&mut self, from: Id, target: Id, damage: f64, speed: f64) {
+        let id = self.id();
+        let a = self.u(from);
+        self.projectiles.push(Projectile {
+            id,
+            pos: a.pos,
+            from,
+            team: a.team,
+            damage,
+            speed,
+            shot: Shot::Attack { target },
+        });
     }
 
     pub(super) fn slow(&mut self, target: Id, id: &'static str, value: f64, duration: f64) {

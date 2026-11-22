@@ -63,6 +63,7 @@
     <header class="matchTop">
       <div class="matchReadout">
         <div id="combatStats"></div><div id="opponentStatus"></div>
+        <button id="fortify" class="iconButton" type="button" title="Protect allied towers for 5 seconds and let them fire at up to five enemy creeps per volley. Shared team cooldown." hidden>Fortify towers</button>
         <div id="trainingAutoRefill" hidden>Auto-refill active</div>
         <div id="trainingActions" hidden>
           <button id="trainingCooldowns" class="iconButton" type="button" aria-pressed="true">Zero cooldowns <span aria-hidden="true">On</span></button>
@@ -75,7 +76,11 @@
     <div id="feed" aria-live="polite"></div>
     <div id="hint" role="status" hidden></div>
     <div id="castPrompt" role="status" hidden></div>
-    <div id="deathNotice" hidden><strong>You died</strong><span id="deathTimer"></span></div>
+    <div id="deathNotice" hidden>
+      <strong>You died</strong><span id="deathTimer"></span>
+      <button id="buyback" class="primary" type="button" aria-describedby="buybackStatus">Buyback</button>
+      <small id="buybackStatus"></small>
+    </div>
     <div id="matchOverlay" class="matchOverlay" role="region" aria-labelledby="overlayTitle" hidden><div class="panel overlayPanel"><h2 id="overlayTitle"></h2><p id="overlayText"></p><dl id="matchStats" hidden></dl><div class="overlayActions"><button id="overlaySecondary" hidden>Keep playing</button><button id="overlayAction" class="primary"></button></div></div></div>
     <section id="matchRoster" class="panel matchRoster" aria-labelledby="rosterTitle" hidden>
       <header><h2 id="rosterTitle">Teams</h2><button id="closeRoster" type="button">Close</button></header>

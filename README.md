@@ -77,6 +77,10 @@ Choose **5v5** and select **Play with bots**, or host a private 5v5 room on a ru
 
 Azure starts in the southwest and Crimson in the northeast. Each lane has its own outer and inner towers. Destroy both towers in any one lane to expose the enemy core. Enemy fountains fire high-damage beams at intruders. Press the backtick key (<kbd>`</kbd>) to compare hero levels and items across both teams.
 
+In both 1v1 and 5v5, click **Fortify towers** to make every surviving allied tower invulnerable for 5 seconds. During that time each tower can shoot up to five enemy creeps in range per volley. Teammates share the 180-second cooldown.
+
+While dead, click **Buyback** to spend 200 plus 50 gold per hero level and respawn immediately at your fountain with full health and mana. Buyback has a 240-second cooldown per hero.
+
 ## Training
 
 Choose a hero and click **Training** on the home screen. Leave **Include a training dummy** checked to practice against a target with unlimited health. The dummy stays in place unless moved by an ability. Uncheck the option for an empty arena. Training starts at level 15 with enough gold to experiment with equipment. Abilities cost no mana and resources refill automatically. **Zero cooldowns** starts on. Turn it off to practice with normal ability, equipment, and recall cooldowns. Buy **Renewal Orb** to refresh abilities and other equipment actives while normal cooldowns are enabled. The damage counter keeps your session total.

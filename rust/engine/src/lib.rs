@@ -198,6 +198,7 @@ struct Hero {
     last_hits: u32,
     denies: u32,
     respawn: f64,
+    buyback_ready: f64,
     channel: f64,
     recall_ready: f64,
     order: Order,
@@ -243,6 +244,7 @@ impl Hero {
             last_hits: 0,
             denies: 0,
             respawn: 0.0,
+            buyback_ready: 0.0,
             channel: 0.0,
             recall_ready: 0.0,
             order: Order::None,
@@ -281,6 +283,9 @@ impl Hero {
         self.cd.fill(0.0);
         self.weave_ready.clear();
         self.items_ready.clear();
+    }
+    fn buyback_cost(&self) -> u32 {
+        200 + 50 * self.level
     }
     fn recipe(&self) -> Option<String> {
         if self.marks.len() != 3 {
@@ -424,6 +429,18 @@ struct Options {
     seed: f64,
     training: Option<TrainingOptions>,
 }
+const FORTIFY_DURATION: f64 = 5.0;
+const FORTIFY_COOLDOWN: f64 = 180.0;
+const FORTIFY_CREEP_TARGETS: usize = 5;
+const BUYBACK_COOLDOWN: f64 = 240.0;
+
+#[derive(Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Fortification {
+    until: f64,
+    ready_at: f64,
+}
+
 pub struct Match {
     time: f64,
     winner: Option<usize>,
@@ -433,6 +450,7 @@ pub struct Match {
     next_wave: f64,
     next_orb: f64,
     fountain_ready: [f64; 2],
+    fortification: [Fortification; 2],
     orb: Option<Orb>,
     units: BTreeMap<Id, Unit>,
     heroes: Vec<Id>,
@@ -467,6 +485,7 @@ impl Match {
             next_wave: 2.0,
             next_orb: 60.0,
             fountain_ready: [0.0; 2],
+            fortification: [Fortification::default(); 2],
             orb: None,
             units: BTreeMap::new(),
             heroes: Vec::new(),
@@ -631,6 +650,9 @@ impl Match {
             let u = self.u(id);
             u.team == team && u.kind == kind
         })
+    }
+    fn fortified(&self, u: &Unit) -> bool {
+        u.role == Role::Building && u.kind != "core" && self.fortification[u.team].until > self.time
     }
     fn protected(&self, id: Id) -> bool {
         let u = self.u(id);
