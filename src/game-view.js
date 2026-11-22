@@ -92,8 +92,11 @@
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
     return pickUnit(snapshot, point, snapshot.heroes[team].team, includeAlliedCreeps);
   }
-  const targetableHero = (caster, target, spell, time) => target?.type === 'hero' && target.team !== caster.team &&
-    target.hp > 0 && !isVeiled(target, time) && range(caster, target) <= spell.range;
+  const targetableHero = (caster, target, spell, time) => {
+    const allied = spell.target === 'ally';
+    return target?.type === 'hero' && (target.team === caster.team) === allied &&
+      target.hp > 0 && (allied || !isVeiled(target, time)) && range(caster, target) <= spell.range;
+  };
   function pickSpellTarget(snapshot, caster, spell, at) {
     let best = null, nearest = Infinity;
     for (const target of snapshot.heroes) {

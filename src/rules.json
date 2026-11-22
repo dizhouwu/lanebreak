@@ -528,20 +528,21 @@
           "text": "Become invisible for 5.5 seconds. Attacking or casting another spell breaks the veil."
         },
         "QQE": {
-          "name": "Fray Screen",
-          "kind": "blast",
+          "name": "Frost Loom",
+          "kind": "wall",
           "mana": 75,
           "cd": 13,
-          "range": 650,
-          "radius": 195,
-          "delay": 0.3,
-          "hits": 4,
-          "interval": 0.65,
-          "damage": 24,
-          "growth": 6,
-          "slow": 0.34,
-          "slowTime": 1,
-          "text": "Leave a tangle on the ground that damages and slows enemies in four pulses."
+          "range": 200,
+          "radius": 480,
+          "wallDepth": 55,
+          "delay": 1,
+          "hits": 5,
+          "interval": 1,
+          "damage": 20,
+          "growth": 4,
+          "slow": 0.58,
+          "slowTime": 0.65,
+          "text": "Raise a wall of ice across the ground in front of you for 5s. Enemies near it are slowed by 58% and take damage each second. Casts immediately along your facing."
         },
         "QWW": {
           "name": "Crosswind",
@@ -1104,7 +1105,9 @@
       "name": "Rift Stone",
       "cost": 1400,
       "cd": 16,
-      "text": "Active teleports up to 520 units. Locked for 2.5s after hero or tower damage.",
+      "target": "point",
+      "range": 520,
+      "text": "Select a point to blink up to 520 units. Locked for 2.5s after hero or tower damage.",
       "total": 1400
     },
     "executioner": {
@@ -1159,6 +1162,67 @@
       "master": true,
       "text": "+40% ability damage, +320 mana, +3 mana regen, 20% cooldown reduction.",
       "total": 2300
+    },
+    "gravemark": {
+      "color": "#e2ae67",
+      "name": "Gravemark Hammer",
+      "parts": ["stone", "gloves"],
+      "cost": 360,
+      "stats": { "damage": 18, "haste": 0.18, "bash": 0.42 },
+      "text": "+18 damage, +18% attack speed. Every fourth melee or fifth ranged hit on an enemy hero briefly stuns. The stun recovers in 3s.",
+      "total": 1200
+    },
+    "faultline": {
+      "color": "#f4bd72",
+      "name": "Faultline Maul",
+      "parts": ["gravemark", "bulwark"],
+      "cost": 640,
+      "cd": 32,
+      "target": "enemy",
+      "range": 270,
+      "stats": { "damage": 35, "haste": 0.18, "hp": 300, "armor": 9, "reflect": 0.2, "bash": 0.42 },
+      "master": true,
+      "text": "+35 damage, +18% attack speed, +300 HP, +9 armor. Keeps Gravemark's stun and Bulwark's reflection. Active stuns a nearby enemy hero for 1.1s. Both stuns share a 3s recovery.",
+      "total": 3230
+    },
+    "spellward": {
+      "color": "#9adcf8",
+      "name": "Spellward Mantle",
+      "parts": ["locket", "vest"],
+      "cost": 480,
+      "cd": 26,
+      "target": "ally",
+      "range": 620,
+      "stats": { "hp": 260, "mana": 220, "armor": 5, "regen": 2, "manaRegen": 1.5 },
+      "master": true,
+      "text": "+260 HP, +220 mana, +5 armor and regen. Shield yourself or an allied hero. Absorbs up to 260 damage from enemy hero abilities for 4s. Disables and basic attacks still apply.",
+      "total": 2170
+    },
+    "wayfarer": {
+      "color": "#8de8bc",
+      "name": "Wayfarer’s Spur",
+      "parts": ["striders", "prism"],
+      "cost": 400,
+      "cd": 23,
+      "target": "ally",
+      "range": 520,
+      "stats": { "speed": 70, "haste": 0.3, "mana": 200, "manaRegen": 1.5 },
+      "master": true,
+      "text": "+70 movement, +30% attack speed, +200 mana and mana regen. Push yourself or an allied hero 440 units in the direction that hero is facing. Works during combat.",
+      "total": 2120
+    },
+    "wellsplitter": {
+      "color": "#aa9af8",
+      "name": "Wellsplitter",
+      "parts": ["frost", "prism"],
+      "cost": 600,
+      "cd": 22,
+      "target": "enemy",
+      "range": 570,
+      "stats": { "haste": 0.3, "power": 0.1, "chill": 0.2, "mana": 220, "manaRegen": 1.5, "manaBurn": 22 },
+      "master": true,
+      "text": "+30% attack speed, +10% ability damage, +220 mana and mana regen. Attacks slow and burn 22 mana from enemy heroes (12 if ranged). Active slows an enemy hero by 50% for 2s.",
+      "total": 2420
     }
   },
   "CREEPS": {

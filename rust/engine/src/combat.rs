@@ -32,7 +32,15 @@ impl Match {
             for (key, &value) in &rules().items[&item.id].stats {
                 if matches!(
                     key.as_str(),
-                    "speed" | "cdr" | "splash" | "crit" | "chill" | "reflect" | "recover"
+                    "speed"
+                        | "cdr"
+                        | "splash"
+                        | "crit"
+                        | "chill"
+                        | "reflect"
+                        | "recover"
+                        | "bash"
+                        | "manaBurn"
                 ) {
                     let entry = strongest.entry(key).or_default();
                     *entry = entry.max(value);
@@ -56,6 +64,9 @@ impl Match {
         u.armor = stats["armor"];
         let h = u.hero.as_mut().unwrap();
         h.max_mana = stats["mana"];
+        if stat(&stats, "bash") == 0.0 {
+            h.impact_hits = 0;
+        }
         h.stats = stats;
         h.stats_level = h.level;
         h.stats_heat = h.heat;
@@ -81,6 +92,7 @@ impl Match {
         h.gold = h.gold.max(20_000.0);
         h.items_ready.clear();
         h.recall_ready = 0.0;
+        h.impact_ready = 0.0;
     }
 
     pub(super) fn gain_xp(&mut self, id: Id, amount: f64) {
@@ -150,6 +162,56 @@ impl Match {
         );
     }
 
+    pub(super) fn item_flash(&mut self, target: Id, item: &str) {
+        let u = self.u(target);
+        self.effect(
+            "item",
+            u.pos,
+            json!({"item": item, "audience": u.veiled(self.time).then_some(u.team)}),
+        );
+    }
+
+    pub(super) fn apply_impact(&mut self, source: Id, target: Id, duration: f64, item: &str) {
+        let now = self.time;
+        let h = self.h_mut(source);
+        h.impact_hits = 0;
+        h.impact_ready = now + 3.0;
+        let b = self.u_mut(target);
+        b.stun_until = b.stun_until.max(now + duration);
+        b.windup = None;
+        self.h_mut(target).channel = 0.0;
+        self.item_flash(target, item);
+    }
+
+    fn hero_item_hit(&mut self, source: Id, target: Id) {
+        let now = self.time;
+        let h = self.h_mut(source);
+        let burn = stat(&h.stats, "manaBurn");
+        let bash = stat(&h.stats, "bash");
+        let hits = h.impact_threshold();
+        if bash > 0.0 {
+            h.impact_hits = (h.impact_hits + 1).min(hits);
+            if now >= h.impact_ready && h.impact_hits == hits {
+                self.apply_impact(
+                    source,
+                    target,
+                    if hits == 4 { bash } else { bash * 2.0 / 3.0 },
+                    "gravemark",
+                );
+            }
+        }
+        if burn > 0.0 {
+            let h = self.h_mut(target);
+            h.mana = (h.mana
+                - if hits == 4 {
+                    burn
+                } else {
+                    (burn * 0.55).round()
+                })
+            .max(0.0);
+        }
+    }
+
     pub(super) fn hurt(&mut self, target: Id, raw: f64, source: Id, ability: bool, attack: bool) {
         let b = self.u(target);
         if b.hp <= 0.0 || raw <= 0.0 || self.protected(target) {
@@ -180,6 +242,19 @@ impl Match {
         } else {
             team
         };
+        if ability && target_role == Role::Hero && source_role == Role::Hero && team != target_team
+        {
+            let time = self.time;
+            if let Some(barrier) = self.h_mut(target).spell_barrier.as_mut()
+                && barrier.until > time
+                && barrier.health > 0.0
+            {
+                let blocked = amount.min(barrier.health);
+                barrier.health -= blocked;
+                amount -= blocked;
+                self.item_flash(target, "spellward");
+            }
+        }
         if target_role == Role::Hero && team != target_team && source_role != Role::Creep {
             let t = self.time;
             let h = self.h_mut(target);
@@ -197,7 +272,7 @@ impl Match {
         } else {
             self.u_mut(target).hp -= amount;
         }
-        if target_role == Role::Hero || source_role == Role::Hero {
+        if amount > 0.0 && (target_role == Role::Hero || source_role == Role::Hero) {
             self.effect(
                 "hit",
                 pos,
@@ -237,6 +312,9 @@ impl Match {
                 a.hp = a.max_hp.min(a.hp + amount * life);
             }
             if !deny {
+                if target_role == Role::Hero && target_team != team && self.u(target).hp > 0.0 {
+                    self.hero_item_hit(source, target);
+                }
                 if chill > 0.0 {
                     self.slow(target, "frost", chill, 1.5);
                 }
@@ -347,6 +425,8 @@ impl Match {
                 h.channel = 0.0;
                 h.potion_until = 0.0;
                 h.buffs.clear();
+                h.spell_barrier = None;
+                h.impact_hits = 0;
                 let lv = h.level;
                 self.effect("fall", pos, json!({"unit": "hero"}));
                 let gold = 180 + 12 * lv;
@@ -547,7 +627,7 @@ impl Match {
         false
     }
 
-    fn slow(&mut self, target: Id, id: &'static str, value: f64, duration: f64) {
+    pub(super) fn slow(&mut self, target: Id, id: &'static str, value: f64, duration: f64) {
         let until = self.time + duration;
         let u = self.u_mut(target);
         u.slows.retain(|s| s.id != id);

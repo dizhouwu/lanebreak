@@ -155,6 +155,11 @@ struct Inventory {
     at: f64,
 }
 
+struct SpellBarrier {
+    health: f64,
+    until: f64,
+}
+
 struct Hero {
     key: String,
     name: String,
@@ -174,6 +179,9 @@ struct Hero {
     max_mana: f64,
     inventory: Vec<Inventory>,
     items_ready: BTreeMap<String, f64>,
+    impact_hits: u8,
+    impact_ready: f64,
+    spell_barrier: Option<SpellBarrier>,
     tome_ready: f64,
     pots: u32,
     potion_until: f64,
@@ -216,6 +224,9 @@ impl Hero {
             max_mana: 0.0,
             inventory: Vec::new(),
             items_ready: BTreeMap::new(),
+            impact_hits: 0,
+            impact_ready: 0.0,
+            spell_barrier: None,
             tome_ready: 0.0,
             pots: 0,
             potion_until: 0.0,
@@ -239,6 +250,9 @@ impl Hero {
     }
     fn kit(&self) -> &'static Kit {
         &rules().heroes[&self.key]
+    }
+    fn impact_threshold(&self) -> u8 {
+        if self.kit().range > 150.0 { 5 } else { 4 }
     }
     fn spell(&self, slot: usize) -> Option<&'static Spell> {
         let kit = self.kit();
@@ -373,6 +387,7 @@ struct Area {
     hits: u32,
     damage: f64,
     dir: Point,
+    scan_due: f64,
 }
 #[derive(Clone, Copy, Serialize)]
 struct Orb {

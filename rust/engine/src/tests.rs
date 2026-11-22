@@ -32,6 +32,140 @@ fn view(m: &Match, team: usize) -> Value {
 }
 
 #[test]
+fn faultline_consumes_components_and_shares_its_impact_recovery() {
+    let mut m = duel(["brakk", "orrin"]);
+    m.h_mut(1).gold = 10_000.0;
+    for item in ["stone", "gloves", "gravemark", "bulwark", "faultline"] {
+        m.command(1, Command::Buy(item.into())).unwrap();
+    }
+    assert_eq!(m.h(1).inventory.len(), 1);
+    assert_eq!(m.h(1).inventory[0].id, "faultline");
+    assert_eq!(m.h(1).gold, 10_000.0 - rules().items["faultline"].total);
+    let cast = json!({"o":"targetItem","i":0,"item":"faultline","id":2}).to_string();
+    assert!(m.order_json(0, &cast).unwrap().contains("in range"));
+    assert!(m.h(1).items_ready.is_empty());
+    place(&mut m, 2, 320.0, 450.0);
+    for _ in 0..3 {
+        m.attack_hit(1, 2, 1.0);
+        assert_eq!(m.u(2).stun_until, 0.0);
+    }
+    assert_eq!(view(&m, 0)["heroes"][0]["impact"][0], 3);
+    m.attack_hit(1, 2, 1.0);
+    assert!(m.u(2).stun_until > m.time);
+    assert!(m.order_json(0, &cast).unwrap().contains("recovering"));
+    assert!(m.h(1).items_ready.is_empty());
+    m.time += 3.01;
+    assert_eq!(m.order_json(0, &cast), None);
+    assert!((m.u(2).stun_until - m.time - 1.1).abs() < 1e-8);
+    assert_eq!(m.h(1).items_ready["faultline"], m.time + 32.0);
+    let until = m.u(2).stun_until;
+    for _ in 0..4 {
+        m.attack_hit(1, 2, 1.0);
+    }
+    assert_eq!(m.u(2).stun_until, until);
+}
+
+#[test]
+fn allied_items_shield_and_reposition_the_selected_hero() {
+    let mut m = Match::from_options(&json!({"team_match":true}).to_string()).unwrap();
+    let [player, ally, enemy] = [m.heroes[0], m.heroes[1], m.heroes[5]];
+    m.h_mut(player).gold = 10_000.0;
+    for item in ["spellward", "wayfarer"] {
+        m.command(player, Command::Buy(item.into())).unwrap();
+    }
+    let ward = json!({"o":"targetItem","i":0,"item":"spellward","id":ally}).to_string();
+    assert_eq!(m.order_json(0, &ward), None);
+    assert_eq!(view(&m, 0)["heroes"][1]["spellBarrier"], 260.0);
+    assert!(m.h(player).spell_barrier.is_none());
+    let hp = m.u(ally).hp;
+    m.hurt(ally, 200.0, enemy, true, false);
+    assert_eq!(m.u(ally).hp, hp);
+    assert_eq!(m.h(ally).spell_barrier.as_ref().unwrap().health, 110.0);
+    m.hurt(ally, 20.0, enemy, false, true);
+    assert!(m.u(ally).hp < hp);
+    assert_eq!(m.h(ally).spell_barrier.as_ref().unwrap().health, 110.0);
+    let push = json!({"o":"targetItem","i":1,"item":"wayfarer","id":ally}).to_string();
+    let origin = m.u(ally).pos;
+    let until = m.time + 1.0;
+    m.u_mut(ally).stun_until = until;
+    assert_eq!(m.order_json(0, &push), None);
+    assert!((m.u(ally).pos.x - origin.x - 440.0).abs() < 1e-8);
+    assert_eq!(m.u(ally).pos.y, origin.y);
+    assert_eq!(m.u(ally).stun_until, until);
+}
+
+#[test]
+fn wellsplitter_burns_hero_mana_and_targets_a_slow() {
+    let mut m = duel(["vesper", "orrin"]);
+    m.h_mut(1).gold = 10_000.0;
+    m.command(1, Command::Buy("wellsplitter".into())).unwrap();
+    place(&mut m, 2, 400.0, 450.0);
+    let mana = m.h(2).mana;
+    m.attack_hit(1, 2, 1.0);
+    assert_eq!(m.h(2).mana, mana - 12.0);
+    let cast = json!({"o":"targetItem","i":0,"item":"wellsplitter","id":2}).to_string();
+    assert_eq!(m.order_json(0, &cast), None);
+    assert!(
+        m.u(2)
+            .slows
+            .iter()
+            .any(|slow| slow.id == "wellsplitter" && slow.value == 0.5)
+    );
+}
+
+#[test]
+fn frost_loom_spawns_perpendicular_without_aiming_and_only_ticks_inside_the_wall() {
+    let mut m = training("neris", true);
+    prepare(&mut m, "QQE");
+    let start = m.u(1).pos;
+    place(&mut m, 2, start.x + 200.0, start.y + 280.0);
+    let order =
+        json!({"o":"cast","i":4,"x":start.x-500.0,"y":start.y,"castMode":"self","recipe":"QQE"})
+            .to_string();
+    assert_eq!(m.order_json(0, &order), None);
+    assert_eq!(m.areas[0].pos, Point::new(start.x + 200.0, start.y));
+    assert_eq!(m.areas[0].dir, Point::new(1.0, 0.0));
+    assert_eq!(view(&m, 0)["areas"][0][9], "wall");
+    m.step(DT, 12);
+    assert!(
+        m.u(2)
+            .slows
+            .iter()
+            .any(|s| s.id == "frostloom" && s.value == 0.58)
+    );
+    assert_eq!(m.training.as_ref().unwrap().hits, 0);
+    m.step(DT, 52);
+    assert_eq!(m.training.as_ref().unwrap().hits, 1);
+    place(&mut m, 2, start.x + 330.0, start.y + 280.0);
+    m.step(DT, 250);
+    assert_eq!(m.training.as_ref().unwrap().hits, 1);
+    assert!(m.areas.is_empty());
+}
+
+#[test]
+fn rift_stone_blinks_to_a_point_and_respects_range_and_combat_lock() {
+    let mut m = training("brakk", true);
+    m.command(1, Command::Buy("rift".into())).unwrap();
+    let origin = m.u(1).pos;
+    let click = Point::new(origin.x + 220.0, origin.y + 95.0);
+    let order = json!({"o":"item","i":0,"item":"rift","x":click.x,"y":click.y}).to_string();
+    m.h_mut(1).last_threat = m.time;
+    assert!(
+        m.order_json(0, &order)
+            .unwrap()
+            .contains("disabled in combat")
+    );
+    assert_eq!(m.u(1).pos, origin);
+    m.step(DT, 151);
+    assert_eq!(m.order_json(0, &order), None);
+    assert_eq!(m.u(1).pos, click);
+    m.step(DT, 1);
+    let far = json!({"o":"item","i":0,"item":"rift","x":click.x + 900.0,"y":click.y}).to_string();
+    assert_eq!(m.order_json(0, &far), None);
+    assert!((m.u(1).pos.x - click.x - 520.0).abs() < 1e-8);
+}
+
+#[test]
 fn duel_towers_leave_neutral_ground_in_the_lane() {
     let mut m = duel(["brakk", "vesper"]);
     let [left, right] = [0, 1].map(|side| m.building(side, "outer").unwrap());

@@ -1,4 +1,5 @@
 use super::*;
+use crate::rules::ItemTarget;
 
 pub(super) enum Command {
     Move(Point),
@@ -13,6 +14,16 @@ pub(super) enum Command {
         recipe: Option<String>,
     },
     Item(usize, Point),
+    PointItem {
+        slot: usize,
+        key: String,
+        at: Point,
+    },
+    TargetItem {
+        slot: usize,
+        key: String,
+        target: Id,
+    },
     Buy(String),
     Sell(usize),
     TrainingHero(String),
@@ -55,7 +66,36 @@ impl Command {
             "potion" => Self::Potion,
             "recall" => Self::Recall,
             "sell" => Self::Sell(slot()?),
-            "item" => Self::Item(slot()?, pos()?),
+            "item" => {
+                let (slot, at) = (slot()?, pos()?);
+                if let Some(value) = cmd.get("item") {
+                    let key = value.as_str()?;
+                    if !matches!(rules().items.get(key)?.target, Some(ItemTarget::Point)) {
+                        return None;
+                    }
+                    Self::PointItem {
+                        slot,
+                        key: key.into(),
+                        at,
+                    }
+                } else {
+                    Self::Item(slot, at)
+                }
+            }
+            "targetItem" => {
+                let key = cmd.get("item")?.as_str()?;
+                if !matches!(
+                    rules().items.get(key)?.target,
+                    Some(ItemTarget::Ally | ItemTarget::Enemy)
+                ) {
+                    return None;
+                }
+                Self::TargetItem {
+                    slot: slot()?,
+                    key: key.into(),
+                    target: target()?,
+                }
+            }
             "trainingHero" => {
                 let key = cmd.get("hero")?.as_str()?;
                 if !rules().heroes.contains_key(key) {
@@ -238,7 +278,14 @@ impl Match {
         Ok(())
     }
 
-    fn use_item(&mut self, id: Id, i: usize, at: Point) -> Result<(), String> {
+    fn use_item(
+        &mut self,
+        id: Id,
+        i: usize,
+        at: Point,
+        expected: Option<&str>,
+        selected: Option<Id>,
+    ) -> Result<(), String> {
         let u = self.u(id);
         let h = self.h(id);
         let key = h
@@ -256,12 +303,41 @@ impl Match {
         if h.items_ready.get(&key).is_some_and(|&t| t > self.time) {
             return Err("Item cooling down".into());
         }
+        if let Some(expected) = expected
+            && expected != key
+        {
+            return Err("Item changed. Select the equipment again.".into());
+        }
+        let target = match &spec.target {
+            Some(ItemTarget::Point) if selected.is_none() => id,
+            Some(ItemTarget::Point) => return Err("Select a point on the ground".into()),
+            Some(side) => {
+                let same_side = matches!(side, ItemTarget::Ally);
+                selected
+                    .filter(|target| {
+                        self.units.get(target).is_some_and(|b| {
+                            b.role == Role::Hero
+                                && b.hp > 0.0
+                                && (u.team == b.team) == same_side
+                                && (same_side || !b.veiled(self.time))
+                                && u.reach(b) <= spec.range
+                        })
+                    })
+                    .ok_or(if same_side {
+                        "Select an allied hero in range"
+                    } else {
+                        "Select an enemy hero in range"
+                    })?
+            }
+            None if selected.is_none() => id,
+            None => return Err("This item does not target a hero".into()),
+        };
         match key.as_str() {
             "rift" => {
                 if self.time - h.last_threat < 2.5 {
                     return Err("Rift Stone is disabled in combat".into());
                 }
-                self.blink(id, u.pos.towards(at, 520.0, 0.0, true, self.height()));
+                self.blink(id, u.pos.towards(at, spec.range, 0.0, true, self.height()));
                 self.h_mut(id).channel = 0.0;
                 self.u_mut(id).windup = None;
             }
@@ -291,7 +367,40 @@ impl Match {
                     "audience": self.u(id).veiled(self.time).then_some(team)}),
                 );
             }
+            "faultline" => {
+                if h.impact_ready > self.time {
+                    return Err("Impact stun is recovering".into());
+                }
+                self.u_mut(id).veil_until = 0.0;
+                self.apply_impact(id, target, 1.1, &key);
+            }
+            "spellward" => {
+                let until = self.time + 4.0;
+                self.h_mut(target).spell_barrier = Some(SpellBarrier {
+                    health: 260.0,
+                    until,
+                });
+                self.item_flash(target, &key);
+            }
+            "wayfarer" => {
+                let b = self.u(target);
+                let end = b
+                    .pos
+                    .projected(Point::new(b.facing.cos(), b.facing.sin()), 440.0);
+                let to = b.pos.towards(end, 440.0, 0.0, true, self.height());
+                self.item_flash(target, &key);
+                self.blink(target, to);
+                self.u_mut(target).dash = None;
+            }
+            "wellsplitter" => {
+                self.u_mut(id).veil_until = 0.0;
+                self.slow(target, "wellsplitter", 0.5, 2.0);
+                self.item_flash(target, &key);
+            }
             _ => {}
+        }
+        if spec.target.is_some() {
+            self.h_mut(id).channel = 0.0;
         }
         let ready = self.time + spec.cd;
         self.h_mut(id).items_ready.insert(key, ready);
@@ -402,7 +511,13 @@ impl Match {
                 }
                 return self.cast(id, slot, at, target);
             }
-            Command::Item(i, at) => return self.use_item(id, i, at),
+            Command::Item(i, at) => return self.use_item(id, i, at, None, None),
+            Command::PointItem { slot, key, at } => {
+                return self.use_item(id, slot, at, Some(&key), None);
+            }
+            Command::TargetItem { slot, key, target } => {
+                return self.use_item(id, slot, Point::default(), Some(&key), Some(target));
+            }
             Command::Potion => {
                 let h = self.h_mut(id);
                 if h.pots == 0 {
@@ -587,11 +702,15 @@ impl Match {
                 });
             }
             Kind::Unit => self.magic(target.unwrap(), id, spell, damage, None),
-            Kind::Meteor | Kind::Blast => {
+            Kind::Meteor | Kind::Blast | Kind::Wall => {
                 let area_id = self.id();
                 self.areas.push(Area {
                     id: area_id,
-                    pos: self.cast_point(id, spell, at),
+                    pos: if spell.kind == Kind::Wall {
+                        origin.projected(dir, spell.range)
+                    } else {
+                        self.cast_point(id, spell, at)
+                    },
                     from: id,
                     team,
                     spell,
@@ -601,6 +720,7 @@ impl Match {
                     hits: spell.hits.max(1),
                     damage,
                     dir,
+                    scan_due: time,
                 });
             }
             Kind::Sentry => {

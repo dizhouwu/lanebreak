@@ -499,6 +499,29 @@ impl Match {
     }
 
     fn update_area(&mut self, a: &mut Area) -> bool {
+        if a.spell.kind == Kind::Wall {
+            let strike = self.time + 1e-8 >= a.time;
+            if strike || self.time + 1e-8 >= a.scan_due {
+                a.scan_due = self.time + 0.15;
+                let targets: Vec<_> = self
+                    .units
+                    .values()
+                    .filter(|u| {
+                        u.team != a.team
+                            && u.hp > 0.0
+                            && u.role != Role::Building
+                            && a.spell.wall_covers(a.pos, a.dir, u.pos, u.r)
+                    })
+                    .map(|u| u.id)
+                    .collect();
+                for target in targets {
+                    self.slow(target, "frostloom", a.spell.slow, a.spell.slow_time);
+                    if strike {
+                        self.hurt(target, a.damage, a.from, true, false);
+                    }
+                }
+            }
+        }
         if self.time + 1e-8 < a.time {
             return true;
         }
@@ -525,7 +548,9 @@ impl Match {
             );
             return false;
         }
-        self.blast(a.from, a.spell, a.pos, a.damage);
+        if a.spell.kind != Kind::Wall {
+            self.blast(a.from, a.spell, a.pos, a.damage);
+        }
         a.hits -= 1;
         if a.hits == 0 {
             return false;

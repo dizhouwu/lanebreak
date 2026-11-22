@@ -219,6 +219,15 @@ impl Match {
                         None
                     }
                 }
+                Kind::Wall => {
+                    let facing = self.u(id).facing;
+                    let forward = Point::new(facing.cos(), facing.sin());
+                    let center = pos.projected(forward, spell.range);
+                    (enemy_alive
+                        && mana > 0.4
+                        && spell.wall_covers(center, forward, enemy_pos, self.u(enemy).r))
+                    .then_some(pos)
+                }
                 Kind::Meteor | Kind::Blast => {
                     let want = kill
                         || if ultimate {

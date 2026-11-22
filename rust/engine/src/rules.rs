@@ -1,3 +1,4 @@
+use crate::Point;
 use serde::Deserialize;
 use std::{collections::BTreeMap, sync::OnceLock};
 
@@ -12,6 +13,7 @@ pub enum Kind {
     Invoke,
     Bolt,
     Blast,
+    Wall,
     Nova,
     Dash,
     Blink,
@@ -30,6 +32,7 @@ impl Kind {
             Self::Invoke => "invoke",
             Self::Bolt => "bolt",
             Self::Blast => "blast",
+            Self::Wall => "wall",
             Self::Nova => "nova",
             Self::Dash => "dash",
             Self::Blink => "blink",
@@ -51,6 +54,7 @@ pub struct Spell {
     pub cd: f64,
     pub range: f64,
     pub radius: f64,
+    pub wall_depth: f64,
     pub speed: f64,
     pub piercing: bool,
     pub fixed: bool,
@@ -83,6 +87,19 @@ pub struct Spell {
 }
 
 impl Spell {
+    pub(super) fn wall_covers(
+        &self,
+        center: Point,
+        forward: Point,
+        pos: Point,
+        radius: f64,
+    ) -> bool {
+        let delta = pos.delta(center);
+        let depth = (delta.x * forward.x + delta.y * forward.y).abs();
+        let span = (delta.y * forward.x - delta.x * forward.y).abs();
+        depth <= self.wall_depth + radius * 0.5 && span <= self.radius + radius * 0.5
+    }
+
     pub fn cast_mode(&self) -> &'static str {
         match self.kind {
             Kind::Unit => "unit",
@@ -125,11 +142,22 @@ pub struct Kit {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ItemTarget {
+    Ally,
+    Enemy,
+    Point,
+}
+
+#[derive(Deserialize)]
 pub struct Item {
     pub cost: f64,
     pub total: f64,
     #[serde(default)]
     pub cd: f64,
+    pub target: Option<ItemTarget>,
+    #[serde(default)]
+    pub range: f64,
     #[serde(default)]
     pub parts: Vec<String>,
     #[serde(default)]

@@ -76,6 +76,8 @@ struct PublicHero<'a> {
     potion_active: bool,
     loadout: Vec<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    spell_barrier: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     respawn: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     heat: Option<u32>,
@@ -109,6 +111,8 @@ struct PrivateHero<'a> {
     stats: &'a Stats,
     potion_until: f64,
     can_shop: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    impact: Option<(u8, u8, f64)>,
     #[serde(skip_serializing_if = "Option::is_none")]
     marks: Option<&'a [usize]>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -187,8 +191,21 @@ impl Serialize for AreaRow<'_> {
         row.serialize_element(&a.duration)?;
         row.serialize_element(self.1)?;
         row.serialize_element(&a.ultimate)?;
-        row.serialize_element(&(a.spell.roll > 0.0).then_some("meteor"))?;
+        let style = match a.spell.kind {
+            Kind::Meteor => Some("meteor"),
+            Kind::Wall => Some("wall"),
+            _ => None,
+        };
+        row.serialize_element(&style)?;
         row.serialize_element(&a.spell.name)?;
+        if a.spell.kind == Kind::Wall {
+            row.serialize_element(&[
+                a.dir.x,
+                a.dir.y,
+                a.spell.wall_depth,
+                a.time + f64::from(a.hits - 1) * a.spell.interval,
+            ])?;
+        }
         row.end()
     }
 }
@@ -279,6 +296,11 @@ impl Match {
                     buffs: h.buffs.iter().map(|b| b.id.as_str()).collect(),
                     potion_active: h.potion_until > time,
                     loadout: h.inventory.iter().map(|i| i.id.as_str()).collect(),
+                    spell_barrier: h
+                        .spell_barrier
+                        .as_ref()
+                        .filter(|barrier| barrier.until > time && barrier.health > 0.0)
+                        .map(|barrier| barrier.health),
                     respawn: (h.deaths > 0).then_some(h.respawn),
                     heat: kit.heat.as_ref().map(|_| h.heat),
                     dummy: u.dummy,
@@ -301,6 +323,8 @@ impl Match {
                     stats: &h.stats,
                     potion_until: h.potion_until,
                     can_shop: self.can_shop(id),
+                    impact: (stat(&h.stats, "bash") > 0.0)
+                        .then(|| (h.impact_hits, h.impact_threshold(), h.impact_ready)),
                     marks: kit.weaves.as_ref().map(|_| h.marks.as_slice()),
                     prepared: kit.weaves.as_ref().map(|_| h.prepared.as_slice()),
                     weave_ready: kit.weaves.as_ref().map(|_| &h.weave_ready),

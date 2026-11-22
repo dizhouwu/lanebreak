@@ -1,5 +1,5 @@
 (function () {
-  const { COLORS, HEROES, CREEPS, ORBS, WIDTH, HEIGHT, DUEL_MAP, TEAM_MAP } = LanebreakRules;
+  const { COLORS, HEROES, CREEPS, ITEMS, ORBS, WIDTH, HEIGHT, DUEL_MAP, TEAM_MAP } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
   const SPRITE_SCALE = 2;
@@ -472,8 +472,12 @@
         this.crystal(g, x, u, 21, color);
         this.label(g, kind.toUpperCase(), x, y + 43, 13, color);
       }
-      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style, ability] of s.areas) {
+      for (const [, side, rad, x, y, strike, duration, hero, ultimate, style, ability, wall] of s.areas) {
         if (!inView(x, y, rad + 150)) continue;
+        if (wall) {
+          this.iceWall(g, x, y, rad, wall, now);
+          continue;
+        }
         const color = style === 'meteor' ? '#ff9d56' : HEROES[hero]?.color || COLORS[side];
         const progress = clamp(1 - (strike - now) / (duration || 1), 0, 1);
         ellipse(g, x, y, rad, rad, color + '16', color + '9d', ultimate ? 3.5 : 2);
@@ -543,6 +547,17 @@
           continue;
         }
         if (age < 0 || age > 1.08 || !inView(e.x, e.y, (e.radius || 65) + 100)) continue;
+        if (e.kind === 'item' && age < .4) {
+          const color = ITEMS[e.item].color;
+          const radius = 18 + age * 100;
+          g.globalAlpha = 1 - age / .4;
+          ellipse(g, e.x, e.y - 12, radius, radius * .72, null, color, 3);
+          if (e.item === 'gravemark' || e.item === 'faultline') {
+            line(g, [[e.x - radius, e.y + 7], [e.x, e.y - 24], [e.x + radius, e.y + 7]], '#ffe6b7', 3);
+          }
+          g.globalAlpha = 1;
+          continue;
+        }
         if (e.kind === 'burst' || e.kind === 'impact' || e.kind === 'cast') {
           this.spellEffect(g, e, age);
           continue;
@@ -556,10 +571,11 @@
       }
       if (pointer) {
         const at = this.toWorld(pointer.x, pointer.y);
-        if (spell?.kind === 'unit') {
-          ellipse(g, player.x, player.y, spell.range, spell.range, null, '#ffe0a23d', 2);
+        if (spell && (spell.kind === 'unit' || spell.target === 'ally' || spell.target === 'enemy')) {
+          const color = spell.target === 'ally' ? '#9aefbc' : '#ffe0a2';
+          ellipse(g, player.x, player.y, spell.range, spell.range, null, color + '3d', 2);
           const target = Lanebreak.pickSpellTarget(s, player, spell, at);
-          if (target) ellipse(g, target.x, target.y, target.r + 9, target.r + 9, '#ffe0a229', '#ffe0a2', 3);
+          if (target) ellipse(g, target.x, target.y, target.r + 9, target.r + 9, color + '29', color, 3);
         } else if (spell) this.castPreview(g, player, spell, at);
         else {
           const target = Lanebreak.pickTarget(s, team, at);
@@ -761,6 +777,7 @@
     castPreview(g, hero, spell, at) {
       const end = Lanebreak.castPoint(hero, spell, at.x, at.y, this.height);
       const color = '#ffe0a2';
+      if (spell.target === 'point') ellipse(g, hero.x, hero.y, spell.range, spell.range, null, color + '45', 2);
       g.save();
       g.setLineDash([10, 7]);
       line(g, [[hero.x, hero.y], [end.x, end.y]], color + 'b0', 2);
@@ -788,6 +805,24 @@
       poly(g, [[-41,-3],[-26,-32],[5,-41],[34,-23],[43,8],[24,33],[-13,41],[-37,24]], '#662f37', '#ffab58', 4);
       line(g, [[-29,-21],[-11,-8],[-16,9],[1,26]], '#ff984d', 5);
       line(g, [[24,-27],[14,-11],[25,2],[22,21]], '#ffcd73', 4);
+      g.restore();
+    }
+    iceWall(g, x, y, length, [dx, dy, depth, expires], now) {
+      g.save();
+      g.globalAlpha = clamp((expires - now) * 2, .22, 1);
+      g.translate(x, y);
+      g.rotate(Math.atan2(dy, dx));
+      g.fillStyle = '#82def254';
+      g.fillRect(-depth, -length, depth * 2, length * 2);
+      g.strokeStyle = '#bcf4fa9e';
+      g.lineWidth = 2.5;
+      g.strokeRect(-depth, -length, depth * 2, length * 2);
+      for (let at = -length + 20, i = 0; at < length; at += 53, i++) {
+        const lean = i % 2 ? 1 : -1;
+        poly(g, [[-18,at-20],[19*lean,at-18],[37*lean,at+4],[18,at+22],[-20,at+19]],
+          i % 2 ? '#77badccf' : '#5687bade', '#d6f9ff', 2);
+        line(g, [[lean*37,at+4],[0,at+1],[-20,at+19]], '#d6f9ffad', 2);
+      }
       g.restore();
     }
     label(g, text, x, y, size, color) {
@@ -931,6 +966,7 @@
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
       if (u.burning) ellipse(g,x,y-19,30,28,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
+      if (u.spellBarrier) ellipse(g,x,y-14,39,37,'#80dcf916','#a5ebf7af',3);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
       this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
       this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);

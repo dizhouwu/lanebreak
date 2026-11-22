@@ -23,7 +23,7 @@ Neris queues marks with **Q** (Thread), **W** (Needle), and **E** (Knot). Only t
 |---|---|
 | Q + Q + Q | Pin Stitch, an instant click on an enemy hero that staggers them and marks them for follow-up staggers |
 | Q + Q + W | Veil Stitch, self-cast invisibility that ends when you attack or cast another spell |
-| Q + Q + E | Fray Screen, a persistent slow zone |
+| Q + Q + E | Frost Loom, an instant ice wall perpendicular to your facing. It slows enemies and deals damage each second. |
 | Q + W + W | Crosswind, a click-aimed tornado that damages and briefly lifts enemies in its path |
 | Q + W + E | Spool Break, a piercing shockwave that knocks enemies back along its path and disarms heroes |
 | Q + E + E | Needle Post, a stationary sentry |
@@ -64,6 +64,8 @@ Order a basic attack on the enemy hero near enemy creeps to draw their aggro. Ri
 Click **End match** in a solo game to end your run early and see your stats. In an online game, confirm **Surrender** to award the opponent a win and show the result to both players.
 
 Click an item name in the shop to expand its recipe and buy components individually. The recipe highlights components you own and deducts their value from the finished item's price. Use the gold button to buy an item or click an item in your inventory to sell it. After pausing a solo match, press **P** or **Esc**, or click the overlay to resume.
+
+Follow **Builds into** to compare equipment upgrades. Gravemark Hammer builds toward Faultline Maul for a targeted stun. Spellward Mantle trades Mending Locket's heal for an allied spell barrier. Wayfarer's Spur turns Storm Striders into a combat reposition, and Wellsplitter adds mana burn and a targeted slow to Frost Brand. Press the item slot key, then click the appropriate hero or ground location. Rift Stone blinks toward the clicked point within its range.
 
 Append `#play=brakk,hard` to the URL to start a match immediately, or append `#demo=brakk,normal,300` to spectate a bot match starting at the five-minute mark.
 

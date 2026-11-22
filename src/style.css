@@ -140,7 +140,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .abilities button[data-state=nomana]{background:#283b60;border-color:#5771a3}
 .abilities button[data-state=cooldown],.inventory button[data-state=cooldown]{background:linear-gradient(to top,#090f14 var(--cooldown),#263143 var(--cooldown))}
 .abilities button[data-state=cooldown] span{color:#fff;font-weight:800}
-.abilities button.aiming{border-color:#ffe0a2;box-shadow:inset 0 0 0 1px #ffe0a2,0 0 9px #f0bd7666}
+.abilities button.aiming,.inventory button.aiming{outline:1px solid #ffe0a2;outline-offset:-2px;box-shadow:0 0 9px #f0bd7666}
 .inventory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
 .inventory button{height:22px;border-color:#3b4958}
 .inventory kbd{position:absolute;left:2px;top:2px;min-width:0;height:auto;font-size:.62rem;border:0;padding:0}
@@ -163,6 +163,9 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .shopDetails{overflow:auto;padding:10px;border:1px solid #53615d75;border-radius:5px;background:#25332c55;line-height:1.4;font-size:.81rem}
 .shopDetails h3,.shopDetails p{margin:0 0 7px}.shopDetails p:last-child{margin-bottom:0}
 .shopDetails .cost{color:var(--gold);font-weight:700}.shopDetails .owned{color:#8dffb0}
+.shopDetails h4{margin:9px 0 5px;font-size:.8rem;color:var(--gold)}
+.shopUpgrades{display:flex;flex-wrap:wrap;gap:4px}
+.shopUpgrades button{min-height:26px;padding:3px 6px;font-size:.74rem;text-align:left}
 #shopFeedback{margin:0 0 8px;padding:6px 8px;border:1px solid #478461;border-radius:4px;background:#123324;color:#aff6c3;font-size:.84rem}
 #shopFeedback[data-error=true]{border-color:#ad6859;background:#39241e;color:#ffb9a4}
 .shopGroup{margin:3px 0 11px}

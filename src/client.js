@@ -240,11 +240,7 @@
         select.dataset.item = id;
         select.setAttribute('aria-pressed', 'false');
         select.append(make('small'));
-        select.addEventListener('click', () => {
-          shopSelection = id;
-          shopFocus = null;
-          if (snapshot) updateShop(snapshot.heroes[team], snapshot.time);
-        });
+        select.addEventListener('click', () => selectShopItem(id));
         card.append(select,buyButton(id));
         grid.append(card);
       }
@@ -617,25 +613,43 @@
     return true;
   }
   function useItem(i) {
+    if (pendingCast?.item && pendingCast.i === i) return setPendingCast(null);
     setPendingCast(null);
+    if (!snapshot || paused || demo || snapshot.mode !== 'match') return;
+    const h = snapshot.heroes[team], key = h.inventory?.[i]?.id;
+    const item = ITEMS[key];
+    if (item?.target) {
+      if (h.hp <= 0) return;
+      if (h.itemsReady[key] > snapshot.time) return hint('Item cooling down');
+      if (key === 'faultline' && h.impact?.[2] > snapshot.time) return hint('Impact stun is recovering');
+      return setPendingCast({ i, spell:item, item:key, mode:item.target === 'point' ? 'point' : 'unit' });
+    }
     const { x, y } = aimPoint();
     issue({ o:'item', i, x, y });
   }
+  function castButton(cast) {
+    return cast.item ? $('inventory').children[cast.i] : $('abilities').children[cast.i].lastElementChild;
+  }
+  function currentCast(h, cast) {
+    return cast.item ? ITEMS[h.inventory?.[cast.i]?.id] : abilitySpell(h, cast.i);
+  }
   function setPendingCast(cast) {
-    const tiles = $('abilities').children;
-    if (pendingCast) tiles[pendingCast.i].lastElementChild.classList.remove('aiming');
+    if (pendingCast) castButton(pendingCast).classList.remove('aiming');
     pendingCast = cast;
     const prompt = $('castPrompt');
     prompt.hidden = !cast;
     arena.classList.toggle('aiming', Boolean(cast));
     if (cast) {
-      prompt.textContent = cast.spell.name + (cast.mode === 'unit' ? ' · Click an enemy hero' : ' · Select a target');
-      tiles[cast.i].lastElementChild.classList.add('aiming');
+      const instruction = cast.spell.target === 'point' ? 'Click a point to blink' :
+        cast.spell.target === 'ally' ? 'Click an ally or yourself' :
+        cast.mode === 'unit' ? 'Click an enemy hero' : 'Select a target';
+      prompt.textContent = cast.spell.name + ' · ' + instruction;
+      castButton(cast).classList.add('aiming');
     }
   }
   function chooseAbility(i) {
     if (!snapshot || paused || demo || snapshot.mode !== 'match') return;
-    if (pendingCast?.i === i) return setPendingCast(null);
+    if (pendingCast?.i === i && !pendingCast.item) return setPendingCast(null);
     setPendingCast(null);
     const h = snapshot.heroes[team], spell = abilitySpell(h, i);
     if (!spell || h.hp <= 0) return;
@@ -752,6 +766,11 @@
     panel.textContent = text;
     panel.hidden = false;
   }
+  function selectShopItem(id) {
+    shopSelection = id;
+    shopFocus = null;
+    if (snapshot) updateShop(snapshot.heroes[team], snapshot.time);
+  }
   function updateShopDetails(h, time) {
     const panel = $('shopDetailsText');
     const slot = shopFocus?.slot, selling = slot != null;
@@ -766,8 +785,8 @@
       add(item.name, 'heading');
       add(item.text);
       if (item.cd) add('Active cooldown · ' + item.cd + 's');
-      const upgrades = Object.values(ITEMS).filter(candidate => candidate.parts?.includes(id));
-      if (upgrades.length) add('Builds into ' + upgrades.map(i => i.name).join(', '));
+      if (item.target) add(item.target === 'point' ? 'Target a point on the ground' :
+        item.target === 'ally' ? 'Target yourself or an allied hero' : 'Target an enemy hero');
       if (selling) {
         add('Sells for ' + sellValue(h.inventory[slot], time) + 'g', 'cost');
         if (!h.canShop) add('Return to your fountain to sell items');
@@ -777,10 +796,21 @@
         if (offer.reason) add(offer.reason);
       }
     }
-    const content = JSON.stringify(lines);
+    const content = JSON.stringify([id, lines]);
     if (panel.dataset.content !== content) {
       panel.dataset.content = content;
       panel.replaceChildren(...lines.map(([text, style]) => make(style === 'heading' ? 'h3' : 'p', text, style)));
+      const upgrades = Object.entries(ITEMS).filter(([, candidate]) => candidate.parts?.includes(id));
+      if (upgrades.length) {
+        const links = make('div', null, 'shopUpgrades');
+        for (const [key, upgrade] of upgrades) {
+          const button = make('button', upgrade.name);
+          button.type = 'button';
+          button.addEventListener('click', () => selectShopItem(key));
+          links.append(button);
+        }
+        panel.append(make('h4', 'Builds into'), links);
+      }
     }
     updateShopRecipe(h, time, !selling && item?.parts ? id : null);
   }
@@ -881,7 +911,7 @@
     const side = h.team;
     const foe = s.heroes.find(other => other.team !== side);
     if (!$('matchRoster').hidden) updateRoster(s);
-    if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || abilitySpell(h, pendingCast.i) !== pendingCast.spell)) setPendingCast(null);
+    if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || currentCast(h, pendingCast) !== pendingCast.spell)) setPendingCast(null);
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
     $('matchClock').textContent = clock;
     if (s.training) {
@@ -966,10 +996,13 @@
     }
     for (const [i, button] of [...$('inventory').children].entries()) {
       const slot = h.inventory[i], item = slot && ITEMS[slot.id];
-      const cd = slot ? Math.max(0,(h.itemsReady[slot.id] || 0)-time) : 0;
-      button.lastElementChild.textContent = cd ? Math.ceil(cd) + 's' : item ? item.name.split(/[\s’]/).map(s => s[0]).slice(0,2).join('') : '–';
-      const action = !item ? '' : !$('shop').hidden ? '\nClick to sell for ' + sellValue(slot, time) + 'g' : item.cd ? '\nPress ' + (i+1) + ' to use' : '';
-      button.dataset.tip = item ? item.name + '\n' + item.text + action : '';
+      const recovery = slot?.id === 'faultline' ? h.impact?.[2] || 0 : 0;
+      const cd = slot ? Math.max(0, Math.max(h.itemsReady[slot.id] || 0, recovery) - time) : 0;
+      const impact = item?.stats?.bash && h.impact ? h.impact[0] + '/' + h.impact[1] : '';
+      button.lastElementChild.textContent = cd ? Math.ceil(cd) + 's' : impact || (item ? item.name.split(/[\s’]/).map(s => s[0]).slice(0,2).join('') : '–');
+      const use = item?.target === 'point' ? ' and click the ground' : item?.target ? ' and click a hero' : ' to use';
+      const action = !item ? '' : !$('shop').hidden ? '\nClick to sell for ' + sellValue(slot, time) + 'g' : item.cd ? '\nPress ' + (i+1) + use : '';
+      button.dataset.tip = item ? item.name + '\n' + item.text + (impact ? '\nImpact hits · ' + impact : '') + action : '';
       button.setAttribute('aria-label', (i+1) + ' · ' + (item?.name || 'Empty slot') + action.replace('\n',' · '));
       button.dataset.active = !!item?.cd && !cd;
       button.dataset.state = cd ? 'cooldown' : '';
@@ -1062,16 +1095,19 @@
     const p = aimPoint();
     const visible = renderer.displayed || snapshot;
     if (pendingCast) {
-      const { i, spell, recipe, mode } = pendingCast;
+      const { i, spell, recipe, mode, item } = pendingCast;
       if (event.button === 2) return setPendingCast(null);
-      if (abilitySpell(snapshot.heroes[team], i) !== spell) {
+      if (currentCast(snapshot.heroes[team], pendingCast) !== spell) {
         setPendingCast(null);
-        return hint('Spell changed. Select the ability again.');
+        return hint(item ? 'Item changed. Select the equipment again.' : 'Spell changed. Select the ability again.');
       }
       if (mode === 'unit') {
         const target = pickSpellTarget(visible, visible.heroes[team], spell, p);
-        if (!target) return hint('Select an enemy hero in range');
-        if (issue({ o:'cast', i, id:target.id, castMode:mode, recipe })) setPendingCast(null);
+        if (!target) return hint(spell.target === 'ally' ? 'Select an allied hero in range' : 'Select an enemy hero in range');
+        const order = item ? { o:'targetItem', i, id:target.id, item } : { o:'cast', i, id:target.id, castMode:mode, recipe };
+        if (issue(order)) setPendingCast(null);
+      } else if (item) {
+        if (issue({ o:'item', i, item, ...p })) setPendingCast(null);
       } else {
         setPendingCast(null);
         issue({ o:'cast', i, ...p, castMode:mode, recipe });
