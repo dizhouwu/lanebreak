@@ -716,6 +716,9 @@ impl Match {
         if h.level < level {
             return Err(format!("Unlocks at level {level}"));
         }
+        if spell.kind == Kind::Passive {
+            return Err("This ability is passive".into());
+        }
         let recipe = if spell.kind == Kind::Invoke {
             let recipe = h.recipe().ok_or("Queue three marks with Q, W, or E")?;
             if let Some(index) = h.prepared.iter().position(|prepared| prepared == &recipe) {
@@ -734,7 +737,9 @@ impl Match {
         if spell.kind == Kind::Prepared {
             return Err("Prepare a spell with R first".into());
         }
-        if !free_mana && h.mana < spell.mana {
+        let dash_end = (spell.kind == Kind::Dash).then(|| self.cast_point(id, spell, at));
+        let mana = spell.mana + dash_end.map_or(0.0, |end| end.dist(u.pos) * spell.distance_mana);
+        if !free_mana && h.mana < mana {
             return Err("Not enough mana".into());
         }
         if spell.kind == Kind::Unit {
@@ -752,7 +757,7 @@ impl Match {
             return Ok(());
         }
         if !free_mana {
-            self.h_mut(id).mana -= spell.mana;
+            self.h_mut(id).mana -= mana;
         }
         if !no_cooldowns {
             let h = self.h_mut(id);
@@ -772,8 +777,13 @@ impl Match {
         }
         let ultimate = slot == 3 && self.h(id).kit().weaves.is_none();
         let damage = self.spell_damage(id, spell);
+        let h = self.h_mut(id);
+        let passive = &h.kit().abilities[2];
+        if passive.kind == Kind::Passive && h.level >= h.unlock(2) {
+            h.charge_until = time + passive.duration;
+        }
         if spell.heat_damage != 0.0 {
-            self.h_mut(id).heat = 0;
+            h.heat = 0;
         }
         let u = self.u_mut(id);
         let (origin, team, recast) = (u.pos, u.team, spell.kind == Kind::Veil && u.veiled(time));
@@ -861,7 +871,7 @@ impl Match {
             Kind::Nova => self.blast(id, spell, origin, damage),
             Kind::Dash => {
                 self.u_mut(id).dash = Some(Dash {
-                    pos: self.cast_point(id, spell, at),
+                    pos: dash_end.unwrap(),
                     spell,
                     damage,
                 })
@@ -874,7 +884,7 @@ impl Match {
                     self.h_mut(id).order = Order::None;
                 }
             }
-            Kind::Mark | Kind::Invoke | Kind::Prepared => unreachable!(),
+            Kind::Mark | Kind::Invoke | Kind::Prepared | Kind::Passive => unreachable!(),
         }
         Ok(())
     }

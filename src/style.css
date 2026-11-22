@@ -145,6 +145,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .abilities button[data-state=locked]{background:#151b22;border-color:#374047;opacity:.72}
 .abilities button[data-state=locked] kbd{color:#939eb0}
 .abilities button[data-state=ready]{border-color:var(--hero)}
+.abilities button[data-state=passive] kbd{color:var(--muted)}
 .abilities button[data-state=nomana]{background:#283b60;border-color:#5771a3}
 .abilities button[data-state=cooldown],.inventory button[data-state=cooldown]{background:linear-gradient(to top,#090f14 var(--cooldown),#263143 var(--cooldown))}
 .abilities button[data-state=cooldown] span{color:#fff;font-weight:800}

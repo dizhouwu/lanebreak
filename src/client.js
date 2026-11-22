@@ -33,6 +33,8 @@
   let heroPreviewCard = null;
   let socket, seat, room, roomTeamMatch = false, waiting = false, retry = 0, networkAction = null;
   let clockOffset = null, renderedTime = 0, wasDead = false;
+  const localSnapshotInterval = 1 / 30;
+  let localTime = 0, previousLocalSnapshot;
   const history = [];
   const rowIndexes = new WeakMap();
   const panKeys = new Set();
@@ -383,6 +385,9 @@
     lastEffect = 0;
     lastUi = -1;
     wasDead = false;
+    previousLocalSnapshot = null;
+    localTime = snapshot?.time || 0;
+    renderer.minimapElapsed = Infinity;
   }
   function goMenu() {
     setPendingCast(null);
@@ -437,7 +442,7 @@
     team = 0;
     local?.dispose();
     const allies = [hero, ...heroKeys.filter(key => key !== hero).slice(0, 4)];
-    const enemies = [...heroKeys.slice(4), ...heroKeys.slice(0, 1)];
+    const enemies = Array.from({ length:5 }, (_, i) => heroKeys[(i + 3) % heroKeys.length]);
     local = new Match({heroes:[...allies, ...enemies], bots:[null, ...Array(9).fill(difficulty)], team_match:true});
     snapshot = local.snapshot(team);
     enter();
@@ -601,7 +606,7 @@
       if (!error) socket.send(JSON.stringify({ t: 'o', ...cmd }));
     } else {
       error = local.order(team, cmd);
-      snapshot = local.snapshot(team, demo);
+      captureLocalSnapshot();
       if (cmd.o === 'cast') lastUi = -1;
     }
     if (error) {
@@ -656,7 +661,7 @@
     if (pendingCast?.i === i && !pendingCast.item) return setPendingCast(null);
     setPendingCast(null);
     const h = snapshot.heroes[team], spell = abilitySpell(h, i);
-    if (!spell || h.hp <= 0) return;
+    if (!spell || spell.kind === 'passive' || h.hp <= 0) return;
     const recipe = i >= 4 ? h.prepared?.[i - 4] : undefined;
     const mode = abilityCastMode(spell);
     if (mode !== 'self') {
@@ -1025,15 +1030,18 @@
       const spell = abilitySpell(h, i), level = abilityLevel(h, i);
       const cd = Math.max(0, abilityReadyAt(h, i) - time), locked = h.level < level;
       const manaCost = s.training ? 0 : spell.mana;
+      const manaLabel = manaCost && spell.distanceMana ? manaCost + '+' : manaCost;
+      const passive = spell.kind === 'passive';
       const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
+      button.dataset.state = locked || empty || (awaitingMarks && !cd) ? 'locked' : passive ? (h.charged ? 'ready' : 'passive') :
+        cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
-        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : manaCost || '';
+        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : passive ? (h.charged ? 'Charged' : 'Passive') : manaLabel || '';
       const cooldown = s.training?.noCooldowns ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spellDamage(h, spell);
-      button.dataset.tip = spell.name + (manaCost ? ' · ' + manaCost + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
+      button.dataset.tip = spell.name + (manaLabel ? ' · ' + manaLabel + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage + ' ability damage' + (spell.hits ? ' per hit' : '') : '') +
         (spell.kind === 'unit' ? '\nClick an enemy hero to cast' : abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
@@ -1301,14 +1309,23 @@
     renderedTime = time;
     const index = history.findIndex(frame => frame.time >= time);
     if (index <= 0) return index === 0 ? history[0] : snapshot;
-    const a = history[index-1], b = history[index];
+    return interpolateMotion(history[index-1], history[index], time);
+  }
+  function captureLocalSnapshot() {
+    const next = local.snapshot(team, demo);
+    if (next.time > snapshot.time) previousLocalSnapshot = snapshot;
+    snapshot = next;
+    localTime = Math.max(localTime, next.time);
+  }
+  function interpolateMotion(a, b, time) {
+    if (time >= b.time) return b;
     const f = (time - a.time) / ((b.time - a.time) || 1);
     const mix = (x, y, bx, by) => (x-bx)**2 + (y-by)**2 > 250**2 ? [bx,by] : [x+(bx-x)*f,y+(by-y)*f];
     function objects() {
       return b.heroes.map((h, i) => {
         const current = snapshot.heroes[i];
         if (current.concealed || h.concealed || a.heroes[i].concealed || h.jump !== current.jump ||
-          h.jump !== a.heroes[i].jump || h.hp <= 0 || a.heroes[i].hp <= 0) return current;
+          h.jump !== a.heroes[i].jump || h.hero !== a.heroes[i].hero || h.hp <= 0 || a.heroes[i].hp <= 0) return current;
         const [x,y] = mix(a.heroes[i].x,a.heroes[i].y,h.x,h.y);
         return { ...h,x,y };
       });
@@ -1550,11 +1567,16 @@
     else {
       if (local && !paused && local.mode === 'match' && !$('controls').open && !$('trainingHeroPicker').open) {
         const frameTime = Math.min(elapsed,.1), steps = Math.max(1, Math.ceil(frameTime * 60 - .05));
-        if (frameTime > 0) local.step(frameTime / steps, steps);
-        snapshot = local.snapshot(team,demo);
+        if (frameTime > 0) {
+          local.step(frameTime / steps, steps);
+          localTime += frameTime;
+          if (localTime - snapshot.time >= localSnapshotInterval - .001 || local.mode === 'ended') captureLocalSnapshot();
+        }
       }
       if (snapshot) {
-        const visible = remote ? interpolate(now) : snapshot;
+        const visible = remote ? interpolate(now) : previousLocalSnapshot && snapshot.mode === 'match' ?
+          interpolateMotion(previousLocalSnapshot, snapshot,
+            Math.max(previousLocalSnapshot.time, Math.min(snapshot.time, localTime - localSnapshotInterval))) : snapshot;
         panCamera(elapsed);
         renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,
           inspectedId,pendingCast?.spell);

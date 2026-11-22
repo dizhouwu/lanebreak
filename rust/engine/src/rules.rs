@@ -22,6 +22,7 @@ pub enum Kind {
     Sentry,
     Meteor,
     Veil,
+    Passive,
 }
 
 impl Kind {
@@ -41,6 +42,7 @@ impl Kind {
             Self::Sentry => "sentry",
             Self::Meteor => "meteor",
             Self::Veil => "veil",
+            Self::Passive => "passive",
         }
     }
 }
@@ -51,6 +53,7 @@ pub struct Spell {
     pub name: String,
     pub kind: Kind,
     pub mana: f64,
+    pub distance_mana: f64,
     pub cd: f64,
     pub range: f64,
     pub radius: f64,
@@ -73,6 +76,7 @@ pub struct Spell {
     pub drain: f64,
     pub stitch: bool,
     pub push: f64,
+    pub pull: f64,
     pub disarm: f64,
     pub resonance: f64,
     pub accent: f64,

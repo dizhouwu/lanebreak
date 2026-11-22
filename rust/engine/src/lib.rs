@@ -189,6 +189,7 @@ struct Hero {
     marks: Vec<usize>,
     prepared: Vec<String>,
     weave_ready: BTreeMap<String, f64>,
+    charge_until: f64,
     heat: u32,
     buffs: Vec<Buff>,
     jump: u32,
@@ -235,6 +236,7 @@ impl Hero {
             marks: Vec::new(),
             prepared: Vec::new(),
             weave_ready: BTreeMap::new(),
+            charge_until: 0.0,
             heat: 0,
             buffs: Vec::new(),
             jump: 0,
@@ -508,7 +510,7 @@ impl Match {
         };
         let team_size = if m.team_match { 5 } else { 1 };
         let defaults = [
-            "brakk", "orrin", "sable", "mirel", "neris", "vesper", "cairn", "ecarg",
+            "brakk", "orrin", "kestrel", "neris", "vesper", "cairn", "ecarg",
         ];
         let keys = options.heroes.unwrap_or_default();
         let bots = options.bots.unwrap_or_default();

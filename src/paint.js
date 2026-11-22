@@ -10,8 +10,7 @@
     vesper: { lean:-.13, step:-7, lift:3 },
     brakk: { lean:.23, step:11, lift:5 },
     orrin: { lean:-.08, step:0, lift:8 },
-    sable: { lean:.3, step:9, lift:1 },
-    mirel: { lean:-.08, step:0, lift:5 },
+    kestrel: { lean:.18, step:7, lift:6 },
     neris: { lean:-.1, step:0, lift:8 },
     cairn: { lean:-.2, step:-7, lift:2 },
     ecarg: { lean:.12, step:0, lift:2 }
@@ -66,15 +65,9 @@
     g.save();
     g.translate(x,y);
     g.scale(scale,scale);
-    if (key === 'sable') {
-      poly(g,[[-4,19],[1,1],[25,-23],[17,1],[4,23]],'#f7e0e8',color,2);
-      line(g,[[0,18],[18,-14]],'#f097b6',1.6);
-      line(g,[[-8,17],[7,25]],'#5e3447',4);
-    } else if (key === 'mirel') {
-      line(g,[[-4,30],[4,-10],[1,-26]],'#a08050',4);
-      poly(g,[[2,-7],[-13,-16],[-17,-31],[-4,-25]],'#526e3e',color,1.6);
-      poly(g,[[4,-10],[10,-24],[23,-29],[16,-13]],color,'#deedbb',1.4);
-      ellipse(g,2,-12,5,5,'#e3f4c0');
+    if (key === 'kestrel') {
+      poly(g,[[-8,15],[-5,-10],[0,-26],[6,-26],[9,-7],[15,-21],[21,-17],[15,11],[4,22]],'#234e67',color,2);
+      line(g,[[5,-23],[2,-8],[13,-10],[8,11]],'#e6fdff',2.5);
     } else if (key === 'ecarg') {
       g.rotate(-.62);
       line(g, [[0,-6],[0,-32]], '#9a6441', 6);
@@ -156,8 +149,7 @@
       ellipse(g, 307, 59, 27, 27, null, '#d7b6ff6c', 2);
     } else {
       const shape = {
-        sable: { cloak:'#4b2539', mask:'#b7a0ab', shoulders:[82,274], head:[[140,109],[151,71],[184,56],[218,70],[231,105],[212,135],[174,147]], weapon:[262,118,2.8] },
-        mirel: { cloak:'#30472c', mask:'#b5b98d', shoulders:[66,292], head:[[128,103],[149,87],[142,57],[169,74],[184,50],[195,75],[222,62],[217,89],[238,105],[213,138],[157,137]], weapon:[278,110,3] },
+        kestrel: { cloak:'#21394b', mask:'#94cee1', shoulders:[57,285], head:[[126,84],[168,63],[197,47],[230,70],[230,103],[216,135],[155,134]], weapon:[264,113,3] },
         neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] },
         cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] },
         ecarg: { cloak:'#2e355e', mask:'#d7b9a0', shoulders:[88,284], head:[[128,110],[139,76],[160,58],[185,62],[211,42],[206,78],[225,104],[208,140],[167,143]], weapon:[255,150,2.7] }
@@ -329,6 +321,7 @@
       this.quality = 'auto';
       this.auto = 1;
       this.measure = null;
+      this.minimapElapsed = Infinity;
       this.dirty = true;
     }
     resize() {
@@ -584,7 +577,7 @@
           ellipse(g, player.x, player.y, spell.range, spell.range, null, color + '3d', 2);
           const target = Lanebreak.pickSpellTarget(s, player, spell, at);
           if (target) ellipse(g, target.x, target.y, target.r + 9, target.r + 9, color + '29', color, 3);
-        } else if (spell) this.castPreview(g, player, spell, at);
+        } else if (spell) this.castPreview(g, player, spell, at, Boolean(s.training));
         else {
           const target = Lanebreak.pickTarget(s, team, at);
           if (target) ellipse(g, target.x, target.y, target.r + 7, target.r + 7, null, target.team === side ? '#c9a0ff' : '#ff6b6b', 2.5);
@@ -594,7 +587,11 @@
       this.vignette ||= gradient(g, 0, 0, 0, h, [[0,'#080e15c0'],[.23,'#080e1500'],[.66,'#080e1500'],[1,'#080e15a9']]);
       g.fillStyle = this.vignette;
       g.fillRect(0, 0, w, h);
-      this.minimap(s, side, viewWidth, viewHeight);
+      this.minimapElapsed += dt;
+      if (this.minimapElapsed >= 1 / 15 - .001) {
+        this.minimap(s, side, viewWidth, viewHeight);
+        this.minimapElapsed = 0;
+      }
     }
     groundSpell(g, x, y, radius, hero, ability, color, progress, impact) {
       g.save();
@@ -643,25 +640,11 @@
           }
           break;
         }
-        case 'sable':
-          for (const dir of [-1, 1]) {
-            g.save();
-            g.scale(dir, 1);
-            poly(g, [[-travel,-travel*.58],[travel*.75,travel*.44],[travel,travel*.72],[-5,4]], '#ed88b46e', ink, 2);
-            g.restore();
-          }
-          break;
-        case 'mirel':
-          for (let i = 0; i < 5; i++) {
-            g.rotate(2 * Math.PI / 5);
-            g.beginPath();
-            g.moveTo(6, 7);
-            g.quadraticCurveTo(travel * .43, -34, travel, 3);
-            g.strokeStyle = i % 2 ? '#d6f090' : color;
-            g.lineWidth = 3;
-            g.stroke();
-            poly(g, [[travel*.48,-12],[travel*.62,-33],[travel*.72,-14]], color, ink, 1);
-            if (ability === 'Briar Crown') poly(g, [[travel*.71,-8],[travel*.86,-26],[travel*.9,-1]], '#ddefa9');
+        case 'kestrel':
+          ellipse(g, 0, 0, travel, travel*.54, '#65e6ff24', color, 2.6);
+          for (let i = 0; i < 4; i++) {
+            g.rotate(Math.PI / 2);
+            line(g, [[-10,-8],[travel*.45,-20],[travel*.44,8],[travel,0]], '#d8faff', 2.5);
           }
           break;
         case 'neris':
@@ -750,21 +733,6 @@
           g.rotate(now * 10);
           ellipse(g, 0, 0, 24, 9, null, color, 3);
           break;
-        case 'sable': {
-          const size = ability === 'Shatterline' ? 1.5 : 1;
-          g.scale(size, size);
-          poly(g, [[17,0],[-10,-12],[-65,1],[-29,11]], '#e999cbae', '#ffe7f2', 2);
-          line(g, [[-85,10],[-63,7]], color, 2);
-          line(g, [[-70,-8],[-50,-6]], '#fce0ed', 2);
-          break;
-        }
-        case 'mirel':
-          poly(g, [[12,0],[-13,-7],[-57,-3],[-42,4],[-15,7]], '#bce877', '#edf7c6', 1.8);
-          for (let i = 1; i <= 3; i++) {
-            const px = -40 - i * 13, py = Math.sin(now * 20 + i * 2) * 10;
-            ellipse(g, px, py, 6, 2.5, color);
-          }
-          break;
         case 'ecarg':
           for (let i = 0; i < 3; i++) {
             const offset = -14 - i * 26;
@@ -782,9 +750,10 @@
       }
       g.restore();
     }
-    castPreview(g, hero, spell, at) {
+    castPreview(g, hero, spell, at, freeMana) {
       const end = Lanebreak.castPoint(hero, spell, at.x, at.y, this.height);
-      const color = '#ffe0a2';
+      const cost = !freeMana && spell.distanceMana ? spell.mana + Math.hypot(end.x - hero.x, end.y - hero.y) * spell.distanceMana : 0;
+      const color = cost > hero.mana ? '#ff8c8c' : '#ffe0a2';
       if (spell.target === 'point') ellipse(g, hero.x, hero.y, spell.range, spell.range, null, color + '45', 2);
       g.save();
       g.setLineDash([10, 7]);
@@ -800,6 +769,7 @@
       ellipse(g, end.x, end.y, 11, 11, null, color, 2);
       line(g, [[end.x - 15, end.y], [end.x + 15, end.y]], color, 1.5);
       line(g, [[end.x, end.y - 15], [end.x, end.y + 15]], color, 1.5);
+      if (cost) this.label(g, Math.ceil(cost) + ' mana', end.x, end.y - 24, 16, color);
       g.restore();
     }
     meteor(g, x, y, dx, dy, now, altitude = 0) {
@@ -939,8 +909,11 @@
       const effort = cast ? Math.sin(Math.PI * progress) : 0;
       if (cast?.spell === 'dash') {
         g.globalAlpha = 1 - progress;
-        if (u.hero === 'sable') {
-          for (const offset of [-13, 11]) line(g, [[cast.x, cast.y + offset], [x, y - offset]], armor, 3);
+        if (u.hero === 'kestrel') {
+          const dx = x - cast.x, dy = y - cast.y;
+          const trail = [[cast.x,cast.y], [cast.x+dx*.33,cast.y+dy*.33-12], [cast.x+dx*.63,cast.y+dy*.63+10], [x,y]];
+          line(g, trail, '#65e6ff95', 16);
+          line(g, trail, '#e6fdff', 3);
         } else {
           line(g, [[cast.x,cast.y+7],[x,y+7]], '#60433285', 26);
           for (const fraction of [.35, .65, .9]) {
@@ -986,6 +959,7 @@
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
       if (u.burning) ellipse(g,x,y-19,30,28,null,'#fa8a55',3);
       if (u.resonating) ellipse(g,x,y-19,36,33,null,HEROES.ecarg.color,3);
+      if (u.charged) ellipse(g,x,y+6,35,17,null,'#8ff5ff',2.5);
       if (u.spellBarrier) ellipse(g,x,y-14,39,37,'#80dcf916','#a5ebf7af',3);
       this.cyclone(g, u, now);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);

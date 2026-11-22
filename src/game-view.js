@@ -34,6 +34,7 @@
     if (!spell) return 'Invalid ability';
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
+    if (spell.kind === 'passive') return 'This ability is passive';
     if (spell.kind === 'invoke' && !weaveRecipe(hero)) return 'Queue three marks with Q, W, or E';
     if (!noCooldowns && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
     if (spell.kind === 'prepared') return 'Prepare a spell with R first';

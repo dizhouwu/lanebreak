@@ -601,6 +601,59 @@ fn equipment_and_temporary_buffs_update_movement_and_attack_stats() {
 }
 
 #[test]
+fn kestrel_pulls_charges_a_basic_attack_and_pays_for_dash_distance() {
+    let mut m = duel(["kestrel", "brakk"]);
+    m.h_mut(1).level = 6;
+    m.refresh(1);
+    m.h_mut(1).mana = m.h(1).max_mana;
+    place(&mut m, 1, 2000.0, 450.0);
+    place(&mut m, 2, 2400.0, 450.0);
+    assert!(
+        m.command(1, Command::cast(2, Point::default(), None))
+            .unwrap_err()
+            .contains("passive")
+    );
+    m.command(1, Command::cast(1, Point::default(), Some(2)))
+        .unwrap();
+    assert_eq!(m.u(2).pos, Point::new(2285.0, 450.0));
+    assert_eq!(view(&m, 0)["heroes"][0]["charged"], true);
+
+    m.attack_hit(1, 2, 30.0);
+    assert!(view(&m, 0)["heroes"][0]["charged"].is_null());
+    assert_eq!(
+        m.effects
+            .iter()
+            .filter(|e| e["ability"] == "Live Circuit")
+            .count(),
+        1
+    );
+    m.attack_hit(1, 2, 30.0);
+    assert_eq!(
+        m.effects
+            .iter()
+            .filter(|e| e["ability"] == "Live Circuit")
+            .count(),
+        1
+    );
+
+    place(&mut m, 2, 2410.0, 450.0);
+    m.h_mut(1).mana = 120.0;
+    assert!(
+        m.command(1, Command::cast(3, Point::new(3350.0, 450.0), None))
+            .unwrap_err()
+            .contains("mana")
+    );
+    assert!(m.u(1).dash.is_none());
+    cast(&mut m, 3, Point::new(2300.0, 450.0));
+    assert_eq!(m.h(1).mana, 120.0 - (55.0 + 300.0 * 0.115));
+    let enemy_hp = m.u(2).hp;
+    m.step(DT, 11);
+    assert_eq!(m.u(1).pos, Point::new(2300.0, 450.0));
+    assert!(m.u(1).dash.is_none());
+    assert!(m.u(2).hp < enemy_hp);
+}
+
+#[test]
 fn every_standard_kit_enforces_unlocks_and_cast_costs() {
     for (hero, kit) in &rules().heroes {
         if kit.weaves.is_some() {

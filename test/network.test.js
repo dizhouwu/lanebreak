@@ -126,7 +126,7 @@ test('a 5v5 lobby seats ten players on a separate map and keeps orders private p
   const waiting = await players[0].get(m => m.t === 'wait');
   assert.equal(waiting.teamMatch, true);
   for (const [index, player] of players.slice(1).entries()) {
-    player.send({t:'join5v5',code:waiting.code,hero:'mirel',name:'Player ' + index});
+    player.send({t:'join5v5',code:waiting.code,hero:'kestrel',name:'Player ' + index});
     await player.get(m => m.t === 'wait');
   }
   players[1].send({t:'start5v5'});
@@ -200,7 +200,7 @@ test('online Neris can queue marks, prepare a spell, and cast before receiving a
   await Promise.all([a.opened, b.opened]);
   a.send({ t:'host', hero:'neris' });
   const { code } = await a.get(type('wait'));
-  b.send({ t:'join', code, hero:'mirel' });
+  b.send({ t:'join', code, hero:'kestrel' });
   await Promise.all([a.get(type('start')), b.get(type('start'))]);
   const cast = (i, castMode = 'self', recipe) => a.send({ t:'o', o:'cast', i, x:700, y:450, castMode, recipe });
   cast(0);
@@ -216,7 +216,7 @@ test('online Neris can queue marks, prepare a spell, and cast before receiving a
   assert.ok(host.s.heroes[0].weaveReady.QWW > host.s.time);
   assert.equal(guest.s.heroes[0].marks, undefined);
   assert.equal(guest.s.heroes[0].prepared, undefined);
-  assert.equal(guest.s.heroes[1].hero, 'mirel');
+  assert.equal(guest.s.heroes[1].hero, 'kestrel');
 
   await a.get(message => message.t === 's' && message.s.time >= host.s.heroes[0].cd[3]);
   for (const i of [0, 0, 1, 3]) cast(i);

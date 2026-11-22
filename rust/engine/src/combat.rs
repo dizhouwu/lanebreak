@@ -431,6 +431,7 @@ impl Match {
                 u.stun_until = 0.0;
                 let h = u.hero.as_mut().unwrap();
                 h.deaths += 1;
+                h.charge_until = 0.0;
                 h.heat /= 2;
                 h.respawn = t + 5.0 + 2.2 * f64::from(h.level);
                 h.order = Order::None;
@@ -496,11 +497,25 @@ impl Match {
     }
 
     pub(super) fn attack_hit(&mut self, from: Id, target: Id, damage: f64) {
-        let b = self.u(target);
-        if self.u(from).team == b.team && (b.role != Role::Creep || b.hp >= b.max_hp / 2.0) {
+        let (a, b) = (self.u(from), self.u(target));
+        if a.team == b.team && (b.role != Role::Creep || b.hp >= b.max_hp / 2.0) {
             return;
         }
+        let charge_at = (a.hp > 0.0
+            && a.team != b.team
+            && b.role != Role::Building
+            && b.hp > 0.0
+            && b.cyclone_until <= self.time
+            && a.hero.as_ref().is_some_and(|h| h.charge_until > self.time))
+        .then_some(b.pos);
+        if charge_at.is_some() {
+            self.h_mut(from).charge_until = 0.0;
+        }
         self.hurt(target, damage, from, false, true);
+        if let Some(pos) = charge_at {
+            let passive = &self.h(from).kit().abilities[2];
+            self.blast(from, passive, pos, self.spell_damage(from, passive));
+        }
     }
 
     fn attack_speed(&self, id: Id) -> f64 {
@@ -686,6 +701,7 @@ impl Match {
         let b = self.u(target);
         let (team, pos, role, radius) = (b.team, b.pos, b.role, b.r);
         let a_team = self.u(from).team;
+        let origin = self.u(from).pos;
         if team == a_team || b.hp <= 0.0 || b.cyclone_until > self.time || role == Role::Building {
             return;
         }
@@ -775,17 +791,25 @@ impl Match {
                 next,
             });
         }
-        if spell.push > 0.0
-            && let Some(dir) = dir
-            && !b.sentry
+        let displacement = if spell.pull > 0.0 {
+            let distance = (b.pos.dist(origin) - 65.0).clamp(0.0, spell.pull);
+            Some(b.pos.towards(origin, distance, 0.0, true, height))
+        } else {
+            dir.filter(|_| spell.push > 0.0).map(|dir| {
+                b.pos.towards(
+                    b.pos.projected(dir, spell.push),
+                    f64::INFINITY,
+                    0.0,
+                    true,
+                    height,
+                )
+            })
+        };
+        if !b.sentry
+            && let Some(destination) = displacement
+            && destination != b.pos
         {
-            b.pos = b.pos.towards(
-                b.pos.projected(dir, spell.push),
-                f64::INFINITY,
-                0.0,
-                true,
-                height,
-            );
+            b.pos = destination;
             if let Some(h) = &mut b.hero {
                 h.jump += 1;
             }

@@ -9,8 +9,7 @@ A browser strategy game with a one-lane 1v1 duel and a separate three-lane 5v5 b
 | Vesper, Tide Archer | Ranged pressure with piercing arrows and snares |
 | Brakk, Iron Ram | Durable melee brawler with a charge and lifesteal |
 | Orrin, Gravity Sage | Burst caster with delayed impacts and a blink |
-| Sable, Glass Duelist | Mobile melee pressure with a dash and a piercing finisher |
-| Mirel, Fen Warden | Ranged lane control with persistent zones and defensive sustain |
+| Kestrel, Arc Runner | Mobile lightning skirmisher with a magnetic pull, charged basic attacks, and a distance-priced dash |
 | Neris, Loomkeeper | Weaves ten spells from three-mark combinations and casts them from two slots |
 | Cairn, Kiln Keeper | Ranged burst carry who builds Heat by last-hitting creeps |
 | Ecarg, String Virtuoso | Bowed notes mark heroes for stronger follow-up spells |

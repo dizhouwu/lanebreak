@@ -132,8 +132,8 @@ test('the server validates positions, slots, target ids, and stale prepared spel
 test('targeting previews distinguish point, self, and enemy hero spells', () => {
   const expected = {
     vesper:['point','point','self','point'], brakk:['point','self','self','self'],
-    orrin:['point','point','point','point'], sable:['point','point','self','point'],
-    mirel:['point','point','self','point'], neris:['self','self','self','self'],
+    orrin:['point','point','point','point'], kestrel:['point','unit','self','point'],
+    neris:['self','self','self','self'],
     cairn:['self','self','self','self'], ecarg:['point','point','self','point']
   };
   for (const [hero, kit] of Object.entries(HEROES)) {

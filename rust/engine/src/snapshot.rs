@@ -99,6 +99,8 @@ struct PublicHero<'a> {
     resonating: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     disarmed: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    charged: bool,
 }
 
 #[derive(Serialize)]
@@ -321,6 +323,7 @@ impl Match {
                     stitched: u.stitch.is_some_and(|m| m.until > time),
                     resonating: u.resonance.is_some_and(|m| m.until > time),
                     disarmed: u.disarmed_until > time,
+                    charged: h.charge_until > time,
                 };
                 let private = (id == player || full).then(|| PrivateHero {
                     gold: h.gold,
