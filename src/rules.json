@@ -488,8 +488,8 @@
           "name": "Weave",
           "kind": "invoke",
           "mana": 0,
-          "cd": 0.75,
-          "text": "Turn three marks into a prepared spell. The new spell moves to D and the previous spell moves to F."
+          "cd": 0.5,
+          "text": "Turn three marks into a prepared spell in D. Reordering a prepared spell keeps the current cooldown timer."
         },
         {
           "name": "Empty slot",

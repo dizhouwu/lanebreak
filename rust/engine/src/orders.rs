@@ -630,21 +630,24 @@ impl Match {
         if h.level < level {
             return Err(format!("Unlocks at level {level}"));
         }
+        let recipe = if spell.kind == Kind::Invoke {
+            let recipe = h.recipe().ok_or("Queue three marks with Q, W, or E")?;
+            if let Some(index) = h.prepared.iter().position(|prepared| prepared == &recipe) {
+                let h = self.h_mut(id);
+                h.prepared.swap(0, index);
+                h.marks.clear();
+                return Ok(());
+            }
+            Some(recipe)
+        } else {
+            None
+        };
         if !free && h.ready_at(slot) > time {
             return Err("Ability cooling down".into());
         }
         if spell.kind == Kind::Prepared {
             return Err("Prepare a spell with R first".into());
         }
-        let recipe = if spell.kind == Kind::Invoke {
-            let recipe = h.recipe().ok_or("Queue three marks with Q, W, or E")?;
-            if h.prepared.first() == Some(&recipe) {
-                return Err("That spell is already in D".into());
-            }
-            Some(recipe)
-        } else {
-            None
-        };
         if !free && h.mana < spell.mana {
             return Err("Not enough mana".into());
         }
@@ -674,7 +677,6 @@ impl Match {
         }
         if let Some(recipe) = recipe {
             let h = self.h_mut(id);
-            h.prepared.retain(|r| r != &recipe);
             h.prepared.insert(0, recipe);
             h.prepared.truncate(2);
             h.marks.clear();

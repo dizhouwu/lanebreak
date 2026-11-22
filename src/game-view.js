@@ -25,18 +25,18 @@
       'point' : 'self';
   }
   const abilityNeedsTarget = spell => abilityCastMode(spell) !== 'self';
-  const abilityReadyAt = (hero, i) => i >= 4 ? (hero.weaveReady?.[hero.prepared?.[i - 4]] || 0) : hero.cd[i];
+  function abilityReadyAt(hero, i) {
+    if (i >= 4) return hero.weaveReady?.[hero.prepared?.[i - 4]] || 0;
+    if (i === 3 && hero.prepared?.includes(weaveRecipe(hero))) return 0;
+    return hero.cd[i];
+  }
   function abilityError(hero, i, time, spell = abilitySpell(hero, i), free = false) {
     if (!spell) return 'Invalid ability';
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
+    if (spell.kind === 'invoke' && !weaveRecipe(hero)) return 'Queue three marks with Q, W, or E';
     if (!free && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
     if (spell.kind === 'prepared') return 'Prepare a spell with R first';
-    if (spell.kind === 'invoke') {
-      const recipe = weaveRecipe(hero);
-      if (!recipe) return 'Queue three marks with Q, W, or E';
-      if (hero.prepared[0] === recipe) return 'That spell is already in D';
-    }
     if (!free && hero.mana < spell.mana) return 'Not enough mana';
     return null;
   }

@@ -32,6 +32,38 @@ fn view(m: &Match, team: usize) -> Value {
 }
 
 #[test]
+fn re_invoking_a_prepared_spell_swaps_slots_without_spending_r_cooldown() {
+    let mut m = duel(["neris", "orrin"]);
+    prepare(&mut m, "WWQ");
+    assert_eq!(m.h(1).cd[3], 0.5);
+    m.time = 0.51;
+    prepare(&mut m, "EEW");
+    cast(&mut m, 5, Point::new(400.0, 450.0));
+    let invoke_ready = m.h(1).cd[3];
+    let tornado_ready = m.h(1).ready_at(5);
+
+    prepare(&mut m, "WWQ");
+    assert_eq!(m.h(1).prepared, ["QWW", "WEE"]);
+    assert_eq!(m.h(1).ready_at(4), tornado_ready);
+    assert_eq!(m.h(1).cd[3], invoke_ready);
+    prepare(&mut m, "WWQ");
+    assert_eq!(m.h(1).prepared, ["QWW", "WEE"]);
+    assert!(m.h(1).marks.is_empty());
+    assert_eq!(m.h(1).cd[3], invoke_ready);
+
+    for slot in 0..3 {
+        cast(&mut m, slot, Point::default());
+    }
+    let invoke = Command::cast(3, Point::default(), None);
+    assert_eq!(m.command(1, invoke).unwrap_err(), "Ability cooling down");
+    m.time = invoke_ready;
+    cast(&mut m, 3, Point::default());
+    assert_eq!(m.h(1).prepared, ["QWE", "QWW"]);
+    assert_eq!(m.h(1).ready_at(5), tornado_ready);
+    assert_eq!(m.h(1).cd[3], invoke_ready + 0.5);
+}
+
+#[test]
 fn faultline_consumes_components_and_shares_its_impact_recovery() {
     let mut m = duel(["brakk", "orrin"]);
     m.h_mut(1).gold = 10_000.0;
@@ -189,11 +221,11 @@ fn tornado_emp_and_rolling_meteor_combo_gains_a_second_hit_from_the_shockwave() 
         m.step(DT, 12);
         cast(&mut m, 4, at);
         prepare(&mut m, "EEW");
-        m.step(DT, 39);
-        cast(&mut m, 4, at);
-        m.step(DT, 8);
+        m.step(DT, 32);
         prepare(&mut m, "QWE");
-        m.step(DT, 2);
+        m.step(DT, 7);
+        cast(&mut m, 5, at);
+        m.step(DT, 10);
         if shockwave {
             cast(&mut m, 4, at);
         }
