@@ -1246,7 +1246,7 @@
   function hotkey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]') || event.target.tagName === 'INPUT') return;
     const k = event.key.toLowerCase();
-    if (!game.hidden && snapshot && k === 'tab' && !event.shiftKey) {
+    if (!game.hidden && snapshot && (k === '`' || event.code === 'Backquote') && !event.shiftKey) {
       event.preventDefault();
       if (!event.repeat) showRoster($('matchRoster').hidden);
       return;

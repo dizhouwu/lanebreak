@@ -41,6 +41,13 @@ fn team_battle_has_independent_lanes_and_fountain_defense() {
     assert_eq!(m.heroes.len(), 10);
     assert!(m.home(0).x < m.home(1).x && m.home(0).y > m.home(1).y);
     assert_eq!(m.buildings.len(), 14);
+    let mid = [0, 1].map(|team| m.u(m.lane_building(team, 1, "outer").unwrap()));
+    let neutral_space =
+        mid[0].pos.dist(mid[1].pos) - mid[0].range - mid[1].range - 2.0 * m.u(m.heroes[0]).r;
+    assert!(
+        neutral_space >= 700.0,
+        "mid lane needs room to trade outside tower range"
+    );
     let outer = m.lane_building(0, 0, "outer").unwrap();
     let inner = m.lane_building(0, 0, "inner").unwrap();
     assert!(m.protected(inner));

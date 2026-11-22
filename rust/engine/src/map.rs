@@ -92,8 +92,8 @@ impl Match {
                 ..Unit::default()
             });
             self.buildings.push(core);
-            for lane in 0..3 {
-                for (kind, distance, hp) in [("outer", 1710.0, 1800.0), ("inner", 810.0, 2100.0)] {
+            for (lane, [outer, inner]) in rules().team_map.tower_distances.into_iter().enumerate() {
+                for (kind, distance, hp) in [("outer", outer, 1800.0), ("inner", inner, 2100.0)] {
                     let id = self.insert(Unit {
                         role: Role::Building,
                         kind,

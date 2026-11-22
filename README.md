@@ -54,7 +54,7 @@ Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and cl
 | Attack the target under the cursor or attack-move / stop attacking | A / S |
 | Shop / potion / recall | B / F / T |
 | Pause a solo match | P / Esc |
-| Show or hide teams, hero levels, and equipment | Tab |
+| Show or hide teams, hero levels, and equipment | Backtick (<kbd>`</kbd>) |
 | Change graphics / toggle sound | G / M |
 
 The camera follows your hero at the start of each match. Press **C** to switch to free camera.
@@ -71,7 +71,7 @@ Append `#play=brakk,hard` to the URL to start a match immediately, or append `#d
 
 Choose **5v5** and select **Play with bots**, or host a private 5v5 room on a running server. Share the room code or invite link. The host can start at any time, and bots fill the remaining seats. Players can join either side or let the lobby balance the teams. A bot takes over an online player who disconnects.
 
-Azure starts in the southwest and Crimson in the northeast. Each lane has its own outer and inner towers. Destroy both towers in any one lane to expose the enemy core. Enemy fountains fire high-damage beams at intruders. Press **Tab** to compare hero levels and items across both teams.
+Azure starts in the southwest and Crimson in the northeast. Each lane has its own outer and inner towers. Destroy both towers in any one lane to expose the enemy core. Enemy fountains fire high-damage beams at intruders. Press the backtick key (<kbd>`</kbd>) to compare hero levels and items across both teams.
 
 ## Training
 

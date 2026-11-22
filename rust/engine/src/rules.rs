@@ -163,10 +163,12 @@ pub struct Difficulty {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TeamMap {
     pub height: f64,
     pub fountains: [[f64; 2]; 2],
     pub lanes: Vec<Vec<[f64; 2]>>,
+    pub tower_distances: [[f64; 2]; 3],
 }
 
 #[derive(Deserialize)]
