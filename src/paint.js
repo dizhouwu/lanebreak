@@ -13,6 +13,7 @@
     kestrel: { lean:.18, step:7, lift:6 },
     veyra: { lean:.27, step:10, lift:3 },
     morrow: { lean:.20, step:8, lift:2 },
+    calyx: { lean:.34, step:12, lift:3 },
     neris: { lean:-.1, step:0, lift:8 },
     cairn: { lean:-.2, step:-7, lift:2 },
     ecarg: { lean:.12, step:0, lift:2 }
@@ -74,6 +75,11 @@
       line(g,[[-12,20],[-18,4],[-10,-11],[5,-7],[9,-21]],'#604335',7);
       line(g,[[-12,20],[-18,4],[-10,-11],[5,-7],[9,-21]],color,2.5);
       poly(g,[[5,-15],[2,-32],[9,-39],[22,-36],[26,-25],[17,-20],[19,-29],[13,-30]],'#b6845e','#fff0c5',2);
+    } else if (key === 'calyx') {
+      line(g,[[-5,17],[0,4]],'#6d967f',5);
+      poly(g, [[-5,7],[-12,-7],[1,-25],[23,-35],[13,-15],[5,0]], '#3f8370', color, 2);
+      line(g,[[-7,-8],[11,-21],[23,-35]],'#f3ffe9',2.4);
+      line(g,[[-10,4],[8,10]],'#b5dcc5',2.5);
     } else if (key === 'veyra') {
       for (const offset of [-15, 7]) {
         poly(g, [[offset-3,20],[offset-5,6],[offset+2,-21],[offset+17,-34],[offset+15,-13],[offset+4,8],[offset+4,20]],
@@ -164,6 +170,7 @@
         kestrel: { cloak:'#21394b', mask:'#94cee1', shoulders:[57,285], head:[[126,84],[168,63],[197,47],[230,70],[230,103],[216,135],[155,134]], weapon:[264,113,3] },
         veyra: { cloak:'#3f2020', mask:'#af6f59', shoulders:[64,282], head:[[130,91],[151,72],[189,49],[221,65],[240,91],[226,123],[194,144],[147,132]], weapon:[260,114,2.7] },
         morrow: { cloak:'#3a3630', mask:'#a68d6e', shoulders:[53,292], head:[[135,104],[142,76],[178,53],[219,72],[230,104],[216,137],[148,143]], weapon:[273,120,2.7] },
+        calyx: { cloak:'#223c35', mask:'#9ac7b4', shoulders:[81,268], head:[[137,104],[126,75],[164,77],[187,49],[209,76],[240,78],[230,113],[210,148],[159,138]], weapon:[245,147,3.5] },
         neris: { cloak:'#4d3c26', mask:'#e7be7d', shoulders:[76,286], head:[[132,105],[146,71],[176,45],[205,65],[226,100],[214,133],[186,151],[153,136]], weapon:[268,123,2.8] },
         cairn: { cloak:'#523529', mask:'#b98c74', shoulders:[57,302], head:[[133,107],[132,77],[151,58],[201,54],[227,74],[231,115],[211,141],[160,141]], weapon:[269,113,2.9] },
         ecarg: { cloak:'#2e355e', mask:'#d7b9a0', shoulders:[88,284], head:[[128,110],[139,76],[160,58],[185,62],[211,42],[206,78],[225,104],[208,140],[167,143]], weapon:[255,150,2.7] }
@@ -542,6 +549,13 @@
           line(g,[[origin.x,origin.y-12],[x,y-12]],'#573f31',7);
           line(g,[[origin.x,origin.y-12],[x,y-12]],'#dfb786',2.5);
           ellipse(g,x,y-12,9,9,null,'#fff0c5',3);
+        } else if (trail === 'dagger') {
+          g.save();
+          g.translate(x, y - 10);
+          g.rotate(Math.atan2(dy, dx));
+          poly(g,[[-67,3],[-11,-6],[6,0],[-16,6]],'#90e0b367');
+          poly(g,[[15,0],[-10,7],[-17,0],[-9,-7]],'#bdf8d2','#f5ffdc',2);
+          g.restore();
         } else if (trail === 'wind') {
           ellipse(g, x, y + 3, 30, 12, '#101f3273');
           for (let i = 0; i < 4; i++) {
@@ -593,6 +607,23 @@
           continue;
         }
         if (age < 0 || age > 1.08 || !inView(e.x, e.y, (e.radius || 65) + 100)) continue;
+        if (e.kind === 'pounce' && age < .28) {
+          g.globalAlpha = 1 - age / .28;
+          line(g,[[e.fromX,e.fromY-12],[e.x,e.y-12]],'#53a58078',18);
+          line(g,[[e.fromX,e.fromY-12],[e.x,e.y-12]],'#d5ffe2',2.5);
+          g.globalAlpha = 1;
+          continue;
+        }
+        if (e.kind === 'finisher' && age < .52) {
+          g.save();
+          g.globalAlpha = 1 - age / .52;
+          g.translate(e.x,e.y-12);
+          g.rotate(e.facing);
+          poly(g,[[-54,23],[-17,-14],[59,-28],[25,-6]],'#a2f8be','#f3ffe8',2.5);
+          line(g,[[-21,27],[9,6],[63,-10]],'#e1ffd2',3);
+          g.restore();
+          continue;
+        }
         if (e.kind === 'chains' && age < .45) {
           g.globalAlpha = 1 - age / .45;
           line(g, [[e.fromX,e.fromY-15],[e.x,e.y-8]], '#fa8d50', 3.5);
@@ -656,6 +687,12 @@
       const ink = impact ? '#fff1cf' : color;
       const travel = 27 + progress * 67;
       switch (hero) {
+        case 'calyx':
+          for (let i = 0; i < 4; i++) {
+            g.rotate(Math.PI / 2);
+            poly(g,[[travel,-9],[travel+14,0],[travel,9],[travel-15,0]],'#9be9ba40','#d4ffdd',2.5);
+          }
+          break;
         case 'morrow':
           ellipse(g,0,0,travel,travel*.63,'#c89a5430','#eac88a',3);
           for (const y of [-12,10]) line(g,[[-travel,y],[0,y-13],[travel,y+5]],'#f6ddb1',3);
@@ -1053,7 +1090,13 @@
         this.crystal(g,x+27,y-38,11,'#b494f7');
       } else {
         const bowStroke = cast && u.hero === 'ecarg' ? 15 * Math.sin(progress * 2 * Math.PI) * effort : 0;
-        weapon(g,u.hero,x+23,y-9,.8,armor,bowStroke);
+        const critReady = u.finisherHits === HEROES[u.hero].abilities[3].critHits - 1;
+        if (u.hero === 'calyx') {
+          poly(g,[[x-13,y-24],[x-17,y-40],[x-5,y-34],[x+3,y-43],[x+12,y-26],[x+3,y-16]],'#24433b',armor,1.6);
+          line(g,[[x-9,y-29],[x+8,y-27]],'#d7ffdf',2);
+          if (critReady) ellipse(g,x+34,y-28,22,17,'#b3ffb752',null);
+        }
+        weapon(g,u.hero,x+23,y-9,.8,critReady ? '#edffb8' : armor,bowStroke);
       }
       g.restore();
       if (u.marks?.length) {

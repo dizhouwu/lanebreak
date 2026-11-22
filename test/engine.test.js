@@ -135,6 +135,7 @@ test('targeting previews distinguish point, self, and enemy hero spells', () => 
     orrin:['point','point','point','point'], kestrel:['self','unit','self','point'],
     veyra:['self','point','self','point'],
     morrow:['point','self','self','unit'],
+    calyx:['unit','unit','self','self'],
     neris:['self','self','self','self'],
     cairn:['self','self','self','self'], ecarg:['point','point','self','point']
   };
@@ -148,6 +149,12 @@ test('targeting previews distinguish point, self, and enemy hero spells', () => 
   const dummy = s.heroes[1];
   assert.equal(pickSpellTarget(s,s.heroes[0],HEROES.neris.weaves.QQQ,{x:dummy.x,y:dummy.y-45}).id,dummy.id);
   assert.equal(pickSpellTarget(s,s.heroes[0],HEROES.neris.weaves.QQQ,{x:dummy.x+160,y:dummy.y}),null);
+  const calyx = HEROES.calyx.abilities;
+  const allies = { ...s, creeps:[[46,0,'melee',s.heroes[0].x+160,s.heroes[0].y,400]] };
+  const ally = {x:s.heroes[0].x+160,y:s.heroes[0].y};
+  assert.equal(pickSpellTarget(allies,s.heroes[0],calyx[0],ally),null);
+  assert.equal(pickSpellTarget(allies,s.heroes[0],calyx[1],ally).id,46);
+  assert.equal(pickSpellTarget(s,s.heroes[0],calyx[1],s.heroes[0]),null);
   const duel = new Match({ bots:[null,null], seed:44 }).snapshot(0);
   const tower = duel.buildings.find(b=>b.kind==='inner'&&b.team===1);
   assert.equal(pickTarget(duel,0,tower),null);

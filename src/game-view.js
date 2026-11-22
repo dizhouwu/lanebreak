@@ -20,7 +20,7 @@
   }
   function abilityCastMode(spell) {
     if (!spell || spell.fixed) return 'self';
-    if (spell.kind === 'unit') return 'unit';
+    if (['unit', 'dagger', 'pounce'].includes(spell.kind)) return 'unit';
     return (spell.kind === 'blast' ? spell.range > 0 : ['bolt', 'hook', 'dash', 'blink', 'spirit', 'meteor', 'sweep', 'brand', 'brandReturn'].includes(spell.kind)) ?
       'point' : 'self';
   }
@@ -96,22 +96,29 @@
     if (snapshot.mode !== 'match' || snapshot.heroes[team].hp <= 0) return null;
     return pickUnit(snapshot, point, snapshot.heroes[team].team, includeAlliedCreeps);
   }
-  const targetableHero = (caster, target, spell, time) => {
-    if (target?.type !== 'hero' || target.hp <= 0 || target.cycloneUntil > time) return false;
+  const targetableUnit = (caster, target, spell, time) => {
+    if (target.hp <= 0 || target.concealed || target.cycloneUntil > time || target.sweepOrigin) return false;
     const allied = caster.team === target.team;
-    const allowed = spell.target === 'ally' ? allied : !allied ||
-      (spell.target === 'selfOrEnemy' && caster.id === target.id);
-    return allowed && (allied || !isVeiled(target, time)) && range(caster, target) <= spell.range;
+    const allowed = spell.target === 'otherUnit' ? caster.id !== target.id :
+      spell.target === 'ally' ? allied : !allied || (spell.target === 'selfOrEnemy' && caster.id === target.id);
+    return allowed && (allied || !(target.veiled || isVeiled(target, time))) && range(caster, target) <= spell.range;
   };
   function pickSpellTarget(snapshot, caster, spell, at) {
     let best = null, nearest = Infinity;
-    for (const target of snapshot.heroes) {
-      if (!targetableHero(caster, target, spell, snapshot.time)) continue;
-      const height = (target.dummy ? 28 : 18) + (target.lifted ? 22 : 0);
+    function consider(target, height) {
+      if (!targetableUnit(caster, target, spell, snapshot.time)) return;
       const d = Math.hypot(target.x - at.x, Math.max(target.y - height - at.y, at.y - target.y, 0));
       if (d <= target.r + 12 && d < nearest) {
         best = target;
         nearest = d;
+      }
+    }
+    for (const hero of snapshot.heroes) {
+      consider(hero, (hero.dummy ? 28 : 18) + (hero.lifted ? 22 : 0));
+    }
+    if (spell.target === 'enemyUnit' || spell.target === 'otherUnit') {
+      for (const [id, team, kind, x, y, hp, , , r, , flags] of snapshot.creeps) {
+        consider({id, team, x, y, hp, r:r ?? CREEPS[kind].r}, flags & CREEP_FLAGS.lifted ? 19 : 3);
       }
     }
     return best;

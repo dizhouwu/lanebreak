@@ -823,7 +823,7 @@ impl Match {
         if u.root_until > time
             && matches!(
                 spell.kind,
-                Kind::Dash | Kind::Blink | Kind::BrandReturn | Kind::Sweep
+                Kind::Dash | Kind::Blink | Kind::Pounce | Kind::BrandReturn | Kind::Sweep
             )
         {
             return Err("Unable to move while rooted".into());
@@ -872,10 +872,14 @@ impl Match {
         } else {
             None
         };
-        if spell.kind == Kind::Unit {
+        if spell.cast_mode() == "unit" {
             let target = target
-                .filter(|&target| self.targetable_hero(id, target, spell))
-                .ok_or("Select an enemy hero in range")?;
+                .filter(|&target| self.spell_can_target(id, target, spell))
+                .ok_or(match spell.kind {
+                    Kind::Dagger => "Select an enemy hero or creep in range",
+                    Kind::Pounce => "Select another hero or creep in range",
+                    _ => "Select an enemy hero in range",
+                })?;
             at = self.u(target).pos;
         }
         if spell.channel_time > 0.0 && !channel_complete {
@@ -976,6 +980,42 @@ impl Match {
                 });
             }
             Kind::Unit => self.magic(target.unwrap(), id, spell, damage, None),
+            Kind::Dagger => {
+                let pid = self.id();
+                self.projectiles.push(Projectile {
+                    id: pid,
+                    pos: origin,
+                    from: id,
+                    team,
+                    speed: spell.speed,
+                    damage: spell.damage + spell.attack_scale * self.h(id).attack_damage(),
+                    shot: Shot::Dagger {
+                        target: target.unwrap(),
+                        spell,
+                        dir,
+                    },
+                });
+            }
+            Kind::Pounce => {
+                let target = target.unwrap();
+                let victim = self.u(target);
+                let enemy = victim.team != team;
+                let dest = at.projected(dir, -(victim.r + self.u(id).r + 8.0));
+                let dest = origin.towards(dest, f64::INFINITY, 0.0, true, self.height());
+                self.blink(id, dest);
+                self.effect(
+                    "pounce",
+                    dest,
+                    json!({"fromX":origin.x, "fromY":origin.y, "team":team}),
+                );
+                if enemy {
+                    self.buff(id, &spell.name, spell.duration, spell.stats.clone());
+                    self.u_mut(id).attack_ready = time;
+                    self.command(id, Command::Attack(target))?;
+                } else {
+                    self.h_mut(id).order = Order::Stop;
+                }
+            }
             Kind::Brand => {
                 let pos = self.cast_point(id, spell, at);
                 self.h_mut(id).brands[brand_slot.unwrap()] = Some(Brand {

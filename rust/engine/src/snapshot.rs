@@ -90,6 +90,8 @@ struct PublicHero<'a> {
     respawn: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     heat: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    finisher_hits: Option<u32>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     dummy: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -178,6 +180,13 @@ impl Serialize for ProjectileRow<'_> {
         row.serialize_element(&quant(p.pos.x, 10.0))?;
         row.serialize_element(&quant(p.pos.y, 10.0))?;
         row.serialize_element(self.1)?;
+        if let Shot::Dagger { spell, dir, .. } = &p.shot {
+            row.serialize_element(&quant(dir.x, 100.0))?;
+            row.serialize_element(&quant(dir.y, 100.0))?;
+            row.serialize_element(&13)?;
+            row.serialize_element(&"dagger")?;
+            row.serialize_element(&spell.name)?;
+        }
         if let Shot::Bolt {
             dir,
             spell,
@@ -347,6 +356,7 @@ impl Match {
                     cyclone_until: (u.cyclone_until > time).then_some(u.cyclone_until),
                     respawn: (h.deaths > 0).then_some(h.respawn),
                     heat: kit.heat.as_ref().map(|_| h.heat),
+                    finisher_hits: h.finisher_hits(time),
                     dummy: u.dummy,
                     veiled,
                     lifted: u.lift_until > time,

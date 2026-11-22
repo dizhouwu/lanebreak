@@ -191,6 +191,12 @@ struct SpellBarrier {
     until: f64,
 }
 
+struct FinisherChain {
+    target: Id,
+    hits: u32,
+    until: f64,
+}
+
 struct Hero {
     key: String,
     name: String,
@@ -221,6 +227,7 @@ struct Hero {
     prepared: Vec<String>,
     weave_ready: BTreeMap<String, f64>,
     charge_until: f64,
+    finisher_chain: Option<FinisherChain>,
     brands: [Option<Brand>; BRAND_CAPACITY],
     brand_ready: [f64; BRAND_CAPACITY],
     heat: u32,
@@ -271,6 +278,7 @@ impl Hero {
             prepared: Vec::new(),
             weave_ready: BTreeMap::new(),
             charge_until: 0.0,
+            finisher_chain: None,
             brands: [None; BRAND_CAPACITY],
             brand_ready: [0.0; BRAND_CAPACITY],
             heat: 0,
@@ -288,6 +296,25 @@ impl Hero {
             recall_ready: 0.0,
             order: Order::None,
         }
+    }
+
+    fn attack_damage(&self) -> f64 {
+        stat(&self.stats, "damage") * stat(&self.stats, "multiplier")
+    }
+
+    fn finisher(&self) -> Option<&'static Spell> {
+        let spell = &self.kit().abilities[3];
+        (spell.crit_hits > 0 && self.level >= self.unlock(3)).then_some(spell)
+    }
+
+    fn finisher_hits(&self, now: f64) -> Option<u32> {
+        self.finisher()?;
+        Some(
+            self.finisher_chain
+                .as_ref()
+                .filter(|chain| chain.until > now)
+                .map_or(0, |chain| chain.hits),
+        )
     }
     fn kit(&self) -> &'static Kit {
         &rules().heroes[&self.key]
@@ -426,6 +453,11 @@ impl Unit {
 enum Shot {
     Attack {
         target: Id,
+    },
+    Dagger {
+        target: Id,
+        spell: &'static Spell,
+        dir: Point,
     },
     Bolt {
         dir: Point,
@@ -568,6 +600,7 @@ impl Match {
         let team_size = if m.team_match { 5 } else { 1 };
         let defaults = [
             "brakk", "orrin", "kestrel", "veyra", "morrow", "neris", "vesper", "cairn", "ecarg",
+            "calyx",
         ];
         let keys = options.heroes.unwrap_or_default();
         let bots = options.bots.unwrap_or_default();
@@ -812,13 +845,18 @@ impl Match {
             self.height(),
         )
     }
-    fn targetable_hero(&self, from: Id, target: Id, spell: &Spell) -> bool {
+    fn spell_can_target(&self, from: Id, target: Id, spell: &Spell) -> bool {
         self.units.get(&target).is_some_and(|u| {
             let a = self.u(from);
-            u.role == Role::Hero
-                && u.team != a.team
+            let allied = u.team == a.team;
+            let allowed = match spell.kind {
+                Kind::Dagger => !allied && u.role != Role::Building,
+                Kind::Pounce => target != from && u.role != Role::Building,
+                _ => !allied && u.role == Role::Hero,
+            };
+            allowed
                 && u.hp > 0.0
-                && !u.veiled(self.time)
+                && (allied || !u.veiled(self.time))
                 && !u.invulnerable(self.time)
                 && a.reach(u) <= spell.range
         })

@@ -569,6 +569,84 @@
         "spellward"
       ]
     },
+    "calyx": {
+      "name": "Calyx",
+      "title": "Glassknife",
+      "role": "Melee attack assassin",
+      "color": "#8cdcb0",
+      "hp": 625,
+      "hpGrowth": 82,
+      "mana": 265,
+      "manaGrowth": 25,
+      "damage": 58,
+      "damageGrowth": 4.7,
+      "armor": 3.4,
+      "armorGrowth": 0.5,
+      "range": 135,
+      "interval": 1.14,
+      "speed": 320,
+      "speedGrowth": 0.031,
+      "regen": 2.2,
+      "manaRegen": 1.15,
+      "abilities": [
+        {
+          "name": "Glass Shard",
+          "kind": "dagger",
+          "target": "enemyUnit",
+          "mana": 35,
+          "cd": 6,
+          "range": 760,
+          "speed": 1100,
+          "damage": 24,
+          "attackScale": 0.45,
+          "slow": 0.42,
+          "slowTime": 2,
+          "text": "Throw a tracking blade at an enemy hero or creep. It deals 24 plus 45% of your attack damage as physical damage and slows by 42% for 2s."
+        },
+        {
+          "name": "Knife Rush",
+          "kind": "pounce",
+          "target": "otherUnit",
+          "mana": 55,
+          "cd": 11,
+          "range": 610,
+          "duration": 3,
+          "stats": { "haste": 1.25 },
+          "text": "Blink next to an allied or enemy hero or creep. Jumping to an enemy starts attacking that target and grants 125% attack speed for 3s."
+        },
+        {
+          "name": "Slipaway",
+          "kind": "veil",
+          "mana": 65,
+          "cd": 19,
+          "duration": 3,
+          "text": "Conceal yourself for 3s. Attacking or casting another spell ends concealment."
+        },
+        {
+          "name": "Fault Cut",
+          "kind": "passive",
+          "mana": 0,
+          "cd": 0,
+          "critHits": 4,
+          "critMultiplier": 2.8,
+          "duration": 5,
+          "text": "Every fourth basic attack against the same enemy hero deals 2.8× damage. Hit within 5s to keep the chain. Hitting another hero starts a new chain. This critical strike takes priority over item critical strikes."
+        }
+      ],
+      "recommendedBuilds": [
+        {
+          "name": "Backline assassin",
+          "detail": "Use a spell barrier to survive the dive and attack damage to make Fault Cut count.",
+          "items": ["wayfarer", "executioner", "spellward", "faultline", "crown", "colossus"]
+        },
+        {
+          "name": "Lane carry",
+          "detail": "Farm with splash damage, then use lifesteal and slows to stay on your target.",
+          "items": ["striders", "reaver", "wellsplitter", "executioner", "crown", "spellward"]
+        }
+      ],
+      "build": ["boots", "stone", "gloves", "striders", "greatblade", "executioner", "fang", "crown", "faultline", "spellward"]
+    },
     "neris": {
       "name": "Neris",
       "title": "Loomkeeper",

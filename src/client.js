@@ -673,7 +673,9 @@
   function currentCast(h, cast) {
     return cast.item ? ITEMS[h.inventory?.[cast.i]?.id] : abilitySpell(h, cast.i);
   }
-  function heroTargetLabel(spell) {
+  function unitTargetLabel(spell) {
+    if (spell.target === 'enemyUnit') return 'an enemy hero or creep';
+    if (spell.target === 'otherUnit') return 'another hero or creep';
     if (spell.target === 'ally') return 'yourself or an allied hero';
     if (spell.target === 'selfOrEnemy') return 'yourself or an enemy hero';
     return 'an enemy hero';
@@ -687,7 +689,7 @@
     if (cast) {
       const instruction = cast.spell.kind === 'brandReturn' ? 'Click to choose the final fire brand' :
         cast.spell.target === 'point' ? 'Click a point to blink' :
-        cast.mode === 'unit' ? 'Click ' + heroTargetLabel(cast.spell) : 'Select a target';
+        cast.mode === 'unit' ? 'Click ' + unitTargetLabel(cast.spell) : 'Select a target';
       prompt.textContent = cast.spell.name + ' · ' + instruction;
       castButton(cast).classList.add('aiming');
     }
@@ -882,7 +884,7 @@
       add(item.name, 'heading');
       add(item.text);
       if (item.cd) add('Active cooldown · ' + item.cd + 's');
-      if (item.target) add(item.target === 'point' ? 'Target a point on the ground' : 'Target ' + heroTargetLabel(item));
+      if (item.target) add(item.target === 'point' ? 'Target a point on the ground' : 'Target ' + unitTargetLabel(item));
       if (selling) {
         add('Sells for ' + sellValue(h.inventory[slot], time) + 'g', 'cost');
         if (!h.canShop) add('Return to your fountain to sell items');
@@ -1134,21 +1136,24 @@
       const manaCost = s.training ? 0 : spell.mana;
       const manaLabel = manaCost && spell.distanceMana ? manaCost + '+' : manaCost;
       const passive = spell.kind === 'passive';
+      const finisher = h.finisherHits != null && spell.critHits;
+      const charged = finisher ? h.finisherHits === spell.critHits - 1 : h.charged;
       const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
       tile.firstElementChild.textContent = spell.name;
-      button.dataset.state = cast ? 'channeling' : locked || empty || placed === 0 || (awaitingMarks && !cd) ? 'locked' : passive ? (h.charged ? 'ready' : 'passive') :
+      button.dataset.state = cast ? 'channeling' : locked || empty || placed === 0 || (awaitingMarks && !cd) ? 'locked' : passive ? (charged ? 'ready' : 'passive') :
         cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
       button.lastElementChild.textContent = cast ? 'Chant ' + Math.max(0, cast[2] - time).toFixed(1) + 's' :
         locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
-        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' : passive ? (h.charged ? 'Charged' : 'Passive') :
+        awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' :
+        finisher ? (charged ? 'Crit ready' : h.finisherHits + '/' + (spell.critHits - 1)) : passive ? (charged ? 'Charged' : 'Passive') :
         charges !== null ? charges + '/' + h.brandChargeReady.length : placed !== null ? placed + ' marked' : manaLabel || '';
       const cooldown = s.training?.noCooldowns ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
-      const damage = spell.kind === 'sweep' ? spell.damage + spell.growth * (h.level - 1) : spellDamage(h, spell);
+      const damage = spell.kind === 'dagger' ? 0 : spell.kind === 'sweep' ? spell.damage + spell.growth * (h.level - 1) : spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaLabel ? ' · ' + manaLabel + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
         (locked ? ' · Lv ' + level : '') + '\n' + spell.text + (damage ? '\n' + damage +
           (spell.kind === 'sweep' ? ' bonus attack damage vs. heroes' : ' ability damage' + (spell.hits ? ' per hit' : '')) : '') +
-        (spell.kind === 'unit' ? '\nClick an enemy hero to cast' : abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
+        (abilityCastMode(spell) === 'unit' ? '\nClick ' + unitTargetLabel(spell) + ' to cast' : abilityNeedsTarget(spell) ? '\nSelect a target to cast' : '') +
         (spell.kind === 'invoke' ? '\n\n' + weaveGuide : '');
       button.setAttribute('aria-label', spell.name + ' (' + keys[i] + ')');
     }
@@ -1268,7 +1273,7 @@
       }
       if (mode === 'unit') {
         const target = pickSpellTarget(visible, visible.heroes[team], spell, p);
-        if (!target) return hint('Select ' + heroTargetLabel(spell) + ' in range');
+        if (!target) return hint('Select ' + unitTargetLabel(spell) + ' in range');
         const order = item ? { o:'targetItem', i, id:target.id, item } : { o:'cast', i, id:target.id, castMode:mode, recipe };
         if (issue(order)) setPendingCast(null);
       } else if (item) {

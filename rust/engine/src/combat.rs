@@ -436,6 +436,7 @@ impl Match {
                 let h = u.hero.as_mut().unwrap();
                 h.deaths += 1;
                 h.charge_until = 0.0;
+                h.finisher_chain = None;
                 h.brands.fill(None);
                 h.heat /= 2;
                 h.respawn = t + 5.0 + 2.2 * f64::from(h.level);
@@ -485,10 +486,7 @@ impl Match {
     pub(super) fn damage_at_launch(&mut self, id: Id) -> f64 {
         let u = self.u(id);
         let (damage, crit) = if let Some(h) = &u.hero {
-            (
-                stat(&h.stats, "damage") * stat(&h.stats, "multiplier"),
-                stat(&h.stats, "crit"),
-            )
+            (h.attack_damage(), stat(&h.stats, "crit"))
         } else {
             (
                 u.damage * if u.horn_until > self.time { 1.4 } else { 1.0 },
@@ -517,11 +515,46 @@ impl Match {
         if charge_at.is_some() {
             self.h_mut(from).charge_until = 0.0;
         }
+        let damage = self.finisher_damage(from, target).unwrap_or(damage);
         self.hurt(target, damage, from, false, true);
         if let Some(pos) = charge_at {
             let passive = &self.h(from).kit().abilities[2];
             self.blast(from, passive, pos, self.spell_damage(from, passive));
         }
+    }
+
+    fn finisher_damage(&mut self, from: Id, target: Id) -> Option<f64> {
+        let a = self.u(from);
+        let b = self.u(target);
+        if a.hp <= 0.0
+            || a.team == b.team
+            || b.role != Role::Hero
+            || b.hp <= 0.0
+            || b.invulnerable(self.time)
+            || b.veiled(self.time)
+            || self.protected(target)
+        {
+            return None;
+        }
+        let spell = a.hero.as_ref()?.finisher()?;
+        let (time, pos, team, facing) = (self.time, b.pos, a.team, a.facing);
+        let h = self.h_mut(from);
+        let hits = h
+            .finisher_chain
+            .as_ref()
+            .filter(|chain| chain.target == target && chain.until > time)
+            .map_or(1, |chain| chain.hits + 1);
+        h.finisher_chain = (hits < spell.crit_hits).then_some(FinisherChain {
+            target,
+            hits,
+            until: time + spell.duration,
+        });
+        if hits < spell.crit_hits {
+            return None;
+        }
+        let damage = h.attack_damage() * spell.crit_multiplier;
+        self.effect("finisher", pos, json!({"team":team, "facing":facing}));
+        Some(damage)
     }
 
     fn attack_speed(&self, id: Id) -> f64 {

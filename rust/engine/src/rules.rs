@@ -20,6 +20,8 @@ pub enum Kind {
     Blink,
     Buff,
     Unit,
+    Dagger,
+    Pounce,
     Spirit,
     Meteor,
     Veil,
@@ -47,6 +49,8 @@ impl Kind {
             Self::Blink => "blink",
             Self::Buff => "buff",
             Self::Unit => "unit",
+            Self::Dagger => "dagger",
+            Self::Pounce => "pounce",
             Self::Spirit => "spirit",
             Self::Meteor => "meteor",
             Self::Veil => "veil",
@@ -105,6 +109,9 @@ pub struct Spell {
     pub shot: f64,
     pub shot_growth: f64,
     pub reel_speed: f64,
+    pub attack_scale: f64,
+    pub crit_hits: u32,
+    pub crit_multiplier: f64,
 }
 
 impl Spell {
@@ -123,7 +130,7 @@ impl Spell {
 
     pub fn cast_mode(&self) -> &'static str {
         match self.kind {
-            Kind::Unit => "unit",
+            Kind::Unit | Kind::Dagger | Kind::Pounce => "unit",
             Kind::Blast if !self.fixed && self.range > 0.0 => "point",
             Kind::Bolt
             | Kind::Hook

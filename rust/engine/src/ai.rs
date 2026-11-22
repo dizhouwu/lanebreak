@@ -80,12 +80,21 @@ impl Match {
     fn ai_burst(&self, id: Id, enemy: Id) -> f64 {
         let h = self.h(id);
         let mut mana = h.mana;
-        let mut damage = 3.0
-            * stat(&h.stats, "damage")
-            * stat(&h.stats, "multiplier")
-            * physical(self.u(enemy).armor);
+        let mut damage = 3.0 * h.attack_damage() * physical(self.u(enemy).armor);
+        if let Some(spell) = h.finisher()
+            && h.finisher_chain
+                .as_ref()
+                .is_some_and(|chain| chain.target == enemy && chain.until > self.time)
+        {
+            damage +=
+                h.attack_damage() * (spell.crit_multiplier - 1.0) * physical(self.u(enemy).armor);
+        }
         let kit = h.kit();
         let cast_damage = |s: &Spell| {
+            if s.kind == Kind::Dagger {
+                return (s.damage + s.attack_scale * h.attack_damage())
+                    * physical(self.u(enemy).armor);
+            }
             0.75 * self.spell_damage(id, s)
                 * if s.hits == 0 {
                     1.0
@@ -164,6 +173,7 @@ impl Match {
             f64::INFINITY
         };
         let (health, mana) = (a.hp / a.max_hp, h.mana / h.max_mana);
+        let attack_damage = h.attack_damage();
         let enemy_health = if enemy_alive { b.hp / b.max_hp } else { 1.0 };
         let kill = tactic == Tactic::Kill;
         let push = tactic == Tactic::Push;
@@ -235,7 +245,40 @@ impl Match {
                     }
                 }
                 Kind::Unit => {
-                    if (kill || mana > 0.4) && self.targetable_hero(id, enemy, spell) {
+                    if (kill || mana > 0.4) && self.spell_can_target(id, enemy, spell) {
+                        target = Some(enemy);
+                        Some(enemy_pos)
+                    } else {
+                        None
+                    }
+                }
+                Kind::Dagger => {
+                    if (kill || mana > 0.35) && self.spell_can_target(id, enemy, spell) {
+                        target = Some(enemy);
+                    } else if (push || tactic == Tactic::Lane) && mana > 0.6 {
+                        let raw = spell.damage + spell.attack_scale * attack_damage;
+                        target = self
+                            .nearby_creeps(pos, enemy_team, spell.range)
+                            .into_iter()
+                            .find(|&creep| {
+                                let creep = self.u(creep);
+                                creep.hp <= raw * physical(creep.armor)
+                                    && self.spell_can_target(id, creep.id, spell)
+                            });
+                    }
+                    target.map(|target| self.u(target).pos)
+                }
+                Kind::Pounce => {
+                    if self.spell_can_target(id, enemy, spell)
+                        && (kill
+                            || tactic == Tactic::Trade && health > 0.52 && health >= enemy_health)
+                        && !self.buildings.iter().any(|&tower| {
+                            let b = self.u(tower);
+                            b.team == enemy_team
+                                && b.hp > 0.0
+                                && enemy_pos.dist(b.pos) < b.range + 70.0
+                        })
+                    {
                         target = Some(enemy);
                         Some(enemy_pos)
                     } else {
@@ -434,6 +477,7 @@ impl Match {
                         kit.abilities.iter().enumerate().position(|(i, spell)| {
                             self.ability_ready(id, i, self.h(id).mana)
                                 && (matches!(spell.kind, Kind::Dash | Kind::Blink)
+                                    || spell.kind == Kind::Veil && !self.u(id).veiled(t)
                                     || spell.kind == Kind::Buff
                                         && (stat(&spell.stats, "move") > 0.0
                                             || stat(&spell.stats, "armor") > 0.0))
@@ -641,6 +685,18 @@ impl Match {
         }
         if health < 0.30 || (self.h(id).retreat && health < 0.9) {
             self.h_mut(id).retreat = true;
+            if let Some(slot) = self
+                .h(id)
+                .kit()
+                .abilities
+                .iter()
+                .position(|spell| spell.kind == Kind::Veil)
+                && !self.u(id).veiled(self.time)
+                && self.ability_ready(id, slot, self.h(id).mana)
+                && self.nearest(id, 550.0, |b| b.role == Role::Hero).is_some()
+            {
+                self.cast_bot_spell(id, slot, pos, None, None);
+            }
             let _ = self.command(id, Command::Move(home));
             return;
         }

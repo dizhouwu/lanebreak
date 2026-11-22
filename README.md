@@ -12,6 +12,7 @@ A browser strategy game with a one-lane 1v1 duel and a separate three-lane 5v5 b
 | Kestrel, Arc Runner | Mobile lightning skirmisher with a magnetic pull, charged basic attacks, and a distance-priced dash |
 | Veyra, Cinder Pilgrim | Melee fire skirmisher who can root nearby enemies during a flurry of basic attacks. Place up to three fire brands with R, then press D and click the ground to detonate them all, ending at the brand nearest the click. |
 | Morrow, Chain Warden | Melee initiator who grapples the first unit in his line of fire to catch an enemy or rescue an ally |
+| Calyx, Glassknife | Melee assassin who slows with a tracking shard, blinks to another unit, and lands a critical strike on every fourth hit against the same hero |
 | Neris, Loomkeeper | Weaves ten spells from three-mark combinations and casts them from two slots |
 | Cairn, Kiln Keeper | Ranged burst carry who builds Heat by last-hitting creeps |
 | Ecarg, String Virtuoso | Bowed notes mark heroes for stronger follow-up spells |

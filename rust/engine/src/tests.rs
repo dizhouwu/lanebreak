@@ -783,6 +783,94 @@ fn grapnel_hits_the_first_unit_and_reels_to_its_launch_point() {
 }
 
 #[test]
+fn glass_shard_tracks_its_selected_enemy_and_knife_rush_accepts_allies() {
+    let mut m = duel(["calyx", "brakk"]);
+    m.h_mut(1).level = 6;
+    m.refresh(1);
+    m.command(1, Command::Stop).unwrap();
+    m.command(2, Command::Stop).unwrap();
+    place(&mut m, 1, 2200.0, 450.0);
+    place(&mut m, 2, 2700.0, 450.0);
+    let ally = m.insert(Unit {
+        team: 0,
+        role: Role::Creep,
+        kind: "melee",
+        r: 15.0,
+        hp: 400.0,
+        max_hp: 400.0,
+        pos: Point::new(2450.0, 450.0),
+        ..Unit::default()
+    });
+    assert!(
+        m.command(1, Command::cast(0, Point::default(), Some(ally)))
+            .is_err()
+    );
+    assert!(
+        m.command(1, Command::cast(1, Point::default(), Some(1)))
+            .is_err()
+    );
+    assert_eq!(m.h(1).cd[0..2], [0.0, 0.0]);
+
+    let enemy_hp = m.u(2).hp;
+    m.command(1, Command::cast(0, Point::default(), Some(2)))
+        .unwrap();
+    assert_eq!(view(&m, 0)["projectiles"][0][9], "dagger");
+    m.step(DT, 10);
+    assert_eq!(m.u(2).hp, enemy_hp);
+    place(&mut m, 2, 2680.0, 630.0);
+    m.step(DT, 32);
+    assert!(m.u(2).hp < enemy_hp);
+    assert!(m.u(2).slows.iter().any(|slow| slow.id == "glassShard"));
+    assert_eq!(m.u(ally).hp, 400.0);
+    assert_eq!(m.h(1).finisher_hits(m.time), Some(0));
+
+    m.command(1, Command::cast(1, Point::default(), Some(2)))
+        .unwrap();
+    assert!(m.u(1).reach(m.u(2)) < 80.0);
+    assert!(matches!(m.h(1).order, Order::Attack(2)));
+    m.refresh_if_changed(1);
+    let expected_haste = 2.25 + m.h(1).kit().speed_growth * 5.0;
+    assert!((stat(&m.h(1).stats, "haste") - expected_haste).abs() < 1e-9);
+    m.time = m.h(1).cd[1];
+    m.u_mut(1).root_until = m.time + 1.0;
+    assert!(
+        m.command(1, Command::cast(1, Point::default(), Some(ally)))
+            .is_err()
+    );
+    m.u_mut(1).root_until = 0.0;
+    m.command(1, Command::cast(1, Point::default(), Some(ally)))
+        .unwrap();
+    assert!(m.u(1).reach(m.u(ally)) < 80.0);
+    assert!(matches!(m.h(1).order, Order::Stop));
+}
+
+#[test]
+fn fault_cut_resets_when_its_chain_expires_and_overrides_item_crits() {
+    let mut m = training("calyx", true);
+    let raw = m.h(1).attack_damage();
+    let armor = physical(m.u(2).armor);
+    for hits in 1..=3 {
+        m.attack_hit(1, 2, raw);
+        assert_eq!(view(&m, 0)["heroes"][0]["finisherHits"], hits);
+    }
+    m.time += 5.0;
+    assert_eq!(m.h(1).finisher_hits(m.time), Some(0));
+    for _ in 0..3 {
+        m.attack_hit(1, 2, raw);
+    }
+    m.attack_hit(1, 2, raw * 1.8);
+    assert!((m.training.as_ref().unwrap().last_hit - raw * 2.8 * armor).abs() < 1e-8);
+    assert_eq!(m.h(1).finisher_hits(m.time), Some(0));
+    assert!(
+        view(&m, 0)["effects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["kind"] == "finisher")
+    );
+}
+
+#[test]
 fn spirit_selection_orders_only_move_units_owned_by_the_issuing_player() {
     let mut m = duel(["neris", "brakk"]);
     place(&mut m, 1, 2000.0, 450.0);
@@ -931,11 +1019,15 @@ fn every_standard_kit_enforces_unlocks_and_cast_costs() {
                     .contains("level 2")
             );
         }
-        cast(&mut m, 0, point);
+        let target = (kit.abilities[0].cast_mode() == "unit").then_some(2);
+        if target.is_some() {
+            place(&mut m, 2, point.x, point.y);
+        }
+        m.command(1, Command::cast(0, point, target)).unwrap();
         assert_eq!(m.h(1).mana, m.h(1).max_mana - kit.abilities[0].mana);
         m.step(DT, 60);
         assert!(
-            m.command(1, Command::cast(0, point, None))
+            m.command(1, Command::cast(0, point, target))
                 .unwrap_err()
                 .contains("cooling")
         );

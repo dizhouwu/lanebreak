@@ -510,8 +510,9 @@ impl Match {
 
     fn update_projectile(&mut self, p: &mut Projectile, dt: f64) -> bool {
         match &mut p.shot {
-            Shot::Attack { target } => {
-                let Some(b) = self.units.get(target) else {
+            Shot::Attack { target } | Shot::Dagger { target, .. } => {
+                let target = *target;
+                let Some(b) = self.units.get(&target) else {
                     return false;
                 };
                 if b.hp <= 0.0 || b.invulnerable(self.time) || b.veiled(self.time) {
@@ -519,12 +520,24 @@ impl Match {
                 }
                 let d = p.pos.dist(b.pos);
                 if d <= p.speed * dt + b.r / 2.0 {
-                    self.attack_hit(p.from, *target, p.damage);
+                    if let Shot::Dagger { spell, .. } = p.shot {
+                        let pos = b.pos;
+                        self.slow(target, "glassShard", spell.slow, spell.slow_time);
+                        self.hurt(target, p.damage, p.from, false, false);
+                        self.effect("impact", pos, json!({
+                            "team": p.team, "hero": self.h(p.from).key, "radius": 48, "ability": spell.name
+                        }));
+                    } else {
+                        self.attack_hit(p.from, target, p.damage);
+                    }
                     return false;
                 }
                 let delta = b.pos.delta(p.pos);
-                p.pos.x += delta.x / d * p.speed * dt;
-                p.pos.y += delta.y / d * p.speed * dt;
+                let heading = Point::new(delta.x / d, delta.y / d);
+                p.pos = p.pos.projected(heading, p.speed * dt);
+                if let Shot::Dagger { dir, .. } = &mut p.shot {
+                    *dir = heading;
+                }
                 true
             }
             Shot::Bolt {
