@@ -3,6 +3,7 @@
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
   const TEAM_VIEW_HEIGHT = 1500;
+  const TEAM_AUTO_DPR_LIMIT = 1.25;
   const SPRITE_SCALE = 2;
   const BUILDING_SPRITE = { left:108, top:124, width:216, height:200 };
   const CREEP_SPRITE = { left:48, top:30, width:96, height:56 };
@@ -354,7 +355,8 @@
       const factor = { auto: this.auto, high: 1, medium: .75, low: .5 }[this.quality];
       const { clientWidth, clientHeight } = this.canvas;
       const cap = Math.sqrt(3840 * 2160 / Math.max(1, clientWidth * clientHeight));
-      const dpr = Math.min(devicePixelRatio || 1, 2, cap) * factor;
+      const dprLimit = this.quality === 'auto' && this.height === TEAM_MAP.height ? TEAM_AUTO_DPR_LIMIT : 2;
+      const dpr = Math.min(devicePixelRatio || 1, dprLimit, cap) * factor;
       const w = Math.round(clientWidth * dpr), h = Math.round(clientHeight * dpr);
       if (w !== this.canvas.width || h !== this.canvas.height) {
         this.canvas.width = w; this.canvas.height = h; this.dirty = true;
