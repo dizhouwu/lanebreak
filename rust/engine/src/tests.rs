@@ -150,12 +150,13 @@ fn frost_loom_spawns_perpendicular_without_aiming_and_only_ticks_inside_the_wall
     let mut m = training("neris", true);
     prepare(&mut m, "QQE");
     let start = m.u(1).pos;
-    place(&mut m, 2, start.x + 200.0, start.y + 280.0);
+    let wall_x = start.x + 80.0;
+    place(&mut m, 2, wall_x, start.y + 280.0);
     let order =
         json!({"o":"cast","i":4,"x":start.x-500.0,"y":start.y,"castMode":"self","recipe":"QQE"})
             .to_string();
     assert_eq!(m.order_json(0, &order), None);
-    assert_eq!(m.areas[0].pos, Point::new(start.x + 200.0, start.y));
+    assert_eq!(m.areas[0].pos, Point::new(wall_x, start.y));
     assert_eq!(m.areas[0].dir, Point::new(1.0, 0.0));
     assert_eq!(view(&m, 0)["areas"][0][9], "wall");
     m.step(DT, 12);
@@ -168,7 +169,7 @@ fn frost_loom_spawns_perpendicular_without_aiming_and_only_ticks_inside_the_wall
     assert_eq!(m.training.as_ref().unwrap().hits, 0);
     m.step(DT, 52);
     assert_eq!(m.training.as_ref().unwrap().hits, 1);
-    place(&mut m, 2, start.x + 330.0, start.y + 280.0);
+    place(&mut m, 2, wall_x + 130.0, start.y + 280.0);
     m.step(DT, 250);
     assert_eq!(m.training.as_ref().unwrap().hits, 1);
     assert!(m.areas.is_empty());

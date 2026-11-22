@@ -532,7 +532,7 @@
           "kind": "wall",
           "mana": 75,
           "cd": 13,
-          "range": 200,
+          "range": 80,
           "radius": 480,
           "wallDepth": 55,
           "delay": 1,
@@ -542,7 +542,7 @@
           "growth": 4,
           "slow": 0.58,
           "slowTime": 0.65,
-          "text": "Raise a wall of ice across the ground in front of you for 5s. Enemies near it are slowed by 58% and take damage each second. Casts immediately along your facing."
+          "text": "Instantly raise a wall of ice just in front of you, perpendicular to your facing, for 5s. Enemies near it are slowed by 58% and take damage each second."
         },
         "QWW": {
           "name": "Crosswind",
