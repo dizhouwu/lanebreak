@@ -166,6 +166,14 @@ struct ProjectileRow<'a>(&'a Projectile, &'a str);
 fn quant(n: f64, scale: f64) -> f64 {
     js_round(n * scale) / scale
 }
+fn creep_flags(c: &Unit, time: f64) -> u8 {
+    u8::from(c.stun_until > time)
+        | (u8::from(c.horn_until > time) << 1)
+        | (u8::from(c.hp < c.max_hp / 2.0 && c.spirit.is_none()) << 2)
+        | (u8::from(c.spirit.is_some()) << 3)
+        | (u8::from(c.lift_until > time) << 4)
+        | (u8::from(c.root_until > time) << 5)
+}
 impl Serialize for ProjectileRow<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let p = self.0;
@@ -302,6 +310,14 @@ struct View<'a> {
     effects_delta: bool,
 }
 
+#[derive(Serialize)]
+struct Snapshot<'a> {
+    #[serde(flatten)]
+    world: World<'a>,
+    #[serde(flatten)]
+    view: View<'a>,
+}
+
 impl Match {
     fn view(&self, seat: usize, full: bool, after: Option<u64>) -> View<'_> {
         let player = self.heroes.get(seat).copied().unwrap_or(self.heroes[0]);
@@ -418,7 +434,7 @@ impl Match {
         }
     }
 
-    fn world(&self) -> World<'_> {
+    fn world(&self, include_all_rows: bool) -> World<'_> {
         let t = self.time;
         World {
             time: t,
@@ -448,36 +464,34 @@ impl Match {
                     }
                 })
                 .collect(),
-            creeps: self
-                .creeps
-                .iter()
-                .map(|&id| {
-                    let c = self.u(id);
-                    let flags = u8::from(c.stun_until > t)
-                        | (u8::from(c.horn_until > t) << 1)
-                        | (u8::from(c.hp < c.max_hp / 2.0 && c.spirit.is_none()) << 2)
-                        | (u8::from(c.spirit.is_some()) << 3)
-                        | (u8::from(c.lift_until > t) << 4)
-                        | (u8::from(c.root_until > t) << 5);
-                    CreepRow(
-                        id,
-                        c.team,
-                        c.kind,
-                        quant(c.pos.x, 10.0),
-                        quant(c.pos.y, 10.0),
-                        c.hp.ceil(),
-                        c.max_hp.ceil(),
-                        c.windup.is_some(),
-                        quant(c.r, 10.0),
-                        quant(c.facing, 100.0),
-                        flags,
-                        c.spirit.map(|s| s.owner),
-                    )
-                })
-                .collect(),
+            creeps: if include_all_rows {
+                self.creeps
+                    .iter()
+                    .map(|&id| {
+                        let c = self.u(id);
+                        CreepRow(
+                            id,
+                            c.team,
+                            c.kind,
+                            quant(c.pos.x, 10.0),
+                            quant(c.pos.y, 10.0),
+                            c.hp.ceil(),
+                            c.max_hp.ceil(),
+                            c.windup.is_some(),
+                            quant(c.r, 10.0),
+                            quant(c.facing, 100.0),
+                            creep_flags(c, t),
+                            c.spirit.map(|s| s.owner),
+                        )
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            },
             projectiles: self
                 .projectiles
                 .iter()
+                .filter(|p| include_all_rows || !matches!(p.shot, Shot::Attack { .. }))
                 .map(|p| ProjectileRow(p, self.u(p.from).source_name()))
                 .collect(),
             areas: self
@@ -490,7 +504,7 @@ impl Match {
     }
 
     pub fn snapshot_world(&self) -> String {
-        serde_json::to_string(&self.world()).expect("serializing world")
+        serde_json::to_string(&self.world(true)).expect("serializing world")
     }
     pub fn effect_cursor(&self) -> u64 {
         self.next_effect
@@ -499,17 +513,86 @@ impl Match {
         serde_json::to_string(&self.view(seat, full, after)).expect("serializing seat")
     }
     pub fn snapshot(&self, team: usize, full: bool) -> String {
-        #[derive(Serialize)]
-        struct Snapshot<'a> {
-            #[serde(flatten)]
-            world: World<'a>,
-            #[serde(flatten)]
-            view: View<'a>,
-        }
         serde_json::to_string(&Snapshot {
-            world: self.world(),
+            world: self.world(true),
             view: self.view(team, full, None),
         })
         .expect("serializing match")
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(super) fn browser_snapshot(
+        &self,
+        seat: usize,
+        full: bool,
+        json: &mut Vec<u8>,
+        rows: &mut Vec<u32>,
+    ) {
+        fn tag<'a>(strings: &mut Vec<&'a str>, text: &'a str) -> u32 {
+            if let Some(index) = strings.iter().position(|&existing| existing == text) {
+                return index as u32;
+            }
+            let index = strings.len();
+            strings.push(text);
+            index as u32
+        }
+
+        fn fixed(value: f64, scale: f64) -> u32 {
+            js_round(value * scale) as i32 as u32
+        }
+
+        rows.clear();
+        json.clear();
+        let pack_rows = !self.creeps.is_empty()
+            || self
+                .projectiles
+                .iter()
+                .any(|p| matches!(p.shot, Shot::Attack { .. }));
+        let snapshot = Snapshot {
+            world: self.world(!pack_rows),
+            view: self.view(seat, full, None),
+        };
+        if !pack_rows {
+            serde_json::to_writer(json, &snapshot).expect("serializing browser match");
+            return;
+        }
+
+        let mut strings = Vec::new();
+        rows.reserve(2 + self.creeps.len() * 9 + self.projectiles.len() * 4);
+        rows.extend([self.creeps.len() as u32, self.projectiles.len() as u32]);
+        // Creep rows store signed fixed-point fields plus team, attack, status, and kind bits.
+        for &id in &self.creeps {
+            let c = self.u(id);
+            let metadata = c.team as u32
+                | (u32::from(c.windup.is_some()) << 1)
+                | (u32::from(creep_flags(c, self.time)) << 2)
+                | (tag(&mut strings, c.kind) << 10);
+            rows.extend([
+                id,
+                fixed(c.pos.x, 10.0),
+                fixed(c.pos.y, 10.0),
+                c.hp.ceil() as i32 as u32,
+                c.max_hp.ceil() as i32 as u32,
+                fixed(c.r, 10.0),
+                fixed(c.facing, 100.0),
+                metadata,
+                c.spirit.map_or(0, |s| s.owner),
+            ]);
+        }
+        // Zero IDs mark spell projectiles, whose variable details remain in JSON.
+        for p in &self.projectiles {
+            let row = if matches!(p.shot, Shot::Attack { .. }) {
+                [
+                    p.id,
+                    fixed(p.pos.x, 10.0),
+                    fixed(p.pos.y, 10.0),
+                    p.team as u32 | (tag(&mut strings, self.u(p.from).source_name()) << 1),
+                ]
+            } else {
+                [0; 4]
+            };
+            rows.extend(row);
+        }
+        serde_json::to_writer(json, &(snapshot, strings)).expect("serializing browser match");
     }
 }

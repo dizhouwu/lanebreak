@@ -1437,14 +1437,16 @@
   function interpolateMotion(a, b, time) {
     if (time >= b.time) return b;
     const f = (time - a.time) / ((b.time - a.time) || 1);
-    const mix = (x, y, bx, by) => (x-bx)**2 + (y-by)**2 > 250**2 ? [bx,by] : [x+(bx-x)*f,y+(by-y)*f];
     function objects() {
       return b.heroes.map((h, i) => {
         const current = snapshot.heroes[i];
-        if (current.concealed || h.concealed || a.heroes[i].concealed || h.jump !== current.jump ||
-          h.jump !== a.heroes[i].jump || h.hero !== a.heroes[i].hero || h.hp <= 0 || a.heroes[i].hp <= 0) return current;
-        const [x,y] = mix(a.heroes[i].x,a.heroes[i].y,h.x,h.y);
-        return { ...h,x,y };
+        const before = a.heroes[i];
+        if (current.concealed || h.concealed || before.concealed || h.jump !== current.jump ||
+          h.jump !== before.jump || h.hero !== before.hero || h.hp <= 0 || before.hp <= 0) return current;
+        const dx = h.x - before.x, dy = h.y - before.y;
+        const squared = dx*dx + dy*dy;
+        if (!squared || squared > 250**2) return h;
+        return { ...h, x:before.x + dx*f, y:before.y + dy*f };
       });
     }
     function rows(prev, next, xi, yi) {
@@ -1458,8 +1460,12 @@
       return next.map(row => {
         const before = old.get(row[0]);
         if (!before) return row;
+        const dx = row[xi] - before[xi], dy = row[yi] - before[yi];
+        const squared = dx*dx + dy*dy;
+        if (!squared || squared > 250**2) return row;
         const nextRow = [...row];
-        [nextRow[xi],nextRow[yi]] = mix(before[xi],before[yi],row[xi],row[yi]);
+        nextRow[xi] = before[xi] + dx*f;
+        nextRow[yi] = before[yi] + dy*f;
         return nextRow;
       });
     }

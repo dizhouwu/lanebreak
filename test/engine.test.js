@@ -117,6 +117,27 @@ test('native and browser bot matches advance the same state from the same seed',
   wasm.dispose();
 });
 
+test('browser snapshots preserve mixed projectile order and survive later captures', () => {
+  const BrowserMatch = browserMatch();
+  const options = {heroes:['vesper','brakk'], training:{dummy:true}, seed:27};
+  const native = new Match(options), browser = new BrowserMatch(options);
+  const target = native.snapshot(0).heroes[1];
+  for (const match of [native,browser]) {
+    assert.equal(match.order(0, {o:'attack',id:target.id}), null);
+    match.step(dt, 20);
+    assert.equal(match.order(0, {o:'cast',i:0,castMode:'point',x:target.x,y:target.y}), null);
+  }
+  const saved = browser.snapshot(0);
+  const projectiles = JSON.parse(JSON.stringify(saved.projectiles));
+  assert.deepEqual(projectiles.map(row=>row[2]), ['attack','bolt']);
+  assert.deepEqual(projectiles, native.snapshot(0).projectiles);
+  for (const match of [native,browser]) match.step(dt, 120);
+  assert.deepEqual(JSON.parse(JSON.stringify(browser.snapshot(0).projectiles)), native.snapshot(0).projectiles);
+  assert.deepEqual(JSON.parse(JSON.stringify(saved.projectiles)), projectiles);
+  native.dispose();
+  browser.dispose();
+});
+
 test('the server validates positions, slots, target ids, and stale prepared spells', () => {
   assert.equal(validOrder({o:'cast', i:4, id:2, castMode:'unit', recipe:'QQQ'}),true);
   assert.equal(validOrder({o:'cast', i:4, id:-1, castMode:'unit', recipe:'QQQ'}),false);

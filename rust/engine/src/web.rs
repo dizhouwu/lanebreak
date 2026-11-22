@@ -7,6 +7,9 @@ struct Runtime {
     key: u32,
     input: Vec<u8>,
     output: String,
+    snapshot_json: Vec<u8>,
+    snapshot_rows: Vec<u32>,
+    snapshot_frame: [u32; 4],
 }
 
 thread_local! {
@@ -66,13 +69,22 @@ extern "C" fn engine_step(id: u32, dt: f64, count: u32) {
 }
 
 #[unsafe(no_mangle)]
-extern "C" fn engine_snapshot(id: u32, team: usize, full: bool) -> *const u8 {
+extern "C" fn engine_snapshot(id: u32, team: usize, full: bool) -> *const u32 {
     RUNTIME.with_borrow_mut(|r| {
-        r.output = r
-            .games
-            .get(&id)
-            .map_or_else(|| "null".into(), |game| game.snapshot(team, full));
-        r.output.as_ptr()
+        if let Some(game) = r.games.get(&id) {
+            game.browser_snapshot(team, full, &mut r.snapshot_json, &mut r.snapshot_rows);
+        } else {
+            r.snapshot_json.clear();
+            r.snapshot_json.extend_from_slice(b"null");
+            r.snapshot_rows.clear();
+        }
+        r.snapshot_frame = [
+            r.snapshot_json.as_ptr() as u32,
+            r.snapshot_json.len() as u32,
+            r.snapshot_rows.as_ptr() as u32,
+            r.snapshot_rows.len() as u32,
+        ];
+        r.snapshot_frame.as_ptr()
     })
 }
 
