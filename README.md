@@ -61,7 +61,7 @@ Open `lanebreak.html` in a desktop browser, choose a hero and difficulty, and cl
 | Show or hide teams, hero levels, and equipment | Backtick (<kbd>`</kbd>) |
 | Change graphics / toggle sound | G / M |
 
-The camera follows your hero at the start of each match. Press **C** to switch to free camera.
+The camera follows your hero at the start of each match. 5v5 uses a wider view for team fights. Press **C** to switch to free camera.
 
 Order a basic attack on the enemy hero near enemy creeps to draw their aggro. Right-click or press **A** over a nearby allied creep to redirect enemy creeps that are attacking you. You can deny an allied creep when its health bar turns purple.
 

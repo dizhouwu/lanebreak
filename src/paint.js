@@ -2,6 +2,7 @@
   const { COLORS, HEROES, CREEPS, ITEMS, ORBS, WEAVE_ORBS, WIDTH, HEIGHT, DUEL_MAP, TEAM_MAP } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FREE_VIEW_HEIGHT = HEIGHT * .84;
+  const TEAM_VIEW_HEIGHT = 1500;
   const SPRITE_SCALE = 2;
   const BUILDING_SPRITE = { left:108, top:124, width:216, height:200 };
   const CREEP_SPRITE = { left:48, top:30, width:96, height:56 };
@@ -345,6 +346,10 @@
       this.minimapElapsed = Infinity;
       this.dirty = true;
     }
+    viewHeight(free = this.focus !== null) {
+      if (this.height === TEAM_MAP.height) return TEAM_VIEW_HEIGHT;
+      return free ? FREE_VIEW_HEIGHT : HEIGHT;
+    }
     resize() {
       const factor = { auto: this.auto, high: 1, medium: .75, low: .5 }[this.quality];
       const { clientWidth, clientHeight } = this.canvas;
@@ -354,7 +359,7 @@
       if (w !== this.canvas.width || h !== this.canvas.height) {
         this.canvas.width = w; this.canvas.height = h; this.dirty = true;
       }
-      this.scale = h / (this.focus ? FREE_VIEW_HEIGHT : HEIGHT);
+      this.scale = h / this.viewHeight();
     }
     title() {
       this.resize();
@@ -371,12 +376,13 @@
         y: this.camY + this.canvas.height / (2 * this.scale) };
     }
     get freeWorldPerPixel() {
-      return FREE_VIEW_HEIGHT / Math.max(1, this.canvas.clientHeight);
+      return this.viewHeight(true) / Math.max(1, this.canvas.clientHeight);
     }
     focusAt(x, y) {
       const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
-      const halfWidth = Math.min(WIDTH, FREE_VIEW_HEIGHT * aspect) / 2;
-      const halfHeight = FREE_VIEW_HEIGHT / 2;
+      const viewHeight = this.viewHeight(true);
+      const halfWidth = Math.min(WIDTH, viewHeight * aspect) / 2;
+      const halfHeight = viewHeight / 2;
       this.focus = { x: clamp(x, halfWidth, WIDTH - halfWidth), y: clamp(y, halfHeight, this.height - halfHeight) };
     }
     camera(hero) {
@@ -385,10 +391,10 @@
       return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
     frame(s, team, now, mark, dt, pointer, selectedId, spell, selectedUnits) {
+      this.height = s.teamMatch ? TEAM_MAP.height : HEIGHT;
       this.resize();
       const g = this.g, w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
-      this.height = s.teamMatch ? TEAM_MAP.height : HEIGHT;
       const map = s.teamMatch ? (this.teamMap ||= teamTerrain()) : (this.map ||= terrain());
       if (dt > 0 && dt <= .25) {
         this.measure ||= { frames: 0, time: 0, fps: 0, settle: 0 };
@@ -416,7 +422,7 @@
       const player = s.heroes[team];
       const side = player.team;
       this.cam = this.camera(player);
-      const viewWidth = w / this.scale, viewHeight = h / this.scale;
+      const viewWidth = w / this.scale, viewHeight = this.viewHeight();
       this.camY = clamp((this.focus?.y ?? player.sweepOrigin?.y ?? player.y) - viewHeight / 2, 0, this.height - viewHeight);
       this.displayed = s;
       if (viewWidth > WIDTH) {
@@ -1105,8 +1111,11 @@
           weaveOrb(g, x + Math.cos(angle) * 39, y - 20 + Math.sin(angle) * 14, 6, mark);
         }
       }
+      const teamView = this.height === TEAM_MAP.height;
+      const nameSize = teamView ? 19 : 14;
+      const nameY = y - 62;
       if (u.attack) ellipse(g,x,y,30,20,null,'#ead79488',2);
-      if (u.stunned) this.label(g,'✦ ✦',x,y-77,17,'#fff29a');
+      if (u.stunned) this.label(g,'✦ ✦',x,nameY-nameSize-1,teamView ? 22 : 17,'#fff29a');
       if (u.rooted) ellipse(g,x,y+4,u.r+5,u.r*.55,null,'#ffa35f',3);
       if (u.stitched) ellipse(g,x,y-19,33,30,null,'#d5bfea',2);
       if (u.burning) ellipse(g,x,y-19,30,28,null,'#fa8a55',3);
@@ -1115,12 +1124,15 @@
       if (u.spellBarrier) ellipse(g,x,y-14,39,37,'#80dcf916','#a5ebf7af',3);
       this.cyclone(g, u, now);
       if (u.disarmed) line(g,[[x-35,y-11],[x+35,y-11]],'#ffb29199',3);
-      this.bar(g,u,y-55,74,u.team === team ? '#58d86a' : '#ff5a5a',8);
-      this.bar(g,u,y-45,74,'#5a9bff',4,u.mana / u.maxMana);
+      const barWidth = teamView ? 94 : 74;
+      const hpHeight = teamView ? 10 : 8;
+      const hpY = y - 55;
+      this.bar(g,u,hpY,barWidth,u.team === team ? '#58d86a' : '#ff5a5a',hpHeight);
+      this.bar(g,u,hpY+hpHeight+2,barWidth,'#5a9bff',teamView ? 5 : 4,u.mana / u.maxMana);
       g.fillStyle = '#0008';
-      for (let k = 250; k < u.maxHp; k += 250) g.fillRect(x-37+74*k/u.maxHp,y-55,1,8);
-      this.nameplate(g,String(u.level),x-47,y-46,14,'#ffe08a');
-      this.nameplate(g,u.name,x,y-62,14,'#f1f1dd');
+      for (let k = 250; k < u.maxHp; k += 250) g.fillRect(x-barWidth/2+barWidth*k/u.maxHp,hpY,1,hpHeight);
+      this.nameplate(g,String(u.level),x-barWidth/2-10,hpY+hpHeight+1,nameSize,'#ffe08a');
+      this.nameplate(g,u.name,x,nameY,nameSize,'#f1f1dd');
     }
     creep(g, u) {
       const {x,y,r} = u, color = COLORS[u.team], flags = Lanebreak.CREEP_FLAGS;
