@@ -316,7 +316,10 @@
     muted = !muted;
     prefs.save('muted', muted);
     updateSettings();
-    if (!muted) beep(540, .08);
+    if (!muted) {
+      initAudio();
+      beep(540, .08);
+    }
   }
   function changeQuality() {
     const modes = ['auto','high','medium','low'];
@@ -326,15 +329,18 @@
     hint('Graphics: ' + quality);
   }
   function initAudio() {
+    if (muted || audio?.state === 'running' || navigator.userActivation?.hasBeenActive === false) return;
     try {
       audio ||= new AudioContext();
-      if (audio.state === 'suspended') audio.resume().catch(() => {});
+      if (audio.state === 'suspended' || audio.state === 'interrupted') audio.resume().catch(() => {});
     } catch {}
   }
+  function unlockMatchAudio() {
+    // Matches opened by URL or reconnecting on reload may still need a user gesture.
+    if (!game.hidden) initAudio();
+  }
   function beep(freq, duration = .075, type = 'sine', volume = .06, slide = .58) {
-    if (muted) return;
-    initAudio();
-    if (!audio) return;
+    if (muted || !audio) return;
     try {
       const osc = audio.createOscillator(), gain = audio.createGain();
       osc.type = type;
@@ -347,9 +353,7 @@
     } catch {}
   }
   function violinPhrase(kind, ultimate) {
-    if (muted) return;
-    initAudio();
-    if (!audio) return;
+    if (muted || !audio) return;
     const notes = ultimate ? [392, 466.16, 587.33] :
       kind === 'bolt' ? [440] : kind === 'buff' ? [329.63, 440] : [349.23, 523.25];
     try {
@@ -382,6 +386,7 @@
     hintTimer = setTimeout(() => { $('hint').hidden = true; }, 2450);
   }
   function enter() {
+    initAudio();
     selectedUnits.clear();
     stopSelectionDrag();
     hideHeroGuide();
@@ -1420,7 +1425,7 @@
     const code = $(teams ? 'teamRoom' : 'room').value.trim().toUpperCase();
     if (t.startsWith('join') && !/^[A-Z]{4}$/.test(code)) return status('Enter a four-letter room code.');
     networkAction = t;
-    if (!muted) initAudio();
+    initAudio();
     status('Connecting…');
     const requested = $('joinTeamSide').value;
     openSocket({ t, code, hero: selected, name: $(teams ? 'teamsName' : 'name').value.trim().slice(0,20),
@@ -1597,6 +1602,9 @@
     else if (k === 'm') changeAudio();
   }
   function wire() {
+    window.addEventListener('pointerdown', unlockMatchAudio, true);
+    window.addEventListener('pointerup', unlockMatchAudio, true);
+    window.addEventListener('keydown', unlockMatchAudio, true);
     arena.addEventListener('contextmenu', event => { if (!game.hidden) event.preventDefault(); });
     arena.addEventListener('pointerdown', arenaPointerDown);
     arena.addEventListener('pointermove', arenaPointerMove);
