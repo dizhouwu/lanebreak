@@ -1,7 +1,7 @@
 (function () {
   const { COLORS, HEROES, CREEPS, ITEMS, ORBS, WEAVE_ORBS, WIDTH, HEIGHT, DUEL_MAP, TEAM_MAP } = LanebreakRules;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-  const FREE_VIEW_HEIGHT = HEIGHT * .84;
+  const DUEL_VIEW_HEIGHT = HEIGHT * .84;
   const TEAM_VIEW_HEIGHT = 1500;
   const TEAM_AUTO_DPR_LIMIT = 1.25;
   const SPRITE_SCALE = 2;
@@ -356,9 +356,8 @@
       this.minimapElapsed = Infinity;
       this.dirty = true;
     }
-    viewHeight(free = this.focus !== null) {
-      if (this.height === TEAM_MAP.height) return TEAM_VIEW_HEIGHT;
-      return free ? FREE_VIEW_HEIGHT : HEIGHT;
+    viewHeight() {
+      return this.height === TEAM_MAP.height ? TEAM_VIEW_HEIGHT : DUEL_VIEW_HEIGHT;
     }
     resize() {
       const factor = { auto: this.auto, high: 1, medium: .75, low: .5 }[this.quality];
@@ -396,11 +395,11 @@
         y: this.camY + this.canvas.height / (2 * this.scale) };
     }
     get freeWorldPerPixel() {
-      return this.viewHeight(true) / Math.max(1, this.canvas.clientHeight);
+      return this.viewHeight() / Math.max(1, this.canvas.clientHeight);
     }
     focusAt(x, y) {
       const aspect = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
-      const viewHeight = this.viewHeight(true);
+      const viewHeight = this.viewHeight();
       const halfWidth = Math.min(WIDTH, viewHeight * aspect) / 2;
       const halfHeight = viewHeight / 2;
       this.focus = { x: clamp(x, halfWidth, WIDTH - halfWidth), y: clamp(y, halfHeight, this.height - halfHeight) };

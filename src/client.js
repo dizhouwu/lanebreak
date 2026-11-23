@@ -28,7 +28,7 @@
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
-  let cameraDrag = null, selectionDrag = null, resultShown = false;
+  let cameraDrag = null, selectionDrag = null, minimapPointerId = null, resultShown = false;
   const selectedUnits = new Set();
   let pendingCast = null;
   let heroPreviewCard = null;
@@ -41,7 +41,9 @@
   let motionPlan = null;
   const panKeys = new Set();
   const panTaps = new Set();
-  const panViewsPerSecond = 1.4;
+  const panViewsPerSecond = .9;
+  const panRampSeconds = .025;
+  let panX = 0, panY = 0;
   const game = $('game');
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
@@ -735,6 +737,7 @@
     panKeys.clear();
     panTaps.clear();
     edgePointer = null;
+    panX = panY = 0;
   }
   function followHero() {
     stopCameraDrag();
@@ -767,13 +770,20 @@
     const margin = Math.min(32, size * .06);
     const distance = Math.max(0, Math.min(position, size - 1 - position));
     if (distance >= margin) return 0;
-    const strength = Math.sqrt(1 - distance / margin);
+    const depth = 1 - distance / margin;
+    const strength = depth * depth * (3 - 2 * depth);
     return position < size / 2 ? -strength : strength;
+  }
+  function rampPanAxis(velocity, target, blend) {
+    if (!target) return 0;
+    if (velocity * target < 0) velocity = 0;
+    return velocity + (target - velocity) * blend;
   }
   function panCamera(dt) {
     const enabled = cameraInputEnabled();
-    if (!enabled || cameraDrag || selectionDrag) {
+    if (!enabled || cameraDrag || selectionDrag || minimapPointerId !== null) {
       panTaps.clear();
+      panX = panY = 0;
       if (!enabled) stopCameraDrag();
       return;
     }
@@ -785,9 +795,17 @@
       dy = edgePan(edgePointer.y, arena.clientHeight);
     }
     panTaps.clear();
-    if (!dx && !dy) return;
-    const step = renderer.viewHeight() * panViewsPerSecond * Math.min(dt,.05) / Math.max(1, Math.hypot(dx,dy));
-    moveCamera(dx * step, dy * step);
+    if (!dx && !dy) {
+      panX = panY = 0;
+      return;
+    }
+    const elapsed = Math.min(dt,.05);
+    const blend = 1 - Math.exp(-elapsed / panRampSeconds);
+    const magnitude = Math.max(1, Math.hypot(dx,dy));
+    panX = rampPanAxis(panX, dx / magnitude, blend);
+    panY = rampPanAxis(panY, dy / magnitude, blend);
+    const step = renderer.viewHeight() * panViewsPerSecond * elapsed;
+    moveCamera(panX * step, panY * step);
   }
   function stopCameraDrag() {
     if (!cameraDrag) return;
@@ -1647,14 +1665,19 @@
       event.preventDefault();
       edgePointer = null;
       minimap.setPointerCapture(event.pointerId);
+      minimapPointerId = event.pointerId;
       mapFocus(event);
     });
     minimap.addEventListener('pointermove', event => {
-      if (minimap.hasPointerCapture(event.pointerId)) mapFocus(event);
+      if (minimapPointerId === event.pointerId) mapFocus(event);
+    });
+    minimap.addEventListener('lostpointercapture', event => {
+      if (minimapPointerId === event.pointerId) minimapPointerId = null;
     });
     const trackEdgePointer = event => {
       if (event.pointerType === 'mouse') {
-        edgePointer = renderer.focus && !event.buttons && event.target !== minimap ?
+        const canPan = event.buttons === 0 || event.buttons === 2;
+        edgePointer = renderer.focus && canPan && event.target !== minimap ?
           { x:event.clientX, y:event.clientY } : null;
       }
     };
