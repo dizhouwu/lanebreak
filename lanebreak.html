@@ -151,8 +151,7 @@ input{width:100%;min-width:0;background:#0d1719;color:var(--white);border:1px so
 .panel{background:#10191cee;border:1px solid #53615d;border-radius:6px;box-shadow:0 8px 24px #05090b83;color:var(--white)}
 .hud{position:absolute;bottom:6px;left:6px;right:6px;display:flex;justify-content:center}
 .minimapPanel{position:absolute;left:0;bottom:45px;width:clamp(126px,15vw,242px);background:#0a1115ed;border:1px solid #8ca0a44a;border-radius:4px;padding:3px}
-#minimap{width:100%;display:block;touch-action:none}
-#game[data-camera=free] #minimap{cursor:crosshair}
+#minimap{width:100%;display:block;touch-action:none;cursor:crosshair}
 .heroHud{width:min(724px,100%);display:grid;grid-template-columns:minmax(195px,1fr) minmax(260px,auto) 92px 86px;align-items:center;gap:10px;padding:7px 9px;background:#090f13ed;border-color:#8ca0a45c;box-shadow:0 3px 10px #0007}
 .heroVitals{display:flex;align-items:center;gap:9px;min-width:0}
 #heroBadge{position:relative;width:61px;height:60px;flex:none;border:1px solid currentColor;border-radius:5px;background:#15222a}
@@ -392,7 +391,7 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
       <div id="inspectEquipment" hidden><h3>Equipment</h3><ul id="inspectItems"></ul></div>
     </aside>
     <footer class="hud">
-      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to pan in free camera mode"></canvas></div>
+      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to look around. Press F1 to return to your hero."></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
         <div class="abilityBlock">
@@ -427,9 +426,9 @@ dt{font-weight:750}dd{margin:0;color:#c4cec6}
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
       <dt>Left click / drag</dt><dd>Click to inspect or select a unit. Drag a box to select your hero and summons inside it.</dd>
-      <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Select your hero or all units you control. F1 and F2 also work when the browser passes them through.</dd>
+      <dt><kbd>F1</kbd> / <kbd>F2</kbd></dt><dd>Select and recenter on your hero, or select all units you control. Use Z or X if the browser captures these keys.</dd>
       <dt>Right click</dt><dd>Move or attack with the selected units. Your hero can draw creep aggro by targeting a hero, or deny weakened allied creeps.</dd>
-      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>The camera follows your hero by default. Press C to toggle free camera, or Space to recenter it on your hero. In free mode, pan with the screen edges, arrow keys, middle-mouse drag, or minimap. Use Fullscreen to keep the browser controls away from the play area.</dd>
+      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Press C to toggle free camera, or Space to recenter without changing selection. Click or drag the minimap to look around from either mode. In free camera, you can also pan with the screen edges, arrow keys, or middle-mouse drag.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Select a targeted ability, then click the battlefield to cast. Right-click or Esc cancels. Self-casts and Cairn's directional blasts trigger immediately.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
@@ -2266,6 +2265,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let cameraDrag = null, selectionDrag = null, minimapPointerId = null, resultShown = false;
+  let minimapPeek = false;
   const selectedUnits = new Set();
   let pendingCast = null;
   let heroPreviewCard = null;
@@ -2978,9 +2978,20 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
   }
   function followHero() {
     stopCameraDrag();
+    stopMinimapDrag();
     resetCameraPan();
+    minimapPeek = false;
     renderer.focus = null;
     cameraLabel(false);
+  }
+  function recenterOnHero() {
+    if (paused || !renderer.focus) return;
+    if (minimapPeek) return followHero();
+    stopCameraDrag();
+    stopMinimapDrag();
+    resetCameraPan();
+    const { x, y } = (renderer.displayed || snapshot).heroes[team];
+    freeCamera(x,y);
   }
   function freeCamera(x, y) {
     if (!snapshot || paused || snapshot.mode !== 'match') return;
@@ -3002,9 +3013,12 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       hint('Fullscreen is unavailable in this browser window.');
     }
   }
-  function cameraInputEnabled() {
-    return renderer.focus != null && !game.hidden && snapshot?.mode === 'match' && !paused &&
+  function cameraNavigationEnabled() {
+    return !game.hidden && snapshot?.mode === 'match' && !paused &&
       !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden;
+  }
+  function cameraInputEnabled() {
+    return renderer.focus != null && cameraNavigationEnabled();
   }
   function moveCamera(dx, dy) {
     const center = renderer.focus;
@@ -3061,6 +3075,13 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     cameraDrag = null;
     arena.classList.remove('draggingCamera');
     if (arena.hasPointerCapture(id)) arena.releasePointerCapture(id);
+  }
+  function stopMinimapDrag() {
+    if (minimapPointerId === null) return;
+    const minimap = $('minimap');
+    const id = minimapPointerId;
+    minimapPointerId = null;
+    if (minimap.hasPointerCapture(id)) minimap.releasePointerCapture(id);
   }
   function arenaPointerDown(event) {
     if (event.button === 0 && event.pointerType === 'mouse' && !pendingCast && !game.hidden &&
@@ -3802,8 +3823,12 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     const k = event.key.toLowerCase();
     if (!game.hidden && snapshot?.mode === 'match' && ['f1','f2','z','x'].includes(k)) {
       event.preventDefault();
-      if (!event.repeat && !demo) chooseUnits(k === 'f1' || k === 'z' ? [snapshot.heroes[team].id] :
-        controlledUnits(snapshot).map(u => u.id));
+      if (!event.repeat && !demo) {
+        if (k === 'f1' || k === 'z') {
+          chooseUnits([snapshot.heroes[team].id]);
+          recenterOnHero();
+        } else chooseUnits(controlledUnits(snapshot).map(u => u.id));
+      }
       return;
     }
     if (!game.hidden && snapshot && (k === '`' || event.code === 'Backquote') && !event.shiftKey) {
@@ -3860,12 +3885,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     if (k === 'c') toggleCamera();
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
-      stopCameraDrag();
-      resetCameraPan();
-      if (renderer.focus) {
-        const { x, y } = (renderer.displayed || snapshot).heroes[team];
-        freeCamera(x,y);
-      }
+      recenterOnHero();
     } else if (spellSlot >= 0 && spellSlot < kit?.abilities.length) chooseAbility(spellSlot);
     else if (/^[1-6]$/.test(k)) useItem(+k - 1);
     else if (k === 'b') toggleShop();
@@ -3904,14 +3924,15 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     });
     const minimap = $('minimap');
     const mapFocus = event => {
-      if (!cameraInputEnabled()) return;
+      if (!cameraNavigationEnabled()) return;
       const rect = minimap.getBoundingClientRect();
       freeCamera((event.clientX-rect.x) / rect.width * WIDTH, (event.clientY-rect.y) / rect.height * renderer.height);
     };
     minimap.addEventListener('pointerdown', event => {
-      if (event.button !== 0 || !cameraInputEnabled()) return;
+      if (event.button !== 0 || !cameraNavigationEnabled()) return;
       event.preventDefault();
-      edgePointer = null;
+      if (!renderer.focus) minimapPeek = true;
+      resetCameraPan();
       minimap.setPointerCapture(event.pointerId);
       minimapPointerId = event.pointerId;
       mapFocus(event);
@@ -3939,6 +3960,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
     const resetCameraInput = () => {
       stopCameraDrag();
+      stopMinimapDrag();
       stopSelectionDrag();
       setPendingCast(null);
       resetCameraPan();

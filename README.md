@@ -39,13 +39,14 @@ To jump straight into a mode, add a fragment to the URL. Try `#play=brakk,hard` 
 | Use an ability / confirm a target / cancel | Ability key / left-click / right-click or Esc |
 | Attack the unit under the cursor or attack-move / stop | A / S |
 | Use an active item / open the shop / recall | 1–6 / B / T |
-| Select your hero / select all owned units | Z or F1 / X or F2 |
+| Select and recenter on your hero / select all owned units | F1 or Z / F2 or X |
 | Toggle follow camera / recenter on your hero | C / Space |
-| Pan the free camera | Arrow keys, middle-mouse drag, minimap, or screen edges |
+| Look around with the minimap | Click or drag the minimap in either camera mode |
+| Pan the free camera | Arrow keys, middle-mouse drag, or screen edges |
 | Open the scoreboard while playing | Backtick (<kbd>`</kbd>) |
 | Pause a solo game / change graphics / toggle sound | P or Esc / G / M |
 
-The camera follows your hero by default, and 5v5 uses a wider view. Use **Fullscreen** in the match toolbar to move the browser controls away from the play area, or **Z/X** if your browser captures the function keys. Click **End match** to finish a solo game and see your stats. In online 1v1, confirm **Surrender** to award the win to your opponent.
+The camera follows your hero by default, and 5v5 uses a wider view. After looking around with the minimap, press **F1** to return to your hero. If you started in follow mode, the camera resumes following. Use **Fullscreen** in the match toolbar to move the browser controls away from the play area, or **Z/X** if your browser captures the function keys. Click **End match** to finish a solo game and see your stats. In online 1v1, confirm **Surrender** to award the win to your opponent.
 
 ## Heroes
 

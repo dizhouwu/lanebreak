@@ -29,6 +29,7 @@
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let cameraDrag = null, selectionDrag = null, minimapPointerId = null, resultShown = false;
+  let minimapPeek = false;
   const selectedUnits = new Set();
   let pendingCast = null;
   let heroPreviewCard = null;
@@ -741,9 +742,20 @@
   }
   function followHero() {
     stopCameraDrag();
+    stopMinimapDrag();
     resetCameraPan();
+    minimapPeek = false;
     renderer.focus = null;
     cameraLabel(false);
+  }
+  function recenterOnHero() {
+    if (paused || !renderer.focus) return;
+    if (minimapPeek) return followHero();
+    stopCameraDrag();
+    stopMinimapDrag();
+    resetCameraPan();
+    const { x, y } = (renderer.displayed || snapshot).heroes[team];
+    freeCamera(x,y);
   }
   function freeCamera(x, y) {
     if (!snapshot || paused || snapshot.mode !== 'match') return;
@@ -765,9 +777,12 @@
       hint('Fullscreen is unavailable in this browser window.');
     }
   }
-  function cameraInputEnabled() {
-    return renderer.focus != null && !game.hidden && snapshot?.mode === 'match' && !paused &&
+  function cameraNavigationEnabled() {
+    return !game.hidden && snapshot?.mode === 'match' && !paused &&
       !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden;
+  }
+  function cameraInputEnabled() {
+    return renderer.focus != null && cameraNavigationEnabled();
   }
   function moveCamera(dx, dy) {
     const center = renderer.focus;
@@ -824,6 +839,13 @@
     cameraDrag = null;
     arena.classList.remove('draggingCamera');
     if (arena.hasPointerCapture(id)) arena.releasePointerCapture(id);
+  }
+  function stopMinimapDrag() {
+    if (minimapPointerId === null) return;
+    const minimap = $('minimap');
+    const id = minimapPointerId;
+    minimapPointerId = null;
+    if (minimap.hasPointerCapture(id)) minimap.releasePointerCapture(id);
   }
   function arenaPointerDown(event) {
     if (event.button === 0 && event.pointerType === 'mouse' && !pendingCast && !game.hidden &&
@@ -1565,8 +1587,12 @@
     const k = event.key.toLowerCase();
     if (!game.hidden && snapshot?.mode === 'match' && ['f1','f2','z','x'].includes(k)) {
       event.preventDefault();
-      if (!event.repeat && !demo) chooseUnits(k === 'f1' || k === 'z' ? [snapshot.heroes[team].id] :
-        controlledUnits(snapshot).map(u => u.id));
+      if (!event.repeat && !demo) {
+        if (k === 'f1' || k === 'z') {
+          chooseUnits([snapshot.heroes[team].id]);
+          recenterOnHero();
+        } else chooseUnits(controlledUnits(snapshot).map(u => u.id));
+      }
       return;
     }
     if (!game.hidden && snapshot && (k === '`' || event.code === 'Backquote') && !event.shiftKey) {
@@ -1623,12 +1649,7 @@
     if (k === 'c') toggleCamera();
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
-      stopCameraDrag();
-      resetCameraPan();
-      if (renderer.focus) {
-        const { x, y } = (renderer.displayed || snapshot).heroes[team];
-        freeCamera(x,y);
-      }
+      recenterOnHero();
     } else if (spellSlot >= 0 && spellSlot < kit?.abilities.length) chooseAbility(spellSlot);
     else if (/^[1-6]$/.test(k)) useItem(+k - 1);
     else if (k === 'b') toggleShop();
@@ -1667,14 +1688,15 @@
     });
     const minimap = $('minimap');
     const mapFocus = event => {
-      if (!cameraInputEnabled()) return;
+      if (!cameraNavigationEnabled()) return;
       const rect = minimap.getBoundingClientRect();
       freeCamera((event.clientX-rect.x) / rect.width * WIDTH, (event.clientY-rect.y) / rect.height * renderer.height);
     };
     minimap.addEventListener('pointerdown', event => {
-      if (event.button !== 0 || !cameraInputEnabled()) return;
+      if (event.button !== 0 || !cameraNavigationEnabled()) return;
       event.preventDefault();
-      edgePointer = null;
+      if (!renderer.focus) minimapPeek = true;
+      resetCameraPan();
       minimap.setPointerCapture(event.pointerId);
       minimapPointerId = event.pointerId;
       mapFocus(event);
@@ -1702,6 +1724,7 @@
     document.addEventListener('keyup', event => panKeys.delete(event.key.toLowerCase()));
     const resetCameraInput = () => {
       stopCameraDrag();
+      stopMinimapDrag();
       stopSelectionDrag();
       setPendingCast(null);
       resetCameraPan();

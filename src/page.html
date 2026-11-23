@@ -109,7 +109,7 @@
       <div id="inspectEquipment" hidden><h3>Equipment</h3><ul id="inspectItems"></ul></div>
     </aside>
     <footer class="hud">
-      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to pan in free camera mode"></canvas></div>
+      <div class="minimapPanel"><canvas id="minimap" width="520" height="100" aria-label="Minimap" title="Click or drag to look around. Press F1 to return to your hero."></canvas></div>
       <div class="heroHud panel">
         <div class="heroVitals"><div id="heroBadge"><canvas id="hudPortrait" width="360" height="236" aria-hidden="true"></canvas><b id="heroLevel"></b></div><div class="bars"><div id="vitalName"></div><div id="health" class="meter health"><i></i><span></span></div><div id="mana" class="meter mana"><i></i><span></span></div><div id="xp" class="meter xp" title="Experience"><i></i></div><small id="heroAttributes"></small></div></div>
         <div class="abilityBlock">
@@ -144,9 +144,9 @@
     <header><h2>Controls</h2><button id="closeHelp" autofocus>Close <kbd>Esc</kbd></button></header>
     <dl>
       <dt>Left click / drag</dt><dd>Click to inspect or select a unit. Drag a box to select your hero and summons inside it.</dd>
-      <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Select your hero or all units you control. F1 and F2 also work when the browser passes them through.</dd>
+      <dt><kbd>F1</kbd> / <kbd>F2</kbd></dt><dd>Select and recenter on your hero, or select all units you control. Use Z or X if the browser captures these keys.</dd>
       <dt>Right click</dt><dd>Move or attack with the selected units. Your hero can draw creep aggro by targeting a hero, or deny weakened allied creeps.</dd>
-      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>The camera follows your hero by default. Press C to toggle free camera, or Space to recenter it on your hero. In free mode, pan with the screen edges, arrow keys, middle-mouse drag, or minimap. Use Fullscreen to keep the browser controls away from the play area.</dd>
+      <dt><kbd>C</kbd> / <kbd>Space</kbd></dt><dd>Press C to toggle free camera, or Space to recenter without changing selection. Click or drag the minimap to look around from either mode. In free camera, you can also pan with the screen edges, arrow keys, or middle-mouse drag.</dd>
       <dt><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>Select a targeted ability, then click the battlefield to cast. Right-click or Esc cancels. Self-casts and Cairn's directional blasts trigger immediately.</dd>
       <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Attack the target or attack-move to the cursor / stop and hold fire.</dd>
       <dt><kbd>1</kbd> through <kbd>6</kbd></dt><dd>Activate the item in that inventory slot.</dd>
