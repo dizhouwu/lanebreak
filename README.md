@@ -45,7 +45,7 @@ To jump straight into a mode, add a fragment to the URL. Try `#play=brakk,hard` 
 | Open the scoreboard while playing | Backtick (<kbd>`</kbd>) |
 | Pause a solo game / change graphics / toggle sound | P or Esc / G / M |
 
-The camera follows your hero by default, and 5v5 uses a wider view. Use **Z/X** if your browser captures the function keys. Click **End match** to finish a solo game and see your stats. In online 1v1, confirm **Surrender** to award the win to your opponent.
+The camera follows your hero by default, and 5v5 uses a wider view. Use **Fullscreen** in the match toolbar to move the browser controls away from the play area, or **Z/X** if your browser captures the function keys. Click **End match** to finish a solo game and see your stats. In online 1v1, confirm **Surrender** to award the win to your opponent.
 
 ## Heroes
 

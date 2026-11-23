@@ -757,6 +757,14 @@
       freeCamera(center.x,center.y);
     }
   }
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      hint('Fullscreen is unavailable in this browser window.');
+    }
+  }
   function cameraInputEnabled() {
     return renderer.focus != null && !game.hidden && snapshot?.mode === 'match' && !paused &&
       !$('controls').open && !$('trainingHeroPicker').open && $('matchOverlay').hidden && $('shop').hidden;
@@ -765,12 +773,14 @@
     const center = renderer.focus;
     freeCamera(center.x + dx, center.y + dy);
   }
-  function edgePan(position, size) {
+  function edgePan(position, size, fullscreen) {
     if (position < 0 || position >= size) return 0;
-    const margin = Math.min(32, size * .06);
+    const margin = fullscreen ? Math.min(32, size * .06) : Math.min(56, size * .08);
+    // Reach full speed before the cursor can cross into browser controls.
+    const inset = fullscreen ? 0 : margin * .25;
     const distance = Math.max(0, Math.min(position, size - 1 - position));
     if (distance >= margin) return 0;
-    const depth = 1 - distance / margin;
+    const depth = Math.min(1, (margin - distance) / (margin - inset));
     const strength = depth * depth * (3 - 2 * depth);
     return position < size / 2 ? -strength : strength;
   }
@@ -791,8 +801,9 @@
     let dx = Number(pressed('arrowright')) - Number(pressed('arrowleft'));
     let dy = Number(pressed('arrowdown')) - Number(pressed('arrowup'));
     if (!panKeys.size && !panTaps.size && edgePointer) {
-      dx = edgePan(edgePointer.x, arena.clientWidth);
-      dy = edgePan(edgePointer.y, arena.clientHeight);
+      const fullscreen = Boolean(document.fullscreenElement);
+      dx = edgePan(edgePointer.x, arena.clientWidth, fullscreen);
+      dy = edgePan(edgePointer.y, arena.clientHeight, fullscreen);
     }
     panTaps.clear();
     if (!dx && !dy) {
@@ -1698,6 +1709,13 @@
     };
     window.addEventListener('blur', resetCameraInput);
     document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
+    const fullscreenButton = $('fullscreen');
+    fullscreenButton.hidden = !document.fullscreenEnabled;
+    fullscreenButton.onclick = toggleFullscreen;
+    document.addEventListener('fullscreenchange', () => {
+      fullscreenButton.setAttribute('aria-pressed', Boolean(document.fullscreenElement));
+      resetCameraInput();
+    });
     $('start').onclick = () => solo();
     $('startTraining').onclick = () => startTraining();
     $('startTeamMatch').onclick = () => startTeamMatch();
