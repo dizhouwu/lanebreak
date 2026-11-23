@@ -1489,10 +1489,11 @@ fn training_tornado_lifts_meteor_burns_and_shockwave_disarms_the_dummy() {
 fn cairn_casts_three_ranges_along_facing_and_training_restores_heat() {
     let mut m = training("cairn", false);
     let start = m.u(1).pos;
-    for (slot, offset) in [235.0, 460.0, 700.0].into_iter().enumerate() {
+    for (slot, offset) in [200.0, 450.0, 700.0].into_iter().enumerate() {
         cast(&mut m, slot, Point::new(start.x - 500.0, start.y - 90.0));
         assert_eq!(m.areas[slot].pos.x, start.x + offset);
         assert_eq!(m.areas[slot].pos.y, start.y);
+        assert_eq!(m.areas[slot].spell.radius, 250.0);
     }
     cast(&mut m, 3, start);
     assert_eq!(m.h(1).heat, 6);
@@ -1501,6 +1502,27 @@ fn cairn_casts_three_ranges_along_facing_and_training_restores_heat() {
     m.step(DT, 1);
     assert_eq!(m.h(1).heat, 6);
     assert_eq!(m.training.as_ref().unwrap().hits, 0);
+}
+
+#[test]
+fn cairn_blasts_overlap_and_hit_near_the_far_edge() {
+    let mut m = training("cairn", true);
+    let start = m.u(1).pos;
+    place(&mut m, 2, start.x + 440.0, start.y);
+    cast(&mut m, 0, start);
+    cast(&mut m, 1, start);
+    m.step(DT, 24);
+    assert_eq!(m.training.as_ref().unwrap().hits, 2);
+
+    place(&mut m, 2, start.x + 945.0, start.y);
+    cast(&mut m, 2, start);
+    m.step(DT, 25);
+    assert_eq!(m.training.as_ref().unwrap().hits, 3);
+
+    place(&mut m, 2, start.x + 970.0, start.y);
+    cast(&mut m, 2, start);
+    m.step(DT, 25);
+    assert_eq!(m.training.as_ref().unwrap().hits, 3);
 }
 
 #[test]

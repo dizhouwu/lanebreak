@@ -92,7 +92,7 @@ For a Galeglass combo, prepare **EEE** in F and **WEE** in D. Lift the target wi
 <summary><strong>Veyra, Cairn, and Ecarg mechanics</strong></summary>
 
 - **Veyra** plants up to three fire brands with **R**. Press **D** and click the ground to detonate them all, ending at the brand nearest the click.
-- **Cairn** casts **Q**, **W**, and **E** at 235, 460, and 700 units along his facing. Turn with a move or attack order first. Enemy creep last hits grant up to six Heat for 3 attack damage each. Death removes half the stored Heat, and **R** spends all of it to strengthen his channeled blast.
+- **Cairn** centers **Q**, **W**, and **E** at 200, 450, and 700 units along his facing. Each blast has a 250-unit radius, so adjacent blasts can hit the same target. Turn with a move or attack order first. Enemy creep last hits grant up to six Heat for 3 attack damage each. Death removes half the stored Heat, and **R** spends all of it to strengthen his channeled blast.
 - **Ecarg** marks enemy heroes with **Downbow**. **Overtone** and **Grand Cadence** consume that mark for extra damage and a short stun. **Countertempo** boosts movement and attack speed.
 
 </details>
