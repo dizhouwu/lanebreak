@@ -1145,8 +1145,8 @@
     $('heroLevel').textContent = h.level;
     $('vitalName').textContent = h.hp > 0 ? hero.name + ' · ' + hero.title : 'Respawn ' + Math.ceil(Math.max(0,h.respawn-time)) + 's';
     $('heroAttributes').textContent = 'DMG ' + Math.round(h.stats.damage * h.stats.multiplier) + ' · Armor ' + h.stats.armor.toFixed(1) + ' · MS ' + Math.round(h.stats.speed);
-    const actualQuality = renderer.auto === 1 ? 'high' : renderer.auto === .75 ? 'medium' : 'low';
-    $('quality').title = (quality === 'auto' ? 'Auto · ' + actualQuality : quality) +
+    const { width, height } = renderer.canvas;
+    $('quality').title = width + ' × ' + height + ' render resolution' +
       (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
     meter('health', h.hp, h.maxHp, true);
     meter('mana', h.mana, h.maxMana, true);
