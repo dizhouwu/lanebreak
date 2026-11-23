@@ -113,6 +113,12 @@ struct PublicHero<'a> {
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     disarmed: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
+    silenced: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    debuff_immune: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    current_run_origin: Option<Point>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     charged: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     brands: Vec<Brand>,
@@ -388,6 +394,12 @@ impl Match {
                     stitched: u.stitch.is_some_and(|m| m.until > time),
                     resonating: u.resonance.is_some_and(|m| m.until > time),
                     disarmed: u.disarmed_until > time,
+                    silenced: u.silenced(time),
+                    debuff_immune: u.debuff_immune(time),
+                    current_run_origin: u
+                        .dash
+                        .filter(|dash| dash.spell.dash_invulnerable)
+                        .map(|dash| dash.start),
                     charged: h.charge_until > time,
                     brands: h.live_brands(time).map(|(_, brand)| brand).collect(),
                     sweep_origin: u.sweep_origin,

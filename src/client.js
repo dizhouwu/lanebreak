@@ -1,7 +1,7 @@
 (function () {
   const $ = id => document.getElementById(id);
-  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS, WEAVE_ORBS } = LanebreakRules;
-  const { Match, renderData, buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
+  const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS, WEAVE_ORBS, MAX_LEVEL } = LanebreakRules;
+  const { Match, renderData, buyPlan, shopOffer, sellValue, spellDamage, baseMana, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
     abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
@@ -83,7 +83,8 @@
       const row = make('li');
       const copy = make('div');
       copy.append(make('strong', spell.name), make('p', spell.text));
-      const costs = [spell.mana && spell.mana + ' mana', spell.cd && spell.cd + 's cooldown'].filter(Boolean);
+      const mana = spell.manaPercent ? spell.mana + ' mana + ' + (100 * spell.manaPercent) + '% max mana to start' : spell.mana && spell.mana + ' mana';
+      const costs = [mana, spell.cd && spell.cd + 's cooldown'].filter(Boolean);
       if (costs.length) copy.append(make('small', costs.join(' · '), 'muted'));
       row.append(make('kbd', keys[i]), copy);
       list.append(row);
@@ -1028,7 +1029,7 @@
     if (groupSize) group.textContent = groupSize + (groupSize === 1 ? ' unit selected' : ' units selected');
     const foe = s.heroes.find(other => other.team !== side);
     if (!$('matchRoster').hidden) updateRoster(s);
-    if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || currentCast(h, pendingCast) !== pendingCast.spell)) setPendingCast(null);
+    if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || (h.silenced && !pendingCast.item) || currentCast(h, pendingCast) !== pendingCast.spell)) setPendingCast(null);
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
     $('matchClock').textContent = clock;
     const fortify = $('fortify'), fortification = s.fortification?.[side];
@@ -1087,7 +1088,7 @@
       (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
     meter('health', h.hp, h.maxHp, true);
     meter('mana', h.mana, h.maxMana, true);
-    meter('xp', h.level === 15 ? 1 : h.xp, h.level === 15 ? 1 : xpGoal(h.level));
+    meter('xp', h.level >= MAX_LEVEL ? 1 : h.xp, h.level >= MAX_LEVEL ? 1 : xpGoal(h.level));
     $('gold').textContent = Math.floor(h.gold) + ' g';
     const resource = $('heroResource'), timer = $('veilTimer'), recipe = weaveRecipe(h);
     const marks = h.marks || [];
@@ -1143,7 +1144,7 @@
       const cd = Math.max(0, abilityReadyAt(h, i) - time), locked = h.level < level;
       const charges = spell.kind === 'brand' ? h.brandChargeReady.filter(ready => ready <= time).length : null;
       const placed = spell.kind === 'brandReturn' ? h.brands?.length || 0 : null;
-      const manaCost = s.training ? 0 : spell.mana;
+      const manaCost = s.training ? 0 : Math.ceil(baseMana(h, spell));
       const manaLabel = manaCost && spell.distanceMana ? manaCost + '+' : manaCost;
       const passive = spell.kind === 'passive';
       const finisher = h.finisherHits != null && spell.critHits;

@@ -919,9 +919,10 @@
         const distanceFromHero = b => Math.hypot(b.x - hero.x, b.y - hero.y);
         stops = brands.filter(b => b !== end).sort((a, b) => distanceFromHero(a) - distanceFromHero(b));
       } else {
-        end = Lanebreak.castPoint(hero, spell, at.x, at.y, this.height);
+        end = Lanebreak.castPoint(hero, spell, at.x, at.y, this.height, freeMana);
       }
-      const cost = !freeMana && spell.distanceMana ? spell.mana + Math.hypot(end.x - hero.x, end.y - hero.y) * spell.distanceMana : 0;
+      const cost = !freeMana && spell.distanceMana ? Lanebreak.baseMana(hero, spell) +
+        Math.hypot(end.x - hero.x, end.y - hero.y) * Lanebreak.manaPerUnit(hero, spell) : 0;
       const color = cost > hero.mana ? '#ff8c8c' : '#ffe0a2';
       if (spell.target === 'point') ellipse(g, hero.x, hero.y, spell.range, spell.range, null, color + '45', 2);
       g.save();
@@ -1133,7 +1134,16 @@
       const progress = cast ? clamp((now - cast.time) / .38, 0, 1) : 1;
       const pose = CAST_POSES[u.hero];
       const effort = cast ? Math.sin(Math.PI * progress) : 0;
-      if (cast?.spell === 'dash') {
+      if (u.currentRunOrigin) {
+        const dx = x - u.currentRunOrigin.x, dy = y - u.currentRunOrigin.y;
+        const length = Math.hypot(dx, dy);
+        const tail = Math.min(1, 235 / Math.max(1, length));
+        const trail = [[x-dx*tail,y-dy*tail], [x-dx*tail*.65,y-dy*tail*.65-12],
+          [x-dx*tail*.32,y-dy*tail*.32+10], [x,y]];
+        line(g, trail, '#65e6ff95', 16);
+        line(g, trail, '#e6fdff', 3);
+        ellipse(g, x, y, u.r+13, u.r+9, '#73e8ff28', '#d6fbff', 2);
+      } else if (cast?.spell === 'dash') {
         g.globalAlpha = 1 - progress;
         if (u.hero === 'kestrel') {
           const dx = x - cast.x, dy = y - cast.y;
@@ -1151,6 +1161,8 @@
         }
         g.globalAlpha = 1;
       }
+      if (u.debuffImmune) ellipse(g,x,y+2,u.r+15,u.r+10,'#f4d17829','#f4d178',3);
+      if (u.silenced) this.label(g,'Silenced',x,y+36,15,'#e0aaf7');
       const step = lunge + pose.step * effort;
       const bodyX = x + Math.cos(facing)*step;
       const bodyY = y + Math.sin(facing)*step - pose.lift * effort;

@@ -441,17 +441,48 @@ impl Match {
                 self.slow(target, "wellsplitter", 0.5, 2.0);
                 self.item_flash(target, &key);
             }
+            "hushthorn" => {
+                self.u_mut(id).veil_until = 0.0;
+                let time = self.time;
+                if !self.u(target).debuff_immune(time) {
+                    let u = self.u_mut(target);
+                    let damage = u.silence.as_ref().map_or(0.0, |mark| mark.damage);
+                    u.silence = Some(Silence {
+                        source: id,
+                        until: time + spec.duration,
+                        damage,
+                    });
+                    u.hero.as_mut().unwrap().cast_channel = None;
+                    self.item_flash(target, &key);
+                }
+            }
+            "sovereign" => {
+                let until = self.time + spec.duration;
+                let u = self.u_mut(id);
+                u.debuff_immune_until = until;
+                u.silence = None;
+                u.root_until = 0.0;
+                u.disarmed_until = 0.0;
+                u.slows.clear();
+                u.stitch = None;
+                u.burn = None;
+                u.resonance = None;
+                self.item_flash(id, &key);
+            }
             "galeglass" => {
-                let until = self.time + 2.5;
+                let time = self.time;
+                let until = time + 2.5;
                 self.u_mut(id).veil_until = 0.0;
                 let u = self.u_mut(target);
-                u.cyclone_until = until;
-                u.lift_until = u.lift_until.max(until);
-                u.stun_until = u.stun_until.max(until);
-                u.windup = None;
-                u.dash = None;
-                self.h_mut(target).channel = 0.0;
-                self.item_flash(target, &key);
+                if target == id || !u.debuff_immune(time) {
+                    u.cyclone_until = until;
+                    u.lift_until = u.lift_until.max(until);
+                    u.stun_until = u.stun_until.max(until);
+                    u.windup = None;
+                    u.dash = None;
+                    self.h_mut(target).channel = 0.0;
+                    self.item_flash(target, &key);
+                }
             }
             "renewal" => {
                 self.h_mut(id).refresh_cooldowns();
@@ -782,6 +813,8 @@ impl Match {
         dummy.lift_until = 0.0;
         dummy.cyclone_until = 0.0;
         dummy.root_until = 0.0;
+        dummy.silence = None;
+        dummy.debuff_immune_until = 0.0;
         dummy.revealed_until = 0.0;
         dummy.slows.clear();
         dummy.stitch = None;
@@ -806,6 +839,9 @@ impl Match {
         }
         let h = self.h(id);
         let spell = h.spell(slot).ok_or("Invalid ability")?;
+        if u.silenced(time) {
+            return Err("Unable to cast while silenced".into());
+        }
         if u.sweep_origin.is_some() && !matches!(spell.kind, Kind::Chains | Kind::Mantle) {
             return Err("Cinder Step is still in progress".into());
         }
@@ -850,9 +886,27 @@ impl Match {
         if spell.kind == Kind::Prepared {
             return Err("Prepare a spell with R first".into());
         }
-        let dash_end = (spell.kind == Kind::Dash).then(|| self.cast_point(id, spell, at));
-        let mana = spell.mana + dash_end.map_or(0.0, |end| end.dist(u.pos) * spell.distance_mana);
-        if !free_mana && h.mana < mana {
+        let base_mana = spell.base_mana(h.max_mana);
+        if !free_mana && h.mana < base_mana {
+            return Err("Not enough mana".into());
+        }
+        let mana_per_unit = spell.mana_per_unit(h.max_mana);
+        let dash_end = (spell.kind == Kind::Dash).then(|| {
+            let end = self.cast_point(id, spell, at);
+            if spell.distance_mana_percent > 0.0 && !free_mana {
+                u.pos.towards(
+                    end,
+                    (h.mana - base_mana) / mana_per_unit,
+                    0.0,
+                    true,
+                    self.height(),
+                )
+            } else {
+                end
+            }
+        });
+        let mana = base_mana + dash_end.map_or(0.0, |end| end.dist(u.pos) * mana_per_unit);
+        if !free_mana && h.mana + 1e-8 < mana {
             return Err("Not enough mana".into());
         }
         let brand_slot = if spell.kind == Kind::Brand {
@@ -905,7 +959,7 @@ impl Match {
             return Ok(());
         }
         if !free_mana {
-            self.h_mut(id).mana -= mana;
+            self.h_mut(id).mana = (self.h(id).mana - mana).max(0.0);
         }
         if !no_cooldowns {
             let h = self.h_mut(id);
@@ -1049,7 +1103,9 @@ impl Match {
                             let index = (self.random() * nearby.len() as f64) as usize;
                             let (target, _) = nearby.swap_remove(index);
                             let b = self.u_mut(target);
-                            b.root_until = b.root_until.max(time + spell.duration);
+                            if !b.debuff_immune(time) {
+                                b.root_until = b.root_until.max(time + spell.duration);
+                            }
                             let pos = b.pos;
                             self.effect("chains", pos, json!({"fromX":origin.x, "fromY":origin.y}));
                             targets.push(target);
@@ -1127,7 +1183,9 @@ impl Match {
             }
             Kind::Nova => self.blast(id, spell, origin, damage),
             Kind::Dash => {
+                self.h_mut(id).dash_hits.clear();
                 self.u_mut(id).dash = Some(Dash {
+                    start: origin,
                     pos: dash_end.unwrap(),
                     spell,
                     damage,
@@ -1174,6 +1232,7 @@ impl Match {
         self.start_brand_leg(
             id,
             Dash {
+                start: origin,
                 pos: brands[0].1.pos,
                 spell,
                 damage,

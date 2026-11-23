@@ -58,7 +58,8 @@ impl Match {
         let h = self.h(id);
         h.spell(slot).is_some_and(|s| {
             h.level >= h.unlock(slot)
-                && mana >= s.mana
+                && !self.u(id).silenced(self.time)
+                && mana >= s.base_mana(h.max_mana)
                 && match s.kind {
                     Kind::Passive => false,
                     Kind::Brand => {
@@ -114,7 +115,7 @@ impl Match {
             if s.damage == 0.0 || !self.ability_ready(id, slot, mana) {
                 continue;
             }
-            mana -= s.mana;
+            mana -= s.base_mana(h.max_mana);
             damage += cast_damage(s);
         }
         damage

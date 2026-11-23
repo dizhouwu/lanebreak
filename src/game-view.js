@@ -5,6 +5,8 @@
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const range = (a, b) => distance(a, b) - b.r;
   const xpGoal = level => 200 + 100 * (level - 1);
+  const baseMana = (hero, spell) => spell.mana + (spell.manaPercent || 0) * (hero.maxMana || 0);
+  const manaPerUnit = (hero, spell) => (spell.distanceMana || 0) + (spell.distanceManaPercent || 0) * (hero.maxMana || 0);
   const owns = (object, id) => Object.hasOwn(object, id);
   const isVeiled = (unit, time) => unit.veilUntil > time;
   const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, spirit: 8, lifted: 16, rooted: 32 };
@@ -36,12 +38,13 @@
     const level = abilityLevel(hero, i);
     if (hero.level < level) return 'Unlocks at level ' + level;
     if (spell.kind === 'passive') return 'This ability is passive';
+    if (hero.silenced) return 'Unable to cast while silenced';
     if (spell.kind === 'brandReturn' && !hero.brands?.some(brand => brand.until > time)) return 'Place a fire brand with R first';
     if (spell.kind === 'brand' && abilityReadyAt(hero, i) > time) return 'No fire brand charges ready';
     if (spell.kind === 'invoke' && !weaveRecipe(hero)) return 'Queue three marks with Q, W, or E';
     if (!noCooldowns && abilityReadyAt(hero, i) > time) return 'Ability cooling down';
     if (spell.kind === 'prepared') return 'Prepare a spell with R first';
-    if (!freeMana && hero.mana < spell.mana) return 'Not enough mana';
+    if (!freeMana && hero.mana < baseMana(hero, spell)) return 'Not enough mana';
     return null;
   }
   function point(unit, x, y, limit = Infinity, min = 0, ground = true, height = HEIGHT) {
@@ -50,14 +53,20 @@
     return { x: clamp(unit.x + (x - unit.x) * factor, ground ? 30 : 20, WIDTH - (ground ? 30 : 20)),
       y: clamp(unit.y + (y - unit.y) * factor, ground ? 70 : 20, height - (ground ? 140 : 20)) };
   }
-  function castPoint(hero, spell, x, y, height = HEIGHT) {
+  function castPoint(hero, spell, x, y, height = HEIGHT, freeMana = false) {
     if (spell.fixed || spell.kind === 'bolt' || spell.kind === 'hook') {
       const angle = spell.fixed || (x === hero.x && y === hero.y) ? hero.facing : Math.atan2(y - hero.y, x - hero.x);
       x = hero.x + Math.cos(angle) * spell.range;
       y = hero.y + Math.sin(angle) * spell.range;
       if (spell.kind === 'bolt' || spell.kind === 'hook') return { x, y };
     }
-    return point(hero, x, y, spell.range, spell.kind === 'dash' ? 60 : 0, spell.kind !== 'blast', height);
+    const min = spell.kind === 'dash' && !spell.dashInvulnerable ? 60 : 0;
+    const end = point(hero, x, y, spell.range, min, spell.kind !== 'blast', height);
+    if (spell.distanceManaPercent && !freeMana) {
+      const affordable = Math.max(0, (hero.mana - baseMana(hero, spell)) / manaPerUnit(hero, spell));
+      return point(hero, end.x, end.y, affordable, 0, true, height);
+    }
+    return end;
   }
   function buyPlan(hero, id, showRecipe = false) {
     if (!owns(ITEMS, id)) return null;
@@ -94,7 +103,7 @@
     return pickUnit(snapshot, point, snapshot.heroes[team].team, includeAlliedCreeps);
   }
   const targetableUnit = (caster, target, spell, time) => {
-    if (target.hp <= 0 || target.concealed || target.cycloneUntil > time || target.sweepOrigin) return false;
+    if (target.hp <= 0 || target.concealed || target.cycloneUntil > time || target.sweepOrigin || target.currentRunOrigin) return false;
     const allied = caster.team === target.team;
     const allowed = spell.target === 'otherUnit' ? caster.id !== target.id :
       spell.target === 'ally' ? allied : !allied || (spell.target === 'selfOrEnemy' && caster.id === target.id);
@@ -141,7 +150,7 @@
     }
     return best;
   }
-  const api = { buyPlan, shopOffer, sellValue, spellDamage, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
+  const api = { buyPlan, shopOffer, sellValue, spellDamage, baseMana, manaPerUnit, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
     abilityCastMode, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, CREEP_FLAGS, xpGoal };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = { ...globalThis.LanebreakMatch, ...api };

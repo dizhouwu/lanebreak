@@ -124,7 +124,8 @@ test('browser snapshots preserve mixed projectile order and survive later captur
   const target = native.snapshot(0).heroes[1];
   for (const match of [native,browser]) {
     assert.equal(match.order(0, {o:'attack',id:target.id}), null);
-    match.step(dt, 20);
+    for (let tick = 0; tick < 150 && match.snapshot(0).projectiles.length === 0; tick++) match.step(dt);
+    assert.deepEqual(Array.from(match.snapshot(0).projectiles, row => row[2]), ['attack']);
     assert.equal(match.order(0, {o:'cast',i:0,castMode:'point',x:target.x,y:target.y}), null);
   }
   const saved = browser.snapshot(0);

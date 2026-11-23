@@ -218,7 +218,10 @@ impl Match {
                 } else {
                     0.0
                 };
-            let fountain = if u.pos.dist(home) <= 400.0 { 0.15 } else { 0.0 };
+            if u.pos.squared(home) <= 400.0_f64.powi(2) {
+                h.fountain_until = time + 1.0;
+            }
+            let fountain = if h.fountain_until > time { 0.15 } else { 0.0 };
             u.hp = u.max_hp.min(u.hp + dt * (regen + u.max_hp * fountain));
             h.mana = h
                 .max_mana
@@ -245,9 +248,18 @@ impl Match {
             self.u_mut(id).dash = None;
         }
         if let Some(dash) = self.u(id).dash {
+            let previous = self.u(id).pos;
             self.walk(id, dash.pos, dash.spell.speed, dt);
-            if self.u(id).pos.dist(dash.pos) < 1e-6 {
-                self.blast(id, dash.spell, self.u(id).pos, dash.damage);
+            let current = self.u(id).pos;
+            if dash.spell.travel_damage > 0.0 && previous != current {
+                self.dash_path_damage(id, dash.spell, previous, current);
+            }
+            if current.dist(dash.pos) < 1e-6 {
+                let damage = dash.damage
+                    + dash.spell.distance_damage
+                        * current.dist(dash.start)
+                        * stat(&self.h(id).stats, "power");
+                self.blast(id, dash.spell, current, damage);
                 if let Some(mut route) = dash.brand_route {
                     let h = self.h_mut(id);
                     h.brands[route.stops[route.leg].unwrap()] = None;
@@ -485,11 +497,11 @@ impl Match {
     fn collide(&mut self) {
         self.collision_rows.clear();
         self.collision_ids.clear();
-        for u in self
-            .units
-            .values()
-            .filter(|u| u.hp > 0.0 && u.sweep_origin.is_none())
-        {
+        for u in self.units.values().filter(|u| {
+            u.hp > 0.0
+                && u.sweep_origin.is_none()
+                && !u.dash.is_some_and(|dash| dash.spell.dash_invulnerable)
+        }) {
             let flags = u32::from(
                 !(u.role == Role::Building || u.dash.is_some() || u.hook_pull.is_some() || u.dummy),
             ) | (u32::from(u.veiled(self.time)) << 1);
@@ -605,9 +617,21 @@ impl Match {
     }
 
     fn hook_target(&mut self, id: Id, origin: Point, speed: f64) {
+        if self.u(id).debuff_immune(self.time) {
+            return;
+        }
         let pos = self.u(id).pos;
         let distance = (pos.dist(origin) - 76.0).max(0.0);
         let end = pos.towards(origin, distance, 0.0, true, self.height());
+        self.start_pull(id, end, speed);
+        self.effect(
+            "grapple",
+            pos,
+            json!({"target":id,"fromX":origin.x,"fromY":origin.y}),
+        );
+    }
+
+    pub(super) fn start_pull(&mut self, id: Id, end: Point, speed: f64) {
         let u = self.u_mut(id);
         u.hook_pull = Some(HookPull { end, speed });
         u.windup = None;
@@ -618,11 +642,41 @@ impl Match {
             hero.channel = 0.0;
             hero.cast_channel = None;
         }
-        self.effect(
-            "grapple",
-            pos,
-            json!({"target":id,"fromX":origin.x,"fromY":origin.y}),
-        );
+    }
+
+    fn dash_path_damage(&mut self, id: Id, spell: &Spell, from: Point, to: Point) {
+        let team = self.u(id).team;
+        let hit_before = &self.h(id).dash_hits;
+        let delta = to.delta(from);
+        let length = from.dist(to);
+        let direction = [delta.x / length, delta.y / length];
+        let hits: Vec<_> = self
+            .units
+            .values()
+            .filter_map(|target| {
+                if target.hp <= 0.0
+                    || target.team == team
+                    || target.role == Role::Building
+                    || target.invulnerable(self.time)
+                    || hit_before.contains(&target.id)
+                {
+                    return None;
+                }
+                let mut row = [target.pos.x, target.pos.y, target.r, 0.0];
+                lanebreak_physics::sweep_bolt(
+                    &mut row,
+                    [from.x, from.y],
+                    direction,
+                    length,
+                    spell.travel_radius,
+                );
+                (row[3] >= 0.0).then_some(target.id)
+            })
+            .collect();
+        for target in hits {
+            self.h_mut(id).dash_hits.push(target);
+            self.hurt(target, spell.travel_damage, id, true, false);
+        }
     }
 
     fn update_hook_pull(&mut self, id: Id, dt: f64) -> bool {
@@ -896,6 +950,14 @@ impl Match {
         }
         for seat in 0..self.heroes.len() {
             let id = self.heroes[seat];
+            if self
+                .u(id)
+                .silence
+                .as_ref()
+                .is_some_and(|silence| silence.until <= time)
+            {
+                self.finish_silence(id);
+            }
             if self.u(id).dummy {
                 if self.u(id).hp > 0.0 {
                     self.update_hook_pull(id, dt);

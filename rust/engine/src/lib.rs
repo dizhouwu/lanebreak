@@ -134,6 +134,7 @@ struct CastChannel {
 }
 #[derive(Clone, Copy)]
 struct Dash {
+    start: Point,
     pos: Point,
     spell: &'static Spell,
     damage: f64,
@@ -193,6 +194,12 @@ struct SpellBarrier {
     until: f64,
 }
 
+struct Silence {
+    source: Id,
+    until: f64,
+    damage: f64,
+}
+
 struct FinisherChain {
     target: Id,
     hits: u32,
@@ -221,11 +228,13 @@ struct Hero {
     impact_hits: u8,
     impact_ready: f64,
     spell_barrier: Option<SpellBarrier>,
+    fountain_until: f64,
     cd: [f64; 4],
     marks: Vec<usize>,
     prepared: Vec<String>,
     weave_ready: BTreeMap<String, f64>,
     charge_until: f64,
+    dash_hits: Vec<Id>,
     finisher_chain: Option<FinisherChain>,
     brands: [Option<Brand>; BRAND_CAPACITY],
     brand_ready: [f64; BRAND_CAPACITY],
@@ -274,11 +283,13 @@ impl Hero {
             impact_hits: 0,
             impact_ready: 0.0,
             spell_barrier: None,
+            fountain_until: 0.0,
             cd: [0.0; 4],
             marks: Vec::new(),
             prepared: Vec::new(),
             weave_ready: BTreeMap::new(),
             charge_until: 0.0,
+            dash_hits: Vec::new(),
             finisher_chain: None,
             brands: [None; BRAND_CAPACITY],
             brand_ready: [0.0; BRAND_CAPACITY],
@@ -402,6 +413,8 @@ struct Unit {
     dash: Option<Dash>,
     hook_pull: Option<HookPull>,
     stun_until: f64,
+    silence: Option<Silence>,
+    debuff_immune_until: f64,
     disarmed_until: f64,
     veil_until: f64,
     revealed_until: f64,
@@ -430,7 +443,19 @@ struct Unit {
 }
 impl Unit {
     fn invulnerable(&self, time: f64) -> bool {
-        self.cyclone_until > time || self.sweep_origin.is_some()
+        self.cyclone_until > time
+            || self.sweep_origin.is_some()
+            || self.dash.is_some_and(|dash| dash.spell.dash_invulnerable)
+    }
+
+    fn silenced(&self, time: f64) -> bool {
+        self.silence
+            .as_ref()
+            .is_some_and(|silence| silence.until > time)
+    }
+
+    fn debuff_immune(&self, time: f64) -> bool {
+        self.debuff_immune_until > time
     }
 
     fn veiled(&self, time: f64) -> bool {
@@ -847,7 +872,11 @@ impl Match {
         u.pos.towards(
             at,
             spell.range,
-            if spell.kind == Kind::Dash { 60.0 } else { 0.0 },
+            if spell.kind == Kind::Dash && !spell.dash_invulnerable {
+                60.0
+            } else {
+                0.0
+            },
             spell.kind != Kind::Blast,
             self.height(),
         )

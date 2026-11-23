@@ -56,7 +56,7 @@ Hover over a hero on the home screen for a kit preview, or open **Abilities & bu
 | **Vesper**, Tide Archer | Ranged pressure with piercing arrows and snares |
 | **Brakk**, Iron Ram | Durable melee brawler with a charge and lifesteal |
 | **Orrin**, Gravity Sage | Burst caster with delayed impacts and a blink |
-| **Kestrel**, Arc Runner | Lightning skirmisher with charged attacks and a dash that spends mana based on distance |
+| **Kestrel**, Arc Runner | Lightning skirmisher with a short reel, charged splash attacks, and a cooldown-free dash priced by distance and maximum mana |
 | **Veyra**, Cinder Pilgrim | Fire skirmisher who dashes through up to three planted brands |
 | **Morrow**, Chain Warden | Chain initiator who can pull in an enemy or rescue an ally |
 | **Calyx**, Glassknife | Blink assassin with a tracking dagger and a critical strike every fourth hit on the same hero |
@@ -107,6 +107,8 @@ For a Galeglass combo, prepare **EEE** in F and **WEE** in D. Lift the target wi
 - **Fortify and buyback.** Fortification protects allied towers for five seconds and lets each tower fire at up to five creeps per volley. The 180-second cooldown is shared by the team. Buyback costs 200 gold plus 50 per hero level and has a 240-second cooldown per hero.
 - **Shop recipes.** Click an item to see its components. The shop deducts the value of parts you already own. **Recommended builds** links each loadout to its recipes, and **Builds into** shows possible upgrades. Click an inventory item to sell it at the fountain.
 - **Active items.** Use **Rift Stone** to blink toward a clicked point, **Galeglass** to lift a target, **Faultline Maul** to stun, and **Revelation Dust** to reveal invisible enemies.
+- **Late-game equipment.** **Hushthorn** silences an enemy hero and deals follow-up damage when the seal expires. **Sovereign Aegis** clears dispellable debuffs and grants brief debuff immunity and spell damage reduction. **Dreadforged Edge** and **Astral Crucible** upgrade attack and spell builds.
+- **Progression.** Heroes can reach level 20. Fountain regeneration lingers for one second after leaving, and tower attack range exceeds every hero's basic attack range.
 
 </details>
 

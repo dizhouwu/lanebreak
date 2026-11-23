@@ -70,13 +70,19 @@ pub struct Spell {
     pub name: String,
     pub kind: Kind,
     pub mana: f64,
+    pub mana_percent: f64,
     pub distance_mana: f64,
+    pub distance_mana_percent: f64,
     pub cd: f64,
     pub range: f64,
     pub radius: f64,
     pub trigger_radius: f64,
     pub wall_depth: f64,
     pub speed: f64,
+    pub dash_invulnerable: bool,
+    pub travel_radius: f64,
+    pub travel_damage: f64,
+    pub distance_damage: f64,
     pub piercing: bool,
     pub fixed: bool,
     pub damage: f64,
@@ -115,6 +121,14 @@ pub struct Spell {
 }
 
 impl Spell {
+    pub fn base_mana(&self, max_mana: f64) -> f64 {
+        self.mana + self.mana_percent * max_mana
+    }
+
+    pub fn mana_per_unit(&self, max_mana: f64) -> f64 {
+        self.distance_mana + self.distance_mana_percent * max_mana
+    }
+
     pub(super) fn wall_covers(
         &self,
         center: Point,
@@ -187,6 +201,7 @@ pub enum ItemTarget {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Item {
     pub cost: f64,
     pub total: f64,
@@ -197,6 +212,12 @@ pub struct Item {
     pub range: f64,
     #[serde(default)]
     pub reveal: f64,
+    #[serde(default)]
+    pub duration: f64,
+    #[serde(default)]
+    pub amplify: f64,
+    #[serde(default)]
+    pub spell_resist: f64,
     #[serde(default)]
     pub parts: Vec<String>,
     #[serde(default)]
@@ -261,6 +282,8 @@ pub struct Rules {
     pub width: f64,
     #[serde(rename = "HEIGHT")]
     pub height: f64,
+    #[serde(rename = "MAX_LEVEL")]
+    pub max_level: u32,
     #[serde(rename = "DUEL_MAP")]
     pub duel_map: DuelMap,
     #[serde(rename = "TEAM_MAP")]

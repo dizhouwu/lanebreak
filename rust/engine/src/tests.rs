@@ -1119,8 +1119,11 @@ fn ion_beacon_waits_for_enemy_contact_after_arming() {
 }
 
 #[test]
-fn kestrel_pulls_charges_a_basic_attack_and_pays_for_dash_distance() {
+fn kestrel_reels_a_nearby_hero_and_splashes_the_charged_attack() {
     let mut m = duel(["kestrel", "brakk"]);
+    m.next_wave = f64::INFINITY;
+    m.command(1, Command::Stop).unwrap();
+    m.command(2, Command::Stop).unwrap();
     m.h_mut(1).level = 6;
     m.refresh(1);
     m.h_mut(1).mana = m.h(1).max_mana;
@@ -1131,12 +1134,35 @@ fn kestrel_pulls_charges_a_basic_attack_and_pays_for_dash_distance() {
             .unwrap_err()
             .contains("passive")
     );
+    assert!(
+        m.command(1, Command::cast(1, Point::default(), Some(2)))
+            .is_err()
+    );
+    place(&mut m, 2, 2320.0, 450.0);
     m.command(1, Command::cast(1, Point::default(), Some(2)))
         .unwrap();
-    assert_eq!(m.u(2).pos, Point::new(2285.0, 450.0));
+    assert_eq!(m.u(2).pos, Point::new(2320.0, 450.0));
+    m.step(DT, 15);
+    assert!((2165.0..2320.0).contains(&m.u(2).pos.x));
+    m.step(DT, 24);
+    assert!(
+        (m.u(2).pos.x - 2165.0).abs() < 1e-6,
+        "pull ended at {:?}",
+        m.u(2).pos
+    );
     assert_eq!(view(&m, 0)["heroes"][0]["charged"], true);
 
+    let neighbor = m.insert(Unit {
+        role: Role::Creep,
+        team: 1,
+        pos: Point::new(2165.0, 580.0),
+        r: 15.0,
+        hp: 300.0,
+        max_hp: 300.0,
+        ..Unit::default()
+    });
     m.attack_hit(1, 2, 30.0);
+    assert!(m.u(neighbor).hp < 300.0);
     assert!(view(&m, 0)["heroes"][0]["charged"].is_null());
     assert_eq!(
         m.effects
@@ -1153,22 +1179,124 @@ fn kestrel_pulls_charges_a_basic_attack_and_pays_for_dash_distance() {
             .count(),
         1
     );
+}
 
-    place(&mut m, 2, 2410.0, 450.0);
-    m.h_mut(1).mana = 120.0;
+#[test]
+fn current_run_spends_max_mana_shields_and_hits_in_flight_then_scales_landing() {
+    let mut m = duel(["kestrel", "brakk"]);
+    m.next_wave = f64::INFINITY;
+    m.command(1, Command::Stop).unwrap();
+    m.command(2, Command::Stop).unwrap();
+    m.h_mut(1).level = 6;
+    m.refresh(1);
+    place(&mut m, 1, 2100.0, 450.0);
+    place(&mut m, 2, 2400.0, 450.0);
+    let max_mana = m.h(1).max_mana;
+    let base = 25.0 + 0.075 * max_mana;
+    let per_unit = 0.1 + 0.000065 * max_mana;
+    m.h_mut(1).mana = base - 1.0;
     assert!(
         m.command(1, Command::cast(3, Point::new(3350.0, 450.0), None))
             .unwrap_err()
             .contains("mana")
     );
     assert!(m.u(1).dash.is_none());
-    cast(&mut m, 3, Point::new(2300.0, 450.0));
-    assert_eq!(m.h(1).mana, 120.0 - (55.0 + 300.0 * 0.115));
+    m.h_mut(1).mana = max_mana;
+    let traveler_hp = m.u(1).hp;
     let enemy_hp = m.u(2).hp;
-    m.step(DT, 11);
-    assert_eq!(m.u(1).pos, Point::new(2300.0, 450.0));
+    cast(&mut m, 3, Point::new(2500.0, 450.0));
+    assert!((m.h(1).mana - (max_mana - base - 400.0 * per_unit)).abs() < 1e-8);
+    m.hurt(1, 100.0, 2, false, false);
+    assert_eq!(m.u(1).hp, traveler_hp);
+    m.step(DT, 10);
+    assert!(m.u(1).dash.is_some());
+    assert!((enemy_hp - m.u(2).hp - 18.0).abs() < 2.0);
+    m.step(DT, 4);
     assert!(m.u(1).dash.is_none());
-    assert!(m.u(2).hp < enemy_hp);
+    assert!(enemy_hp - m.u(2).hp > 80.0);
+    assert!(m.h(1).ready_at(3) <= m.time);
+    m.h_mut(1).mana = base + 200.0 * per_unit;
+    cast(&mut m, 3, Point::new(4000.0, 450.0));
+    assert!(
+        (m.u(1).dash.unwrap().pos.x - 2700.0).abs() < 1e-6,
+        "started at {:?} and aimed at {:?}",
+        m.u(1).pos,
+        m.u(1).dash.unwrap().pos
+    );
+    assert!(m.h(1).mana < 1e-7);
+}
+
+#[test]
+fn hushthorn_silences_and_echoes_damage_and_the_aegis_clears_it() {
+    let mut m = duel(["kestrel", "brakk"]);
+    m.next_wave = f64::INFINITY;
+    m.h_mut(1).gold = 10_000.0;
+    m.h_mut(2).gold = 10_000.0;
+    m.buy(1, "hushthorn").unwrap();
+    m.buy(2, "sovereign").unwrap();
+    place(&mut m, 1, 2300.0, 450.0);
+    place(&mut m, 2, 2490.0, 450.0);
+    let use_hushthorn = r#"{"o":"targetItem","i":0,"item":"hushthorn","id":2}"#;
+    assert!(m.order_json(0, use_hushthorn).is_none());
+    assert!(
+        m.command(2, Command::cast(1, Point::default(), None))
+            .unwrap_err()
+            .contains("silenced")
+    );
+    m.hurt(2, 100.0, 1, true, false);
+    let before = m.u(2).hp;
+    m.time += 4.0;
+    m.step(DT, 1);
+    assert!((before - m.u(2).hp - 14.0625).abs() < 0.5);
+    assert!(!m.u(2).silenced(m.time));
+
+    m.time += 25.0;
+    assert!(m.order_json(0, use_hushthorn).is_none());
+    m.slow(2, "test", 0.4, 1.0);
+    m.command(2, Command::Item(0, Point::default())).unwrap();
+    assert!(!m.u(2).silenced(m.time));
+    assert!(m.u(2).slows.is_empty());
+    let before = m.u(2).hp;
+    m.magic(2, 1, &m.h(1).kit().abilities[1], 100.0, None);
+    assert!((before - m.u(2).hp - 41.25).abs() < 1e-6);
+    assert!(m.u(2).hook_pull.is_none());
+    assert!(m.u(2).stun_until <= m.time);
+}
+
+#[test]
+fn fountain_lingers_and_towers_outrange_heroes_on_both_maps() {
+    for team_match in [false, true] {
+        let mut m = Match::from_options(&json!({"team_match":team_match,"bots":[null,null,null,null,null,null,null,null,null,null]}).to_string()).unwrap();
+        m.next_wave = f64::INFINITY;
+        let home = m.home(0);
+        m.u_mut(1).hp = 100.0;
+        m.h_mut(1).mana = 10.0;
+        m.step(DT, 1);
+        place(&mut m, 1, home.x + 420.0, home.y);
+        let before = m.u(1).hp;
+        let mana = m.h(1).mana;
+        m.step(DT, 25);
+        assert!(m.u(1).hp > before + 20.0 && m.h(1).mana > mana + 10.0);
+        m.step(DT, 38);
+        let after = m.u(1).hp;
+        m.step(DT, 1);
+        assert!(m.u(1).hp - after < 1.0);
+        for &tower in &m.buildings {
+            let b = m.u(tower);
+            if matches!(b.kind, "inner" | "outer") {
+                assert!(
+                    rules()
+                        .heroes
+                        .values()
+                        .all(|h| h.range + b.r < b.range + m.u(1).r)
+                );
+            }
+        }
+    }
+    let mut m = duel(["vesper", "brakk"]);
+    m.gain_xp(1, 100_000.0);
+    assert_eq!(m.h(1).level, 20);
+    assert_eq!(m.h(1).xp, 0.0);
 }
 
 #[test]

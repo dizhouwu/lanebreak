@@ -104,11 +104,12 @@ impl Match {
     }
 
     pub(super) fn gain_xp(&mut self, id: Id, amount: f64) {
-        if self.h(id).level >= 15 {
+        let cap = rules().max_level;
+        if self.h(id).level >= cap {
             return;
         }
         self.h_mut(id).xp += amount;
-        while self.h(id).level < 15 && self.h(id).xp >= xp_goal(self.h(id).level) {
+        while self.h(id).level < cap && self.h(id).xp >= xp_goal(self.h(id).level) {
             let hp = self.u(id).max_hp;
             let mana = self.h(id).max_mana;
             let level = self.h(id).level;
@@ -130,7 +131,7 @@ impl Match {
                 json!({"team": team, "audience": audience, "text": format!("LEVEL {}", level + 1)}),
             );
         }
-        if self.h(id).level == 15 {
+        if self.h(id).level == cap {
             self.h_mut(id).xp = 0.0;
         }
     }
@@ -186,6 +187,9 @@ impl Match {
         h.impact_hits = 0;
         h.impact_ready = now + recovery;
         let b = self.u_mut(target);
+        if b.debuff_immune(now) {
+            return;
+        }
         b.stun_until = b.stun_until.max(now + duration);
         b.windup = None;
         self.h_mut(target).channel = 0.0;
@@ -239,6 +243,7 @@ impl Match {
             .or((source_role == Role::Hero).then_some(source));
         let target_team = b.team;
         let (veiled, dummy) = (b.veiled(self.time), b.dummy);
+        let hp = b.hp;
         let mut amount = raw;
         if target_role == Role::Building {
             if ability {
@@ -263,6 +268,9 @@ impl Match {
         if ability && target_role == Role::Hero && source_role == Role::Hero && team != target_team
         {
             let time = self.time;
+            if self.u(target).debuff_immune(time) {
+                amount *= 1.0 - rules().items["sovereign"].spell_resist;
+            }
             if let Some(barrier) = self.h_mut(target).spell_barrier.as_mut()
                 && barrier.until > time
                 && barrier.health > 0.0
@@ -280,6 +288,13 @@ impl Match {
             if source_role == Role::Hero {
                 self.h_mut(source).recent_aggro = t;
             }
+        }
+        let time = self.time;
+        if target_team != team
+            && let Some(silence) = self.u_mut(target).silence.as_mut()
+            && silence.until > time
+        {
+            silence.damage += if dummy { amount } else { amount.min(hp) };
         }
         if dummy {
             let train = self.training.as_mut().unwrap();
@@ -444,6 +459,8 @@ impl Match {
                 u.lift_until = 0.0;
                 u.cyclone_until = 0.0;
                 u.root_until = 0.0;
+                u.silence = None;
+                u.debuff_immune_until = 0.0;
                 u.sweep_origin = None;
                 u.windup = None;
                 u.dash = None;
@@ -455,6 +472,8 @@ impl Match {
                 h.kill_streak = 0;
                 h.multi_kill = None;
                 h.charge_until = 0.0;
+                h.fountain_until = 0.0;
+                h.dash_hits.clear();
                 h.finisher_chain = None;
                 h.brands.fill(None);
                 h.heat /= 2;
@@ -795,10 +814,28 @@ impl Match {
     }
 
     pub(super) fn slow(&mut self, target: Id, id: &'static str, value: f64, duration: f64) {
+        if self.u(target).debuff_immune(self.time) {
+            return;
+        }
         let until = self.time + duration;
         let u = self.u_mut(target);
         u.slows.retain(|s| s.id != id);
         u.slows.push(Slow { id, value, until });
+    }
+
+    pub(super) fn finish_silence(&mut self, target: Id) {
+        if let Some(silence) = self.u_mut(target).silence.take()
+            && silence.damage > 0.0
+        {
+            self.item_flash(target, "hushthorn");
+            self.hurt(
+                target,
+                silence.damage * rules().items["hushthorn"].amplify,
+                silence.source,
+                true,
+                false,
+            );
+        }
     }
 
     pub(super) fn magic(
@@ -817,6 +854,10 @@ impl Match {
             return;
         }
         let time = self.time;
+        if b.debuff_immune(time) {
+            self.hurt(target, damage, from, true, false);
+            return;
+        }
         let hidden = b.veiled(time);
         if spell.slow > 0.0 {
             self.slow(target, "slow", spell.slow, spell.slow_time);
@@ -919,6 +960,10 @@ impl Match {
         if let Some(destination) = displacement
             && destination != b.pos
         {
+            if spell.pull > 0.0 && spell.reel_speed > 0.0 {
+                self.start_pull(target, destination, spell.reel_speed);
+                return;
+            }
             b.pos = destination;
             if let Some(h) = &mut b.hero {
                 h.jump += 1;
