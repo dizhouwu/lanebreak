@@ -40,6 +40,8 @@
   const rowIndexes = new WeakMap();
   let motionPlan = null;
   const panKeys = new Set();
+  const panTaps = new Set();
+  const panViewsPerSecond = 1.4;
   const game = $('game');
   const castSounds = {
     bolt: [700,.12,'triangle',.05,.6], nova: [150,.25,'square',.06,.5], dash: [300,.20,'sawtooth',.05,1.8],
@@ -551,9 +553,8 @@
     if (!local || !snapshot?.training || snapshot.mode !== 'match' || paused) return;
     setPendingCast(null);
     stopCameraDrag();
-    panKeys.clear();
+    resetCameraPan();
     cursorOnArena = false;
-    edgePointer = null;
     $('hudTooltip').hidden = true;
     tooltipTarget = null;
     for (const button of $('trainingHeroChoices').children) {
@@ -730,10 +731,14 @@
     button.textContent = free ? 'Camera: Free' : 'Camera: Follow';
     game.dataset.camera = free ? 'free' : 'follow';
   }
+  function resetCameraPan() {
+    panKeys.clear();
+    panTaps.clear();
+    edgePointer = null;
+  }
   function followHero() {
     stopCameraDrag();
-    panKeys.clear();
-    edgePointer = null;
+    resetCameraPan();
     renderer.focus = null;
     cameraLabel(false);
   }
@@ -762,20 +767,26 @@
     const margin = Math.min(32, size * .06);
     const distance = Math.max(0, Math.min(position, size - 1 - position));
     if (distance >= margin) return 0;
-    const strength = 1 - .65 * distance / margin;
+    const strength = Math.sqrt(1 - distance / margin);
     return position < size / 2 ? -strength : strength;
   }
   function panCamera(dt) {
-    if (!cameraInputEnabled()) return stopCameraDrag();
-    if (cameraDrag) return;
-    let dx = Number(panKeys.has('arrowright')) - Number(panKeys.has('arrowleft'));
-    let dy = Number(panKeys.has('arrowdown')) - Number(panKeys.has('arrowup'));
-    if (!panKeys.size && edgePointer) {
+    const enabled = cameraInputEnabled();
+    if (!enabled || cameraDrag || selectionDrag) {
+      panTaps.clear();
+      if (!enabled) stopCameraDrag();
+      return;
+    }
+    const pressed = key => panKeys.has(key) || panTaps.has(key);
+    let dx = Number(pressed('arrowright')) - Number(pressed('arrowleft'));
+    let dy = Number(pressed('arrowdown')) - Number(pressed('arrowup'));
+    if (!panKeys.size && !panTaps.size && edgePointer) {
       dx = edgePan(edgePointer.x, arena.clientWidth);
       dy = edgePan(edgePointer.y, arena.clientHeight);
     }
+    panTaps.clear();
     if (!dx && !dy) return;
-    const step = 1650 * Math.min(dt,.05) / Math.max(1, Math.hypot(dx,dy));
+    const step = renderer.viewHeight() * panViewsPerSecond * Math.min(dt,.05) / Math.max(1, Math.hypot(dx,dy));
     moveCamera(dx * step, dy * step);
   }
   function stopCameraDrag() {
@@ -1549,7 +1560,11 @@
     }
     if (!game.hidden && k.startsWith('arrow')) {
       event.preventDefault();
-      if (cameraInputEnabled()) panKeys.add(k);
+      if (cameraInputEnabled()) {
+        // A press and release can both arrive before the next frame.
+        if (!event.repeat) panTaps.add(k);
+        panKeys.add(k);
+      }
       return;
     }
     if (event.repeat) return;
@@ -1580,8 +1595,7 @@
     else if (k === ' ' && snapshot?.mode === 'match' && !paused) {
       event.preventDefault();
       stopCameraDrag();
-      panKeys.clear();
-      edgePointer = null;
+      resetCameraPan();
       if (renderer.focus) {
         const { x, y } = (renderer.displayed || snapshot).heroes[team];
         freeCamera(x,y);
@@ -1638,11 +1652,15 @@
     minimap.addEventListener('pointermove', event => {
       if (minimap.hasPointerCapture(event.pointerId)) mapFocus(event);
     });
-    document.addEventListener('pointermove', event => {
+    const trackEdgePointer = event => {
       if (event.pointerType === 'mouse') {
-        edgePointer = event.target === arena && renderer.focus && !cameraDrag ? hovered : null;
+        edgePointer = renderer.focus && !event.buttons && event.target !== minimap ?
+          { x:event.clientX, y:event.clientY } : null;
       }
-    });
+    };
+    document.addEventListener('pointermove', trackEdgePointer);
+    document.addEventListener('pointerdown', trackEdgePointer, true);
+    document.addEventListener('pointerup', trackEdgePointer);
     document.addEventListener('pointerout', event => {
       if (!event.relatedTarget) edgePointer = null;
     });
@@ -1652,9 +1670,8 @@
       stopCameraDrag();
       stopSelectionDrag();
       setPendingCast(null);
-      panKeys.clear();
+      resetCameraPan();
       cursorOnArena = false;
-      edgePointer = null;
     };
     window.addEventListener('blur', resetCameraInput);
     document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
