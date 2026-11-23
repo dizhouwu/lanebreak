@@ -3320,10 +3320,14 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     }
     updateShopDetails(h, time);
   }
+  function updateText(element, value) {
+    const text = String(value);
+    if (element.textContent !== text) element.textContent = text;
+  }
   function meter(id, value, max, label) {
     const root = $(id);
     root.firstElementChild.style.width = Math.min(100, value / max * 100) + '%';
-    if (label) root.lastElementChild.textContent = Math.ceil(value) + ' / ' + Math.round(max);
+    if (label) updateText(root.lastElementChild, Math.ceil(value) + ' / ' + Math.round(max));
   }
   function selectUnit(id) {
     inspectedId = id;
@@ -3363,17 +3367,16 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
   function updateHud(s) {
     const h = s.heroes[team], hero = HEROES[h.hero], time = s.time;
     const side = h.team;
-    const kdaText = kda(h), kdaValue = $('playerKda');
-    if (kdaValue.textContent !== kdaText) kdaValue.textContent = kdaText;
+    updateText($('playerKda'), kda(h));
     const group = $('groupStatus');
     const groupSize = selectedUnits.size ? controlledUnits(s).filter(u => selectedUnits.has(u.id)).length : 0;
     group.hidden = !groupSize;
-    if (groupSize) group.textContent = groupSize + (groupSize === 1 ? ' unit selected' : ' units selected');
+    if (groupSize) updateText(group, groupSize + (groupSize === 1 ? ' unit selected' : ' units selected'));
     const foe = s.heroes.find(other => other.team !== side);
     if (!$('matchRoster').hidden) updateRoster(s);
     if (pendingCast && (h.hp <= 0 || s.mode !== 'match' || (h.silenced && !pendingCast.item) || currentCast(h, pendingCast) !== pendingCast.spell)) setPendingCast(null);
     const clock = Math.floor(time / 60) + ':' + String(Math.floor(time % 60)).padStart(2,'0');
-    $('matchClock').textContent = clock;
+    updateText($('matchClock'), clock);
     const fortify = $('fortify'), fortification = s.fortification?.[side];
     fortify.hidden = !fortification || demo || s.mode !== 'match';
     if (!fortify.hidden) {
@@ -3381,8 +3384,8 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       const hasTowers = s.buildings.some(b => b.team === side && b.kind !== 'core' && b.hp > 0);
       fortify.disabled = !hasTowers || cooldown > 0;
       fortify.dataset.active = active > 0;
-      fortify.textContent = active > 0 ? 'Fortified · ' + active + 's' : !hasTowers ? 'No towers left' :
-        cooldown > 0 ? 'Fortify · ' + cooldown + 's' : 'Fortify towers';
+      updateText(fortify, active > 0 ? 'Fortified · ' + active + 's' : !hasTowers ? 'No towers left' :
+        cooldown > 0 ? 'Fortify · ' + cooldown + 's' : 'Fortify towers');
     }
     if (s.training) {
       const toggle = $('trainingCooldowns'), pressed = String(s.training.noCooldowns);
@@ -3391,9 +3394,9 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
         toggle.lastElementChild.textContent = s.training.noCooldowns ? 'On' : 'Off';
       }
       $('scoreboard').setAttribute('aria-label', 'Training · ' + clock);
-      $('combatStats').textContent = s.training.dummy ? 'Damage ' + Math.round(s.training.damage) + ' · Hits ' + s.training.hits : 'Empty arena';
-      $('opponentStatus').textContent = s.training.dummy ? 'Dummy · ∞ HP' +
-        (s.training.hits ? ' · Last hit ' + Math.round(s.training.lastHit) : '') : '';
+      updateText($('combatStats'), s.training.dummy ? 'Damage ' + Math.round(s.training.damage) + ' · Hits ' + s.training.hits : 'Empty arena');
+      updateText($('opponentStatus'), s.training.dummy ? 'Dummy · ∞ HP' +
+        (s.training.hits ? ' · Last hit ' + Math.round(s.training.lastHit) : '') : '');
     } else {
       const corePct = side => {
         const core = s.buildings.find(b => b.team === side && b.kind === 'core');
@@ -3403,17 +3406,17 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
         const side = $(id);
         side.style.setProperty('--score-team',COLORS[combatant.team]);
         side.style.setProperty('--score-hero',s.teamMatch ? COLORS[combatant.team] : HEROES[combatant.hero].color);
-        side.lastElementChild.textContent = s.kills[combatant.team];
+        updateText(side.lastElementChild, s.kills[combatant.team]);
         side.title = TEAM[combatant.team] + ' · Core ' + corePct(combatant.team) + '%';
       }
       $('scoreboard').setAttribute('aria-label', TEAM[side] + ' ' + s.kills[side] + ', ' + clock + ', ' + TEAM[foe.team] + ' ' + s.kills[foe.team]);
-      $('combatStats').textContent = 'Last hits ' + h.lastHits + ' · Denies ' + h.denies;
+      updateText($('combatStats'), 'Last hits ' + h.lastHits + ' · Denies ' + h.denies);
       const enemyHero = HEROES[foe.hero].name;
-      $('opponentStatus').textContent = s.teamMatch ? TEAM[foe.team] + ' core · ' + corePct(foe.team) + '%' :
+      updateText($('opponentStatus'), s.teamMatch ? TEAM[foe.team] + ' core · ' + corePct(foe.team) + '%' :
         'Enemy · ' + foe.name + (foe.name === enemyHero ? '' : ' (' + enemyHero + ')') + ' · Lv ' + foe.level +
         (foe.heat != null ? ' · Heat ' + foe.heat : '') +
         (foe.concealed ? ' · Hidden' : foe.hp > 0 ? '' : ' · ' + Math.max(0,Math.ceil(foe.respawn-time)) + 's to respawn') +
-        (remote && foe.computer ? ' · Bot' : '');
+        (remote && foe.computer ? ' · Bot' : ''));
     }
     $('heroBadge').style.color = hero.color;
     const portraitCanvas = $('hudPortrait');
@@ -3422,16 +3425,16 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       portraitCanvas.dataset.hero = h.hero;
     }
     portraitCanvas.style.opacity = h.hp > 0 ? '1' : '.4';
-    $('heroLevel').textContent = h.level;
-    $('vitalName').textContent = h.hp > 0 ? hero.name + ' · ' + hero.title : 'Respawn ' + Math.ceil(Math.max(0,h.respawn-time)) + 's';
-    $('heroAttributes').textContent = 'DMG ' + Math.round(h.stats.damage * h.stats.multiplier) + ' · Armor ' + h.stats.armor.toFixed(1) + ' · MS ' + Math.round(h.stats.speed);
+    updateText($('heroLevel'), h.level);
+    updateText($('vitalName'), h.hp > 0 ? hero.name + ' · ' + hero.title : 'Respawn ' + Math.ceil(Math.max(0,h.respawn-time)) + 's');
+    updateText($('heroAttributes'), 'DMG ' + Math.round(h.stats.damage * h.stats.multiplier) + ' · Armor ' + h.stats.armor.toFixed(1) + ' · MS ' + Math.round(h.stats.speed));
     const { width, height } = renderer.canvas;
     $('quality').title = width + ' × ' + height + ' render resolution' +
       (renderer.measure?.fps ? ' · ' + Math.round(renderer.measure.fps) + ' FPS' : '');
     meter('health', h.hp, h.maxHp, true);
     meter('mana', h.mana, h.maxMana, true);
     meter('xp', h.level >= MAX_LEVEL ? 1 : h.xp, h.level >= MAX_LEVEL ? 1 : xpGoal(h.level));
-    $('gold').textContent = Math.floor(h.gold) + ' g';
+    updateText($('gold'), Math.floor(h.gold) + ' g');
     const resource = $('heroResource'), timer = $('veilTimer'), recipe = weaveRecipe(h);
     const marks = h.marks || [];
     const spellName = recipe ? ' → ' + hero.weaves[recipe].name : '';
@@ -3492,15 +3495,15 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       const finisher = h.finisherHits != null && spell.critHits;
       const charged = finisher ? h.finisherHits === spell.critHits - 1 : h.charged;
       const awaitingMarks = spell.kind === 'invoke' && !recipe, empty = spell.kind === 'prepared';
-      tile.firstElementChild.textContent = spell.name;
+      updateText(tile.firstElementChild, spell.name);
       button.dataset.state = cast ? 'channeling' : locked || empty || placed === 0 || (awaitingMarks && !cd) ? 'locked' : passive ? (charged ? 'ready' : 'passive') :
         cd ? 'cooldown' : h.mana < manaCost ? 'nomana' : 'ready';
       button.style.setProperty('--cooldown', (spell.cd ? Math.min(100, cd / spell.cd * 100) : 0) + '%');
-      button.lastElementChild.textContent = cast ? 'Chant ' + Math.max(0, cast[2] - time).toFixed(1) + 's' :
+      updateText(button.lastElementChild, cast ? 'Chant ' + Math.max(0, cast[2] - time).toFixed(1) + 's' :
         locked ? 'Lv ' + level : cd ? (cd > 10 ? Math.ceil(cd) : cd.toFixed(1)) + 's' :
         awaitingMarks ? WEAVE_MARKS + ' marks' : empty ? '–' :
         finisher ? (charged ? 'Crit ready' : h.finisherHits + '/' + (spell.critHits - 1)) : passive ? (charged ? 'Charged' : 'Passive') :
-        charges !== null ? charges + '/' + h.brandChargeReady.length : placed !== null ? placed + ' marked' : manaLabel || '';
+        charges !== null ? charges + '/' + h.brandChargeReady.length : placed !== null ? placed + ' marked' : manaLabel || '');
       const cooldown = s.training?.noCooldowns ? 0 : +(spell.cd * (1 - (h.stats.cdr || 0))).toFixed(1);
       const damage = spell.kind === 'dagger' ? 0 : spell.kind === 'sweep' ? spell.damage + spell.growth * (h.level - 1) : spellDamage(h, spell);
       button.dataset.tip = spell.name + (manaLabel ? ' · ' + manaLabel + ' mana' : '') + (cooldown ? ' · ' + cooldown + 's' : '') +
@@ -3515,7 +3518,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       const recovery = slot?.id === 'faultline' ? h.impact?.[2] || 0 : 0;
       const cd = slot ? Math.max(0, Math.max(h.itemsReady[slot.id] || 0, recovery) - time) : 0;
       const impact = item?.stats?.bash && h.impact ? h.impact[0] + '/' + h.impact[1] : '';
-      button.lastElementChild.textContent = cd ? Math.ceil(cd) + 's' : impact || (item ? item.name.split(/[\s’]/).map(s => s[0]).slice(0,2).join('') : '–');
+      updateText(button.lastElementChild, cd ? Math.ceil(cd) + 's' : impact || (item ? item.name.split(/[\s’]/).map(s => s[0]).slice(0,2).join('') : '–'));
       const use = item?.target === 'point' ? ' and click the ground' : item?.target ? ' and click a hero' : ' to use';
       const action = !item ? '' : !$('shop').hidden ? '\nClick to sell for ' + sellValue(slot, time) + 'g' : item.cd ? '\nPress ' + (i+1) + use : '';
       button.dataset.tip = item ? item.name + '\n' + item.text + (impact ? '\nImpact hits · ' + impact : '') + action : '';
