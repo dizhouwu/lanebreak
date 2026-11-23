@@ -763,7 +763,6 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(shader));
     return shader;
   }
 
@@ -776,26 +775,48 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       this.capacity = 512;
       this.colors = new Map();
       this.ready = false;
+      this.pendingProgram = null;
+      this.setupFence = null;
       if (!this.gl) return;
       canvas.addEventListener('webglcontextlost', event => {
         event.preventDefault();
         this.ready = false;
+        this.pendingProgram = null;
+        this.setupFence = null;
       });
       canvas.addEventListener('webglcontextrestored', () => this.initialize());
       this.initialize();
     }
     initialize() {
       const gl = this.gl;
+      let vertex, fragment, program;
       try {
-        const vertex = shader(gl, gl.VERTEX_SHADER, vertexSource);
-        const fragment = shader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-        const program = gl.createProgram();
+        this.parallelCompile = gl.getExtension('KHR_parallel_shader_compile');
+        vertex = shader(gl, gl.VERTEX_SHADER, vertexSource);
+        fragment = shader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+        program = gl.createProgram();
         gl.attachShader(program, vertex);
         gl.attachShader(program, fragment);
         gl.linkProgram(program);
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(program));
-        gl.deleteShader(vertex);
-        gl.deleteShader(fragment);
+        this.pendingProgram = program;
+      } catch {
+        if (program) gl.deleteProgram(program);
+      } finally {
+        if (vertex) gl.deleteShader(vertex);
+        if (fragment) gl.deleteShader(fragment);
+      }
+    }
+    finishInitialization() {
+      const program = this.pendingProgram;
+      if (!program) return;
+      const gl = this.gl;
+      // Keep drawing with Canvas until the driver can report link status without waiting for compilation.
+      if (this.parallelCompile &&
+          !gl.getProgramParameter(program, this.parallelCompile.COMPLETION_STATUS_KHR)) return;
+      this.pendingProgram = null;
+      let fence;
+      try {
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
         gl.useProgram(program);
         this.camera = gl.getUniformLocation(program, 'camera');
         this.buffer = gl.createBuffer();
@@ -819,9 +840,17 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.clearColor(0, 0, 0, 0);
         this.resetAtlas();
-        this.ready = gl.getError() === gl.NO_ERROR;
+        fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        if (!fence) return;
+        gl.flush();
+        this.setupFence = fence;
       } catch {
         this.ready = false;
+      } finally {
+        if (!this.setupFence) {
+          if (fence) gl.deleteSync(fence);
+          gl.deleteProgram(program);
+        }
       }
     }
     resetAtlas() {
@@ -834,8 +863,20 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255,255,255,255]));
     }
     begin(width, height, x, y, scale) {
-      if (!this.ready) return false;
+      if (this.pendingProgram) {
+        this.finishInitialization();
+        return false;
+      }
       const gl = this.gl;
+      if (this.setupFence) {
+        // Validate allocations after the GPU has finished consuming the setup commands.
+        const status = gl.clientWaitSync(this.setupFence, 0, 0);
+        if (status === gl.TIMEOUT_EXPIRED) return false;
+        gl.deleteSync(this.setupFence);
+        this.setupFence = null;
+        this.ready = status !== gl.WAIT_FAILED && gl.getError() === gl.NO_ERROR;
+      }
+      if (!this.ready) return false;
       if (this.canvas.width !== width || this.canvas.height !== height) {
         this.canvas.width = width;
         this.canvas.height = height;
