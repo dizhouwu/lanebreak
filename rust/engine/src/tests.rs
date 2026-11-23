@@ -1493,7 +1493,7 @@ fn cairn_casts_three_ranges_along_facing_and_training_restores_heat() {
         cast(&mut m, slot, Point::new(start.x - 500.0, start.y - 90.0));
         assert_eq!(m.areas[slot].pos.x, start.x + offset);
         assert_eq!(m.areas[slot].pos.y, start.y);
-        assert_eq!(m.areas[slot].spell.radius, 250.0);
+        assert_eq!(m.areas[slot].spell.radius, 180.0);
     }
     cast(&mut m, 3, start);
     assert_eq!(m.h(1).heat, 6);
@@ -1508,20 +1508,25 @@ fn cairn_casts_three_ranges_along_facing_and_training_restores_heat() {
 fn cairn_blasts_overlap_and_hit_near_the_far_edge() {
     let mut m = training("cairn", true);
     let start = m.u(1).pos;
-    place(&mut m, 2, start.x + 440.0, start.y);
+    place(&mut m, 2, start.x + 325.0, start.y);
     cast(&mut m, 0, start);
     cast(&mut m, 1, start);
     m.step(DT, 24);
     assert_eq!(m.training.as_ref().unwrap().hits, 2);
 
-    place(&mut m, 2, start.x + 945.0, start.y);
+    place(&mut m, 2, start.x + 875.0, start.y);
     cast(&mut m, 2, start);
     m.step(DT, 25);
     assert_eq!(m.training.as_ref().unwrap().hits, 3);
 
-    place(&mut m, 2, start.x + 970.0, start.y);
+    place(&mut m, 2, start.x + 905.0, start.y);
     cast(&mut m, 2, start);
     m.step(DT, 25);
+    assert_eq!(m.training.as_ref().unwrap().hits, 3);
+
+    place(&mut m, 2, start.x - 10.0, start.y);
+    cast(&mut m, 0, start);
+    m.step(DT, 24);
     assert_eq!(m.training.as_ref().unwrap().hits, 3);
 }
 

@@ -918,11 +918,11 @@
           "mana": 55,
           "cd": 9,
           "range": 200,
-          "radius": 250,
+          "radius": 180,
           "delay": 0.22,
           "damage": 75,
           "growth": 18,
-          "text": "Trigger a blast with a 250-unit radius centered 200 units ahead of Cairn."
+          "text": "Trigger a blast with a 180-unit radius centered 200 units ahead of Cairn."
         },
         {
           "name": "Flue Burst",
@@ -931,11 +931,11 @@
           "mana": 65,
           "cd": 9,
           "range": 450,
-          "radius": 250,
+          "radius": 180,
           "delay": 0.29,
           "damage": 89,
           "growth": 20,
-          "text": "Trigger a blast with a 250-unit radius centered 450 units ahead of Cairn."
+          "text": "Trigger a blast with a 180-unit radius centered 450 units ahead of Cairn."
         },
         {
           "name": "Chimney Shot",
@@ -944,11 +944,11 @@
           "mana": 75,
           "cd": 9,
           "range": 700,
-          "radius": 250,
+          "radius": 180,
           "delay": 0.36,
           "damage": 103,
           "growth": 22,
-          "text": "Trigger a blast with a 250-unit radius centered 700 units ahead of Cairn."
+          "text": "Trigger a blast with a 180-unit radius centered 700 units ahead of Cairn."
         },
         {
           "name": "Furnace Vent",
