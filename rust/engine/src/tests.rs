@@ -756,15 +756,16 @@ fn equipment_and_temporary_buffs_update_movement_and_attack_stats() {
     let mut m = duel(["vesper", "brakk"]);
     m.gain_xp(1, 500.0);
     let haste = stat(&m.h(1).stats, "haste");
+    let boot_speed = stat(&m.h(1).stats, "speed") + 50.0;
     m.buy(1, "boots").unwrap();
-    assert_eq!(stat(&m.h(1).stats, "speed"), 350.0);
+    assert_eq!(stat(&m.h(1).stats, "speed"), boot_speed);
     cast(&mut m, 2, Point::new(110.0, 450.0));
     m.step(DT, 6);
     assert_eq!(stat(&m.h(1).stats, "haste"), haste + 0.5);
-    assert!(stat(&m.h(1).stats, "speed") > 350.0);
+    assert!(stat(&m.h(1).stats, "speed") > boot_speed);
     m.step(DT, 300);
     assert_eq!(stat(&m.h(1).stats, "haste"), haste);
-    assert_eq!(stat(&m.h(1).stats, "speed"), 350.0);
+    assert_eq!(stat(&m.h(1).stats, "speed"), boot_speed);
 }
 
 #[test]
