@@ -802,7 +802,8 @@ impl Match {
             ..Unit::default()
         };
         for creep in self.creeps.drain(..) {
-            self.units.remove(&creep);
+            let unit = self.units.remove(&creep).expect("known creep");
+            self.unit_grid.remove(creep, unit.pos);
         }
         self.areas.clear();
         self.projectiles.clear();

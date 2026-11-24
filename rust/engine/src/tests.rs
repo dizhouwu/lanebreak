@@ -180,7 +180,35 @@ fn training(hero: &str, dummy: bool) -> Match {
     .unwrap()
 }
 fn place(game: &mut Match, id: Id, x: f64, y: f64) {
-    game.u_mut(id).pos = Point::new(x, y);
+    game.move_unit(id, Point::new(x, y));
+}
+
+#[test]
+fn spatial_targeting_keeps_ties_and_tracks_cross_cell_moves() {
+    let mut game = duel(["brakk", "vesper"]);
+    place(&mut game, 1, 2560.0, 450.0);
+    let insert = |game: &mut Match, x| {
+        game.insert(Unit {
+            team: 1,
+            hp: 100.0,
+            r: 20.0,
+            pos: Point::new(x, 450.0),
+            ..Unit::default()
+        })
+    };
+    let first = insert(&mut game, 2500.0);
+    let second = insert(&mut game, 2620.0);
+    game.creeps.extend([first, second]);
+    let closest = |game: &Match| game.nearest(1, 100.0, |u| u.role == Role::Creep);
+    assert_eq!(closest(&game), Some(second));
+    place(&mut game, second, 3000.0, 450.0);
+    assert_eq!(closest(&game), Some(first));
+    place(&mut game, second, 2550.0, 450.0);
+    assert_eq!(closest(&game), Some(second));
+    assert_eq!(
+        game.nearby_creeps(Point::new(2560.0, 450.0), 1, 100.0),
+        [first, second]
+    );
 }
 fn prepare(m: &mut Match, recipe: &str) {
     for key in recipe.bytes() {
@@ -732,7 +760,7 @@ fn denies_award_reduced_experience_and_the_core_requires_both_towers() {
     let mut m = duel(["brakk", "orrin"]);
     m.step(DT, 120);
     let creep = m.creeps[0];
-    m.u_mut(2).pos = m.u(creep).pos.projected(Point::new(1.0, 0.0), 150.0);
+    m.move_unit(2, m.u(creep).pos.projected(Point::new(1.0, 0.0), 150.0));
     m.u_mut(creep).hp = 1.0;
     m.attack_hit(1, creep, 63.0);
     assert_eq!(m.h(2).xp, 18.0);

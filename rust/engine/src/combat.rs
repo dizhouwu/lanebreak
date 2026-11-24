@@ -5,7 +5,7 @@ const ASSIST_WINDOW: f64 = 10.0;
 
 impl Match {
     pub(super) fn respawn_hero(&mut self, id: Id) {
-        self.u_mut(id).pos = self.home(self.u(id).team);
+        self.move_unit(id, self.home(self.u(id).team));
         self.h_mut(id).jump += 1;
         self.refresh(id);
         self.u_mut(id).hp = self.u(id).max_hp;
@@ -156,9 +156,8 @@ impl Match {
             u.pos,
             json!({"team": u.team, "radius": 65, "hero": u.source_name(), "audience": audience}),
         );
-        let u = self.u_mut(id);
-        u.pos = at;
-        let h = u.hero.as_mut().unwrap();
+        self.move_unit(id, at);
+        let h = self.h_mut(id);
         h.jump += 1;
         if matches!(h.order, Order::Move(_)) {
             h.order = Order::None;
@@ -964,8 +963,8 @@ impl Match {
                 self.start_pull(target, destination, spell.reel_speed);
                 return;
             }
-            b.pos = destination;
-            if let Some(h) = &mut b.hero {
+            self.move_unit(target, destination);
+            if let Some(h) = &mut self.u_mut(target).hero {
                 h.jump += 1;
             }
         }
@@ -979,9 +978,10 @@ impl Match {
             pos,
             json!({"team": team, "radius": spell.radius, "hero": a.source_name(), "ability": spell.name}),
         );
-        let targets: Vec<_> = self
-            .units
-            .values()
+        let mut targets: Vec<_> = self
+            .unit_grid
+            .within_bounds(pos, pos, spell.radius + self.unit_grid.max_radius / 2.0)
+            .map(|id| self.u(id))
             .filter(|u| {
                 let reach = spell.radius + u.r / 2.0;
                 u.team != team
@@ -991,6 +991,7 @@ impl Match {
             })
             .map(|u| u.id)
             .collect();
+        targets.sort_unstable();
         for id in targets {
             self.magic(id, from, spell, damage, None);
         }

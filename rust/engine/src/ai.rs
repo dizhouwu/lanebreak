@@ -19,7 +19,11 @@ impl Match {
 
     fn tower_tanked(&self, tower: Id, hero: Id) -> bool {
         let b = self.u(tower);
-        b.target != Some(hero) && self.nearby_creeps(b.pos, self.u(hero).team, b.range).len() >= 2
+        b.target != Some(hero)
+            && self
+                .creeps_in_radius(b.pos, self.u(hero).team, b.range)
+                .nth(1)
+                .is_some()
     }
 
     fn clear_shot(&self, hero: Id, enemy: Id, width: f64) -> bool {
@@ -45,7 +49,7 @@ impl Match {
         let mut count = 2;
         for id in self.nearby_creeps(a.pos, 1 - a.team, reach) {
             let c = self.u(id);
-            let cluster = self.nearby_creeps(c.pos, c.team, radius).len();
+            let cluster = self.creeps_in_radius(c.pos, c.team, radius).count();
             if cluster > count {
                 best = Some(c.pos);
                 count = cluster;
@@ -514,8 +518,8 @@ impl Match {
             let _ = self.command(id, Command::Move(Point::new(pos.x - dir * 300.0, pos.y)));
             return;
         }
-        let allies = self.nearby_creeps(pos, team, 500.0).len();
-        let enemies = self.nearby_creeps(pos, enemy_team, 500.0).len();
+        let allies = self.creeps_in_radius(pos, team, 500.0).count();
+        let enemies = self.creeps_in_radius(pos, enemy_team, 500.0).count();
         if enemy_dist < 1100.0 {
             let shelter = towers.iter().copied().find(|&tower| {
                 let b = self.u(tower);
@@ -584,7 +588,9 @@ impl Match {
         }
         let defend = own_tower.is_none_or(|tower| {
             let b = self.u(tower);
-            !self.nearby_creeps(b.pos, enemy_team, b.range).is_empty()
+            self.creeps_in_radius(b.pos, enemy_team, b.range)
+                .next()
+                .is_some()
         });
         let push = !enemy_alive
             || enemy_dist > 1500.0

@@ -6,11 +6,13 @@ mod orders;
 mod render;
 mod rules;
 mod snapshot;
+mod spatial;
 mod tick;
 
 use rules::{Kind, Kit, Spell, Stats, rules};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use spatial::UnitGrid;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(test)]
@@ -576,6 +578,7 @@ pub struct Match {
     fortification: [Fortification; 2],
     orb: Option<Orb>,
     units: BTreeMap<Id, Unit>,
+    unit_grid: UnitGrid,
     heroes: Vec<Id>,
     team_match: bool,
     buildings: Vec<Id>,
@@ -589,6 +592,7 @@ pub struct Match {
     training: Option<Training>,
     collision_rows: Vec<f64>,
     collision_ids: Vec<Id>,
+    collision_sweep: lanebreak_physics::CollisionSweep,
 }
 impl Match {
     fn no_cooldowns(&self) -> bool {
@@ -611,6 +615,14 @@ impl Match {
             fortification: [Fortification::default(); 2],
             orb: None,
             units: BTreeMap::new(),
+            unit_grid: UnitGrid::new(
+                rules().width,
+                if options.team_match && options.training.is_none() {
+                    rules().team_map.height
+                } else {
+                    rules().height
+                },
+            ),
             heroes: Vec::new(),
             team_match: options.team_match && options.training.is_none(),
             buildings: Vec::new(),
@@ -628,6 +640,7 @@ impl Match {
             }),
             collision_rows: Vec::new(),
             collision_ids: Vec::new(),
+            collision_sweep: lanebreak_physics::CollisionSweep::default(),
         };
         let team_size = if m.team_match { 5 } else { 1 };
         let defaults = [
@@ -672,13 +685,14 @@ impl Match {
         }
         if let Some(training) = &m.training {
             let enabled = training.dummy;
-            m.u_mut(1).pos = training_start();
+            m.move_unit(1, training_start());
             let player = m.h_mut(1);
             player.level = 15;
             player.bot = None;
             player.order = Order::Stop;
+            m.move_unit(2, Point::new(rules().width / 2.0 + 150.0, 450.0));
+            m.unit_grid.max_radius = m.unit_grid.max_radius.max(32.0);
             let dummy = m.u_mut(2);
-            dummy.pos = Point::new(rules().width / 2.0 + 150.0, 450.0);
             dummy.r = 32.0;
             dummy.armor = 0.0;
             dummy.dummy = true;
@@ -754,6 +768,7 @@ impl Match {
         } else {
             std::f64::consts::PI
         };
+        self.unit_grid.insert(id, unit.pos, unit.r);
         self.units.insert(id, unit);
         id
     }
@@ -762,6 +777,12 @@ impl Match {
     }
     fn u_mut(&mut self, id: Id) -> &mut Unit {
         self.units.get_mut(&id).expect("unknown unit")
+    }
+    fn move_unit(&mut self, id: Id, position: Point) {
+        // Spatial queries run between moves in a tick, so update the cell immediately.
+        let unit = self.units.get_mut(&id).expect("unknown unit");
+        self.unit_grid.move_unit(id, unit.pos, position);
+        unit.pos = position;
     }
     fn h(&self, id: Id) -> &Hero {
         self.u(id).hero.as_ref().expect("expected hero")

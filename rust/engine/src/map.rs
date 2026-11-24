@@ -1,4 +1,60 @@
 use super::*;
+use std::sync::OnceLock;
+
+struct LaneSegment {
+    start: Point,
+    delta: Point,
+    length: f64,
+    traveled: f64,
+}
+
+struct LanePath {
+    segments: Vec<LaneSegment>,
+    end: Point,
+    length: f64,
+}
+
+impl LanePath {
+    fn new(points: impl Iterator<Item = Point>) -> Self {
+        let mut points = points;
+        let mut start = points.next().expect("lane start");
+        let mut traveled = 0.0;
+        let segments = points
+            .map(|end| {
+                let length = start.dist(end);
+                let segment = LaneSegment {
+                    start,
+                    delta: end.delta(start),
+                    length,
+                    traveled,
+                };
+                traveled += length;
+                start = end;
+                segment
+            })
+            .collect();
+        Self {
+            segments,
+            end: start,
+            length: traveled,
+        }
+    }
+}
+
+fn lane_paths() -> &'static [[LanePath; 2]] {
+    static PATHS: OnceLock<Vec<[LanePath; 2]>> = OnceLock::new();
+    PATHS.get_or_init(|| {
+        rules()
+            .team_map
+            .lanes
+            .iter()
+            .map(|path| {
+                let points = path.iter().map(|&[x, y]| Point::new(x, y));
+                [LanePath::new(points.clone()), LanePath::new(points.rev())]
+            })
+            .collect()
+    })
+}
 
 impl Match {
     pub(super) fn height(&self) -> f64 {
@@ -27,47 +83,42 @@ impl Match {
     }
 
     pub(super) fn lane_point(&self, team: usize, lane: usize, mut distance: f64) -> Point {
-        let path = &rules().team_map.lanes[lane];
-        let point = |i| {
-            let [x, y] = path[if team == 0 { i } else { path.len() - 1 - i }];
-            Point::new(x, y)
-        };
-        for i in 0..path.len() - 1 {
-            let a = point(i);
-            let b = point(i + 1);
-            let span = a.dist(b);
-            if distance <= span {
-                return a.projected(b.delta(a), distance / span);
+        let path = &lane_paths()[lane][team];
+        for segment in &path.segments {
+            if distance <= segment.length {
+                return segment
+                    .start
+                    .projected(segment.delta, distance / segment.length);
             }
-            distance -= span;
+            distance -= segment.length;
         }
-        point(path.len() - 1)
+        path.end
     }
 
     pub(super) fn lane_progress(&self, team: usize, lane: usize, pos: Point) -> f64 {
-        let path = &rules().team_map.lanes[lane];
-        let mut traveled = 0.0;
+        let path = &lane_paths()[lane][0];
         let mut closest = f64::INFINITY;
         let mut progress = 0.0;
-        for pair in path.windows(2) {
-            let a = Point::new(pair[0][0], pair[0][1]);
-            let b = Point::new(pair[1][0], pair[1][1]);
-            let delta = b.delta(a);
-            let offset = pos.delta(a);
-            let length = a.dist(b);
+        for &LaneSegment {
+            start,
+            delta,
+            length,
+            traveled,
+        } in &path.segments
+        {
+            let offset = pos.delta(start);
             let fraction =
                 ((offset.x * delta.x + offset.y * delta.y) / (length * length)).clamp(0.0, 1.0);
-            let distance = pos.squared(a.projected(delta, fraction));
+            let distance = pos.squared(start.projected(delta, fraction));
             if distance < closest {
                 closest = distance;
                 progress = traveled + length * fraction;
             }
-            traveled += length;
         }
         if team == 0 {
             progress
         } else {
-            traveled - progress
+            path.length - progress
         }
     }
 

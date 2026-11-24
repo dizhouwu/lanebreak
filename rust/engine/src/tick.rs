@@ -2,15 +2,27 @@ use super::*;
 
 impl Match {
     pub(super) fn nearby_creeps(&self, center: Point, team: usize, radius: f64) -> Vec<Id> {
+        let mut creeps: Vec<_> = self.creeps_in_radius(center, team, radius).collect();
+        creeps.sort_unstable();
+        creeps
+    }
+
+    pub(super) fn creeps_in_radius(
+        &self,
+        center: Point,
+        team: usize,
+        radius: f64,
+    ) -> impl Iterator<Item = Id> + '_ {
         let limit = radius * radius;
-        self.creeps
-            .iter()
-            .copied()
-            .filter(|&id| {
+        self.unit_grid
+            .within_bounds(center, center, radius)
+            .filter(move |&id| {
                 let u = self.u(id);
-                u.hp > 0.0 && u.team == team && u.pos.squared(center) < limit
+                u.role == Role::Creep
+                    && u.hp > 0.0
+                    && u.team == team
+                    && u.pos.squared(center) < limit
             })
-            .collect()
     }
 
     pub(super) fn nearest(
@@ -22,7 +34,9 @@ impl Match {
         let u = self.u(id);
         let mut best = None;
         let mut closest = radius;
-        for other in self.units.values() {
+        let pad = radius + self.unit_grid.max_radius + 1e-4;
+        for other_id in self.unit_grid.within_bounds(u.pos, u.pos, pad.max(0.0)) {
+            let other = self.u(other_id);
             if other.hp <= 0.0
                 || other.team == u.team
                 || other.invulnerable(self.time)
@@ -38,7 +52,8 @@ impl Match {
                 continue;
             }
             let d = u.reach(other);
-            if d <= closest {
+            // A tie previously selected the last ID from the ordered unit map.
+            if d < closest || (d == closest && best.is_none_or(|id| id < other.id)) {
                 closest = d;
                 best = Some(other.id);
             }
@@ -88,11 +103,12 @@ impl Match {
             pos = origin.towards(avoid, f64::INFINITY, 0.0, true, self.height());
         }
         let delta = pos.delta(origin);
-        let u = self.u_mut(id);
+        let u = self.units.get_mut(&id).expect("unknown unit");
         u.velocity = Point::new(delta.x / dt, delta.y / dt);
         if u.velocity.x.abs() + u.velocity.y.abs() > 0.01 {
             u.facing = u.velocity.y.atan2(u.velocity.x);
         }
+        self.unit_grid.move_unit(id, origin, pos);
         u.pos = pos;
     }
 
@@ -425,15 +441,25 @@ impl Match {
                     && u.pos.dist(b.pos) <= 720.0
             })
         });
-        if target.is_none() || (u.forced_until <= self.time && self.time >= u.scan) {
+        if (u.target.is_some() && target.is_none())
+            || (u.forced_until <= self.time && self.time >= u.scan)
+        {
             self.u_mut(id).forced_until = 0.0;
             target = self.nearest(id, 480.0, |_| true);
-            self.u_mut(id).scan = self.time + 0.4;
+            // Stagger idle scans by up to three simulation ticks.
+            self.u_mut(id).scan = self.time
+                + if target.is_some() {
+                    0.4
+                } else {
+                    0.05 + f64::from(id % 4) / 60.0
+                };
         }
         self.u_mut(id).target = target;
         if !self.attack(id, target) {
             let u = self.u(id);
-            let march = if self.team_match {
+            let destination = if let Some(target) = target {
+                self.u(target).pos
+            } else if self.team_match {
                 self.lane_point(
                     u.team,
                     u.lane,
@@ -445,12 +471,7 @@ impl Match {
                     u.pos.y + (u.lane_y - u.pos.y).clamp(-40.0, 40.0),
                 )
             };
-            self.walk(
-                id,
-                target.map_or(march, |target| self.u(target).pos),
-                u.move_speed(u.speed),
-                dt,
-            );
+            self.walk(id, destination, u.move_speed(u.speed), dt);
         }
     }
 
@@ -510,12 +531,18 @@ impl Match {
                 .extend([u.pos.x, u.pos.y, u.r, u.team as f64, f64::from(flags)]);
         }
         let height = self.height();
-        lanebreak_physics::separate_units_in_map(&mut self.collision_rows, rules().width, height);
+        self.collision_sweep
+            .separate(&mut self.collision_rows, rules().width, height);
         for (&id, row) in self.collision_ids.iter().zip(
             self.collision_rows
                 .chunks_exact(lanebreak_physics::UNIT_STRIDE),
         ) {
-            self.units.get_mut(&id).unwrap().pos = Point::new(row[0], row[1]);
+            let unit = self.units.get_mut(&id).unwrap();
+            let position = Point::new(row[0], row[1]);
+            if position != unit.pos {
+                self.unit_grid.move_unit(id, unit.pos, position);
+                unit.pos = position;
+            }
         }
     }
 
@@ -559,56 +586,66 @@ impl Match {
                 hook_origin,
             } => {
                 let length = left.min(p.speed * dt);
-                let mut rows = Vec::new();
-                let mut ids = Vec::new();
-                for u in self.units.values().filter(|u| {
-                    u.hp > 0.0
-                        && (u.team != p.team || hook_origin.is_some())
-                        && (hook_origin.is_none() || (u.id != p.from && !u.veiled(self.time)))
-                        && !u.invulnerable(self.time)
-                        && u.role != Role::Building
-                        && hit
-                            .get(&u.id)
-                            .is_none_or(|&ready| ready <= self.time + 1e-8)
-                }) {
-                    ids.push(u.id);
-                    rows.extend([u.pos.x, u.pos.y, u.r, 0.0]);
-                }
-                lanebreak_physics::sweep_bolt(
-                    &mut rows,
-                    [p.pos.x, p.pos.y],
-                    [dir.x, dir.y],
-                    length,
-                    spell.radius,
-                );
-                let mut hits: Vec<_> = ids
-                    .into_iter()
-                    .zip(rows.chunks_exact(lanebreak_physics::TARGET_STRIDE))
-                    .filter(|(_, row)| row[3] >= 0.0)
-                    .map(|(id, row)| (id, row[3]))
-                    .collect();
-                hits.sort_by(|a, b| a.1.total_cmp(&b.1));
-                for (id, _) in hits {
-                    if let Some(origin) = *hook_origin {
-                        self.magic(id, p.from, spell, p.damage, None);
-                        if self.u(id).hp > 0.0 {
+                let end = p.pos.projected(*dir, length);
+                let pad = spell.radius + self.unit_grid.max_radius;
+                let candidates = self
+                    .unit_grid
+                    .within_bounds(p.pos, end, pad)
+                    .map(|id| self.u(id));
+                let hits = candidates
+                    .filter(|u| {
+                        u.hp > 0.0
+                            && (u.team != p.team || hook_origin.is_some())
+                            && (hook_origin.is_none() || (u.id != p.from && !u.veiled(self.time)))
+                            && !u.invulnerable(self.time)
+                            && u.role != Role::Building
+                            && hit
+                                .get(&u.id)
+                                .is_none_or(|&ready| ready <= self.time + 1e-8)
+                    })
+                    .filter_map(|u| {
+                        lanebreak_physics::sweep_hit(
+                            [p.pos.x, p.pos.y],
+                            [dir.x, dir.y],
+                            length,
+                            [u.pos.x, u.pos.y],
+                            spell.radius + u.r,
+                        )
+                        .map(|distance| (u.id, distance))
+                    });
+                let hit_order =
+                    |a: &(Id, f64), b: &(Id, f64)| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0));
+                if !spell.piercing || hook_origin.is_some() {
+                    if let Some((id, _)) = hits.min_by(hit_order) {
+                        self.magic(
+                            id,
+                            p.from,
+                            spell,
+                            p.damage,
+                            hook_origin.is_none().then_some(*dir),
+                        );
+                        if let Some(origin) = *hook_origin
+                            && self.u(id).hp > 0.0
+                        {
                             self.hook_target(id, origin, spell.reel_speed);
                         }
                         return false;
                     }
-                    let ready = if spell.repeat_hit > 0.0 {
-                        self.time + spell.repeat_hit
-                    } else {
-                        f64::INFINITY
-                    };
-                    hit.insert(id, ready);
-                    self.magic(id, p.from, spell, p.damage, Some(*dir));
-                    if !spell.piercing {
-                        return false;
+                } else {
+                    let mut hits: Vec<_> = hits.collect();
+                    hits.sort_unstable_by(hit_order);
+                    for (id, _) in hits {
+                        let ready = if spell.repeat_hit > 0.0 {
+                            self.time + spell.repeat_hit
+                        } else {
+                            f64::INFINITY
+                        };
+                        hit.insert(id, ready);
+                        self.magic(id, p.from, spell, p.damage, Some(*dir));
                     }
                 }
                 *left -= length;
-                p.pos = p.pos.projected(*dir, length);
+                p.pos = end;
                 *left > 0.0
                     && (0.0..=rules().width).contains(&p.pos.x)
                     && (0.0..=self.height()).contains(&p.pos.y)
@@ -650,9 +687,10 @@ impl Match {
         let delta = to.delta(from);
         let length = from.dist(to);
         let direction = [delta.x / length, delta.y / length];
-        let hits: Vec<_> = self
-            .units
-            .values()
+        let mut hits: Vec<_> = self
+            .unit_grid
+            .within_bounds(from, to, spell.travel_radius + self.unit_grid.max_radius)
+            .map(|id| self.u(id))
             .filter_map(|target| {
                 if target.hp <= 0.0
                     || target.team == team
@@ -662,17 +700,17 @@ impl Match {
                 {
                     return None;
                 }
-                let mut row = [target.pos.x, target.pos.y, target.r, 0.0];
-                lanebreak_physics::sweep_bolt(
-                    &mut row,
+                lanebreak_physics::sweep_hit(
                     [from.x, from.y],
                     direction,
                     length,
-                    spell.travel_radius,
-                );
-                (row[3] >= 0.0).then_some(target.id)
+                    [target.pos.x, target.pos.y],
+                    spell.travel_radius + target.r,
+                )
+                .map(|_| target.id)
             })
             .collect();
+        hits.sort_unstable();
         for target in hits {
             self.h_mut(id).dash_hits.push(target);
             self.hurt(target, spell.travel_damage, id, true, false);
@@ -760,9 +798,8 @@ impl Match {
                     0.0
                 };
                 let stop = pos.towards(origin, target.r + 22.0, 0.0, true, self.height());
-                let caster = self.u_mut(a.from);
-                caster.pos = stop;
-                caster.facing = (pos.y - stop.y).atan2(pos.x - stop.x);
+                self.move_unit(a.from, stop);
+                self.u_mut(a.from).facing = (pos.y - stop.y).atan2(pos.x - stop.x);
                 self.h_mut(a.from).jump += 1;
                 self.effect("sweep", pos, json!({"fromX":origin.x, "fromY":origin.y}));
                 let damage = self.damage_at_launch(a.from) + bonus;
@@ -773,7 +810,7 @@ impl Match {
             }
             let u = self.u_mut(a.from);
             if let Some(origin) = u.sweep_origin.take() {
-                u.pos = origin;
+                self.move_unit(a.from, origin);
                 self.h_mut(a.from).jump += 1;
             }
             return false;
@@ -994,7 +1031,13 @@ impl Match {
         self.creeps.retain(|id| self.units[id].hp > 0.0);
         // In-flight shots retain their source's combat attribution after it dies.
         let from: BTreeSet<_> = self.projectiles.iter().map(|p| p.from).collect();
-        self.units
-            .retain(|id, u| u.role != Role::Creep || u.hp > 0.0 || from.contains(id));
+        let grid = &mut self.unit_grid;
+        self.units.retain(|id, u| {
+            let keep = u.role != Role::Creep || u.hp > 0.0 || from.contains(id);
+            if !keep {
+                grid.remove(*id, u.pos);
+            }
+            keep
+        });
     }
 }
