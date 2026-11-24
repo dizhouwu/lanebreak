@@ -5,9 +5,52 @@ const { join } = require('node:path');
 const { runInNewContext } = require('node:vm');
 const { Match, validOrder } = require('../src/match.js');
 const { HEROES, ITEMS } = require('../src/rules.json');
-const { abilityCastMode, buyPlan, pickTarget, pickUnit, pickSpellTarget } = require('../src/game-view.js');
+const { abilityCastMode, buyPlan, pickTarget, pickUnit, pickSpellTarget, PresentationPacer } = require('../src/game-view.js');
 
 const dt = 1 / 60;
+
+test('5v5 graphics pacing eases a burst of long frames and restores the normal cadence', () => {
+  const pacer = new PresentationPacer();
+  const frame = 1000 / 60;
+  for (let i = 0; i < 60; i++) assert.equal(pacer.shouldDraw(i * frame, true), true);
+  for (const now of [1100, 1200]) {
+    assert.equal(pacer.shouldDraw(now, true), true);
+    assert.equal(pacer.reduced, false);
+  }
+  assert.equal(pacer.shouldDraw(1300, true), true);
+  assert.equal(pacer.reduced, true);
+  for (let i = 1; i < 300; i++) assert.equal(pacer.shouldDraw(1300 + i * frame, true), i % 2 === 0);
+  assert.equal(pacer.shouldDraw(6300, true), true);
+  assert.equal(pacer.reduced, false);
+  assert.equal(pacer.shouldDraw(6300 + frame, true), true);
+});
+
+test('graphics pacing resets outside 5v5 auto quality and ignores isolated stalls', () => {
+  const pacer = new PresentationPacer();
+  pacer.shouldDraw(0, true);
+  pacer.shouldDraw(100, true);
+  for (let i = 1; i <= 125; i++) pacer.shouldDraw(100 + i * 16, true);
+  pacer.shouldDraw(2200, true);
+  pacer.shouldDraw(2300, true);
+  assert.equal(pacer.reduced, false);
+  pacer.shouldDraw(2400, true);
+  assert.equal(pacer.reduced, true);
+  assert.equal(pacer.shouldDraw(2416, false), true);
+  assert.equal(pacer.reduced, false);
+  assert.equal(pacer.shouldDraw(7000, true), true);
+  assert.equal(pacer.reduced, false);
+});
+
+test('5v5 graphics pacing also reacts to repeated missed refreshes', () => {
+  const pacer = new PresentationPacer();
+  pacer.shouldDraw(0, true);
+  for (let i = 1; i < 6; i++) {
+    pacer.shouldDraw(i * 34, true);
+    assert.equal(pacer.reduced, false);
+  }
+  assert.equal(pacer.shouldDraw(204, true), true);
+  assert.equal(pacer.reduced, true);
+});
 
 function browserMatch() {
   const html = readFileSync(join(__dirname, '..', 'lanebreak.html'), 'utf8');

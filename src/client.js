@@ -2,7 +2,8 @@
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS, WEAVE_ORBS, MAX_LEVEL } = LanebreakRules;
   const { Match, renderData, buyPlan, shopOffer, sellValue, spellDamage, baseMana, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
+    abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS,
+    PresentationPacer } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
@@ -16,6 +17,7 @@
   ];
   const arena = $('arena');
   const renderer = new Renderer(arena, $('minimap'), $('arenaGround'), $('arenaSprites'));
+  const presentation = new PresentationPacer();
   const hosted = /^(http|https):$/.test(location.protocol);
   const prefs = {
     load(key) { try { return localStorage.getItem('lanebreak:' + key); } catch { return null; } },
@@ -26,6 +28,7 @@
   let quality = ['auto','high','medium','low'].includes(prefs.load('quality')) ? prefs.load('quality') : 'auto';
   let muted = prefs.load('muted') === 'true';
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
+  let connectionLost = false, lastDrawnSnapshot = null;
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let cameraDrag = null, selectionDrag = null, minimapPointerId = null, resultShown = false;
@@ -411,6 +414,8 @@
     $('back').textContent = training ? 'End training' : remote ? (roomTeamMatch ? 'Leave match' : 'Surrender') :
       demo ? 'Stop watching' : 'End match';
     resultShown = false;
+    connectionLost = false;
+    lastDrawnSnapshot = null;
     showRoster(false);
     $('shop').hidden = true;
     $('shopFeedback').hidden = true;
@@ -441,6 +446,7 @@
     local = null;
     remote = false;
     snapshot = null;
+    lastDrawnSnapshot = null;
     history.length = 0;
     $('lobby').hidden = false;
     game.hidden = true;
@@ -1434,6 +1440,7 @@
         const rejoin = !game.hidden && remote;
         local?.dispose();
         team = data.team; room = data.code; remote = true; demo = false; local = null;
+        connectionLost = false;
         roomTeamMatch = Boolean(data.teamMatch);
         retry = 0; history.length = 0; snapshot = null; clockOffset = null; renderedTime = 0;
         safeSeat({ code: data.code, token: data.token, teamMatch:roomTeamMatch });
@@ -1458,7 +1465,7 @@
         else status(data.msg);
         if (message.t === 'rejoin' && !data.recoverable && !snapshot) {
           safeSeat(null);
-          if (!game.hidden) overlay('Connection lost', data.msg, 'Return to lobby', goMenu);
+          if (!game.hidden) showConnectionLost(data.msg);
         }
       }
     };
@@ -1473,13 +1480,17 @@
           if (retry === attempt && seat && !socket) openSocket({ t:'rejoin', ...seat });
         }, 550 * attempt);
       } else if (seat && remote && !game.hidden) {
-        overlay('Connection lost','Check your network and reopen the match URL to try again.','Return to lobby',goMenu);
+        showConnectionLost('Check your network and reopen the match URL to try again.');
       } else {
         $('waiting').hidden = $('teamWaiting').hidden = true;
         waiting = false;
         status('Online server unavailable. You can still play solo.');
       }
     };
+  }
+  function showConnectionLost(message) {
+    connectionLost = true;
+    overlay('Connection lost', message, 'Return to lobby', goMenu);
   }
   function network(t) {
     if (waiting) return status('Cancel the current room first.');
@@ -1734,12 +1745,18 @@
       cursorOnArena = false;
     };
     window.addEventListener('blur', resetCameraInput);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
+    window.addEventListener('resize', () => { lastDrawnSnapshot = null; });
+    $('arenaSprites').addEventListener('webglcontextlost', () => { lastDrawnSnapshot = null; });
+    document.addEventListener('visibilitychange', () => {
+      presentation.reset();
+      if (document.hidden) resetCameraInput();
+    });
     const fullscreenButton = $('fullscreen');
     fullscreenButton.hidden = !document.fullscreenEnabled;
     fullscreenButton.onclick = toggleFullscreen;
     document.addEventListener('fullscreenchange', () => {
       fullscreenButton.setAttribute('aria-pressed', Boolean(document.fullscreenElement));
+      presentation.reset();
       resetCameraInput();
     });
     $('start').onclick = () => solo();
@@ -1831,11 +1848,16 @@
       }
     } catch {}
   }
-  let lastFrame = 0;
+  let lastFrame = 0, lastDraw = 0;
   function frame(now) {
     const elapsed = lastFrame ? Math.max(0,(now - lastFrame) / 1000) : 0;
     lastFrame = now;
-    if (game.hidden) renderer.title();
+    const draw = !document.hidden && presentation.shouldDraw(now,
+      !game.hidden && !connectionLost && snapshot?.mode === 'match' && snapshot.teamMatch && quality === 'auto');
+    if (game.hidden) {
+      lastDraw = 0;
+      renderer.title();
+    }
     else {
       if (local && !paused && local.mode === 'match' && !$('controls').open && !$('trainingHeroPicker').open) {
         const frameTime = Math.min(elapsed,.1), steps = Math.max(1, Math.ceil(frameTime * 60 - .05));
@@ -1845,14 +1867,19 @@
           if (localTime - snapshot.time >= localSnapshotInterval - .001 || local.mode === 'ended') captureLocalSnapshot();
         }
       }
-      if (snapshot) {
-        const visible = remote ? interpolate(now) : previousLocalSnapshot && snapshot.mode === 'match' ?
-          interpolateMotion(previousLocalSnapshot, snapshot,
-            Math.max(previousLocalSnapshot.time, Math.min(snapshot.time, localTime - localSnapshotInterval))) : snapshot;
+      if (snapshot && ((!resultShown && !connectionLost) || lastDrawnSnapshot !== snapshot)) {
         panCamera(elapsed);
-        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,
-          inspectedId,pendingCast?.spell,selectedUnits);
-        playEvents(visible);
+        if (draw) {
+          const visible = remote ? interpolate(now) : previousLocalSnapshot && snapshot.mode === 'match' ?
+            interpolateMotion(previousLocalSnapshot, snapshot,
+              Math.max(previousLocalSnapshot.time, Math.min(snapshot.time, localTime - localSnapshotInterval))) : snapshot;
+          const drawElapsed = lastDraw ? Math.max(0, (now - lastDraw) / 1000) : elapsed;
+          lastDraw = now;
+          lastDrawnSnapshot = snapshot;
+          renderer.frame(visible,team,visible.time,renderMark,drawElapsed,cursorOnArena && !paused && !demo ? hovered : null,
+            inspectedId,pendingCast?.spell,selectedUnits,presentation.reduced);
+          playEvents(visible);
+        }
         if (now - lastUi > 90) {
           updateHud(snapshot);
           lastUi = now;

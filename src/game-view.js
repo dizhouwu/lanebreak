@@ -10,6 +10,56 @@
   const owns = (object, id) => Object.hasOwn(object, id);
   const isVeiled = (unit, time) => unit.veilUntil > time;
   const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, spirit: 8, lifted: 16, rooted: 32 };
+  const MISSED_REFRESH_MS = 32;
+  const LONG_FRAME_MS = 50;
+  const PRESSURE_WINDOW_MS = 2000;
+  const RECOVERY_MS = 5000;
+  const REDUCED_FRAME_MS = 1000 / 30;
+
+  class PresentationPacer {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.lastCallback = null;
+      this.burstStart = 0;
+      this.pressure = 0;
+      this.recoverAt = 0;
+      this.nextDraw = 0;
+    }
+    get reduced() {
+      return this.recoverAt !== 0;
+    }
+    shouldDraw(now, enabled) {
+      if (!enabled) {
+        if (this.lastCallback !== null) this.reset();
+        return true;
+      }
+      const gap = this.lastCallback === null ? 0 : now - this.lastCallback;
+      this.lastCallback = now;
+      if (now - this.burstStart > PRESSURE_WINDOW_MS) this.pressure = 0;
+      // Wait for a burst so an isolated browser stall does not reduce the frame rate.
+      if (gap >= MISSED_REFRESH_MS) {
+        if (!this.pressure) this.burstStart = now;
+        const long = gap >= LONG_FRAME_MS;
+        this.pressure += long ? 2 : 1;
+        if (this.pressure >= 6 || (this.reduced && long)) {
+          this.recoverAt = now + RECOVERY_MS;
+          this.pressure = 0;
+        }
+      }
+      if (!this.reduced) return true;
+      if (now >= this.recoverAt) {
+        this.recoverAt = 0;
+        this.nextDraw = 0;
+        return true;
+      }
+      if (now < this.nextDraw - 1) return false;
+      this.nextDraw = this.nextDraw && now - this.nextDraw < REDUCED_FRAME_MS ?
+        this.nextDraw + REDUCED_FRAME_MS : now + REDUCED_FRAME_MS;
+      return true;
+    }
+  }
   const spellDamage = (hero, spell) => spell.damage ? Math.round(
     (spell.damage + spell.growth * (hero.level - 1) + (spell.heatDamage || 0) * (hero.heat || 0)) * hero.stats.power
   ) : 0;
@@ -151,7 +201,8 @@
     return best;
   }
   const api = { buyPlan, shopOffer, sellValue, spellDamage, baseMana, manaPerUnit, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    abilityCastMode, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, CREEP_FLAGS, xpGoal };
+    abilityCastMode, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, CREEP_FLAGS, xpGoal,
+    PresentationPacer };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = { ...globalThis.LanebreakMatch, ...api };
 })();

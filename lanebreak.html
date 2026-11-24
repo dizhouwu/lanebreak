@@ -580,6 +580,56 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
   const owns = (object, id) => Object.hasOwn(object, id);
   const isVeiled = (unit, time) => unit.veilUntil > time;
   const CREEP_FLAGS = { stunned: 1, rallied: 2, deniable: 4, spirit: 8, lifted: 16, rooted: 32 };
+  const MISSED_REFRESH_MS = 32;
+  const LONG_FRAME_MS = 50;
+  const PRESSURE_WINDOW_MS = 2000;
+  const RECOVERY_MS = 5000;
+  const REDUCED_FRAME_MS = 1000 / 30;
+
+  class PresentationPacer {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.lastCallback = null;
+      this.burstStart = 0;
+      this.pressure = 0;
+      this.recoverAt = 0;
+      this.nextDraw = 0;
+    }
+    get reduced() {
+      return this.recoverAt !== 0;
+    }
+    shouldDraw(now, enabled) {
+      if (!enabled) {
+        if (this.lastCallback !== null) this.reset();
+        return true;
+      }
+      const gap = this.lastCallback === null ? 0 : now - this.lastCallback;
+      this.lastCallback = now;
+      if (now - this.burstStart > PRESSURE_WINDOW_MS) this.pressure = 0;
+      // Wait for a burst so an isolated browser stall does not reduce the frame rate.
+      if (gap >= MISSED_REFRESH_MS) {
+        if (!this.pressure) this.burstStart = now;
+        const long = gap >= LONG_FRAME_MS;
+        this.pressure += long ? 2 : 1;
+        if (this.pressure >= 6 || (this.reduced && long)) {
+          this.recoverAt = now + RECOVERY_MS;
+          this.pressure = 0;
+        }
+      }
+      if (!this.reduced) return true;
+      if (now >= this.recoverAt) {
+        this.recoverAt = 0;
+        this.nextDraw = 0;
+        return true;
+      }
+      if (now < this.nextDraw - 1) return false;
+      this.nextDraw = this.nextDraw && now - this.nextDraw < REDUCED_FRAME_MS ?
+        this.nextDraw + REDUCED_FRAME_MS : now + REDUCED_FRAME_MS;
+      return true;
+    }
+  }
   const spellDamage = (hero, spell) => spell.damage ? Math.round(
     (spell.damage + spell.growth * (hero.level - 1) + (spell.heatDamage || 0) * (hero.heat || 0)) * hero.stats.power
   ) : 0;
@@ -721,7 +771,8 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     return best;
   }
   const api = { buyPlan, shopOffer, sellValue, spellDamage, baseMana, manaPerUnit, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    abilityCastMode, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, CREEP_FLAGS, xpGoal };
+    abilityCastMode, abilityNeedsTarget, castPoint, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, CREEP_FLAGS, xpGoal,
+    PresentationPacer };
   if (typeof module === 'object') module.exports = api;
   else globalThis.Lanebreak = { ...globalThis.LanebreakMatch, ...api };
 })();
@@ -1375,13 +1426,13 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       const followX = (hero.sweepOrigin?.x ?? hero.x) + (hero.team ? -1 : 1) * Math.min(200, view * .18);
       return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
-    frame(s, team, now, mark, dt, pointer, selectedId, spell, selectedUnits) {
+    frame(s, team, now, mark, dt, pointer, selectedId, spell, selectedUnits, reducedRate) {
       this.height = s.teamMatch ? TEAM_MAP.height : HEIGHT;
       this.resize();
       const w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
       const map = s.teamMatch ? (this.teamMap ||= teamTerrain()) : (this.map ||= terrain());
-      if (dt > 0 && dt <= .25) {
+      if (!reducedRate && dt > 0 && dt <= .25) {
         this.measure ||= { frames: 0, time: 0, fps: 0, settle: 0 };
         const m = this.measure;
         m.frames++; m.time += dt;
@@ -2282,7 +2333,8 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
   const $ = id => document.getElementById(id);
   const { HEROES, ITEMS, DIFF, COLORS, TEAM, WIDTH, WEAVE_MARKS, WEAVE_ORBS, MAX_LEVEL } = LanebreakRules;
   const { Match, renderData, buyPlan, shopOffer, sellValue, spellDamage, baseMana, abilityLevel, abilitySpell, abilityError, abilityReadyAt,
-    abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS } = Lanebreak;
+    abilityCastMode, abilityNeedsTarget, weaveRecipe, pickTarget, pickUnit, pickSpellTarget, xpGoal, CREEP_FLAGS,
+    PresentationPacer } = Lanebreak;
   const { Renderer, portrait } = LanebreakPaint;
   const keys = ['Q', 'W', 'E', 'R', 'D', 'F'];
   const heroKeys = Object.keys(HEROES);
@@ -2296,6 +2348,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
   ];
   const arena = $('arena');
   const renderer = new Renderer(arena, $('minimap'), $('arenaGround'), $('arenaSprites'));
+  const presentation = new PresentationPacer();
   const hosted = /^(http|https):$/.test(location.protocol);
   const prefs = {
     load(key) { try { return localStorage.getItem('lanebreak:' + key); } catch { return null; } },
@@ -2306,6 +2359,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
   let quality = ['auto','high','medium','low'].includes(prefs.load('quality')) ? prefs.load('quality') : 'auto';
   let muted = prefs.load('muted') === 'true';
   let audio, local, team = 0, snapshot, remote = false, demo = false, paused = false, view = 'solo';
+  let connectionLost = false, lastDrawnSnapshot = null;
   let renderMark, hovered, lastEffect = 0, hintTimer, lastUi = 0, wasPaused = false;
   let cursorOnArena = false, edgePointer, shopFocus = null, shopSelection = null, tooltipTarget = null, inspectedId = null;
   let cameraDrag = null, selectionDrag = null, minimapPointerId = null, resultShown = false;
@@ -2691,6 +2745,8 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     $('back').textContent = training ? 'End training' : remote ? (roomTeamMatch ? 'Leave match' : 'Surrender') :
       demo ? 'Stop watching' : 'End match';
     resultShown = false;
+    connectionLost = false;
+    lastDrawnSnapshot = null;
     showRoster(false);
     $('shop').hidden = true;
     $('shopFeedback').hidden = true;
@@ -2721,6 +2777,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
     local = null;
     remote = false;
     snapshot = null;
+    lastDrawnSnapshot = null;
     history.length = 0;
     $('lobby').hidden = false;
     game.hidden = true;
@@ -3714,6 +3771,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
         const rejoin = !game.hidden && remote;
         local?.dispose();
         team = data.team; room = data.code; remote = true; demo = false; local = null;
+        connectionLost = false;
         roomTeamMatch = Boolean(data.teamMatch);
         retry = 0; history.length = 0; snapshot = null; clockOffset = null; renderedTime = 0;
         safeSeat({ code: data.code, token: data.token, teamMatch:roomTeamMatch });
@@ -3738,7 +3796,7 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
         else status(data.msg);
         if (message.t === 'rejoin' && !data.recoverable && !snapshot) {
           safeSeat(null);
-          if (!game.hidden) overlay('Connection lost', data.msg, 'Return to lobby', goMenu);
+          if (!game.hidden) showConnectionLost(data.msg);
         }
       }
     };
@@ -3753,13 +3811,17 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
           if (retry === attempt && seat && !socket) openSocket({ t:'rejoin', ...seat });
         }, 550 * attempt);
       } else if (seat && remote && !game.hidden) {
-        overlay('Connection lost','Check your network and reopen the match URL to try again.','Return to lobby',goMenu);
+        showConnectionLost('Check your network and reopen the match URL to try again.');
       } else {
         $('waiting').hidden = $('teamWaiting').hidden = true;
         waiting = false;
         status('Online server unavailable. You can still play solo.');
       }
     };
+  }
+  function showConnectionLost(message) {
+    connectionLost = true;
+    overlay('Connection lost', message, 'Return to lobby', goMenu);
   }
   function network(t) {
     if (waiting) return status('Cancel the current room first.');
@@ -4014,12 +4076,18 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       cursorOnArena = false;
     };
     window.addEventListener('blur', resetCameraInput);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) resetCameraInput(); });
+    window.addEventListener('resize', () => { lastDrawnSnapshot = null; });
+    $('arenaSprites').addEventListener('webglcontextlost', () => { lastDrawnSnapshot = null; });
+    document.addEventListener('visibilitychange', () => {
+      presentation.reset();
+      if (document.hidden) resetCameraInput();
+    });
     const fullscreenButton = $('fullscreen');
     fullscreenButton.hidden = !document.fullscreenEnabled;
     fullscreenButton.onclick = toggleFullscreen;
     document.addEventListener('fullscreenchange', () => {
       fullscreenButton.setAttribute('aria-pressed', Boolean(document.fullscreenElement));
+      presentation.reset();
       resetCameraInput();
     });
     $('start').onclick = () => solo();
@@ -4111,11 +4179,16 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
       }
     } catch {}
   }
-  let lastFrame = 0;
+  let lastFrame = 0, lastDraw = 0;
   function frame(now) {
     const elapsed = lastFrame ? Math.max(0,(now - lastFrame) / 1000) : 0;
     lastFrame = now;
-    if (game.hidden) renderer.title();
+    const draw = !document.hidden && presentation.shouldDraw(now,
+      !game.hidden && !connectionLost && snapshot?.mode === 'match' && snapshot.teamMatch && quality === 'auto');
+    if (game.hidden) {
+      lastDraw = 0;
+      renderer.title();
+    }
     else {
       if (local && !paused && local.mode === 'match' && !$('controls').open && !$('trainingHeroPicker').open) {
         const frameTime = Math.min(elapsed,.1), steps = Math.max(1, Math.ceil(frameTime * 60 - .05));
@@ -4125,14 +4198,19 @@ globalThis.LanebreakRules = {"HEROES":{"vesper":{"name":"Vesper","title":"Tide A
           if (localTime - snapshot.time >= localSnapshotInterval - .001 || local.mode === 'ended') captureLocalSnapshot();
         }
       }
-      if (snapshot) {
-        const visible = remote ? interpolate(now) : previousLocalSnapshot && snapshot.mode === 'match' ?
-          interpolateMotion(previousLocalSnapshot, snapshot,
-            Math.max(previousLocalSnapshot.time, Math.min(snapshot.time, localTime - localSnapshotInterval))) : snapshot;
+      if (snapshot && ((!resultShown && !connectionLost) || lastDrawnSnapshot !== snapshot)) {
         panCamera(elapsed);
-        renderer.frame(visible,team,visible.time,renderMark,elapsed,cursorOnArena && !paused && !demo ? hovered : null,
-          inspectedId,pendingCast?.spell,selectedUnits);
-        playEvents(visible);
+        if (draw) {
+          const visible = remote ? interpolate(now) : previousLocalSnapshot && snapshot.mode === 'match' ?
+            interpolateMotion(previousLocalSnapshot, snapshot,
+              Math.max(previousLocalSnapshot.time, Math.min(snapshot.time, localTime - localSnapshotInterval))) : snapshot;
+          const drawElapsed = lastDraw ? Math.max(0, (now - lastDraw) / 1000) : elapsed;
+          lastDraw = now;
+          lastDrawnSnapshot = snapshot;
+          renderer.frame(visible,team,visible.time,renderMark,drawElapsed,cursorOnArena && !paused && !demo ? hovered : null,
+            inspectedId,pendingCast?.spell,selectedUnits,presentation.reduced);
+          playEvents(visible);
+        }
         if (now - lastUi > 90) {
           updateHud(snapshot);
           lastUi = now;

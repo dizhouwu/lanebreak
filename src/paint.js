@@ -412,13 +412,13 @@
       const followX = (hero.sweepOrigin?.x ?? hero.x) + (hero.team ? -1 : 1) * Math.min(200, view * .18);
       return clamp((this.focus?.x ?? followX) - view / 2, 0, Math.max(0, WIDTH - view));
     }
-    frame(s, team, now, mark, dt, pointer, selectedId, spell, selectedUnits) {
+    frame(s, team, now, mark, dt, pointer, selectedId, spell, selectedUnits, reducedRate) {
       this.height = s.teamMatch ? TEAM_MAP.height : HEIGHT;
       this.resize();
       const w = this.canvas.width, h = this.canvas.height;
       if (!w || !h) return;
       const map = s.teamMatch ? (this.teamMap ||= teamTerrain()) : (this.map ||= terrain());
-      if (dt > 0 && dt <= .25) {
+      if (!reducedRate && dt > 0 && dt <= .25) {
         this.measure ||= { frames: 0, time: 0, fps: 0, settle: 0 };
         const m = this.measure;
         m.frames++; m.time += dt;
